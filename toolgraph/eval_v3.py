@@ -174,20 +174,43 @@ class KvClosureIndex:
 
     def __init__(self, store: GraphStore) -> None:
         self.store = store
+        # seed -> {tool: cost_from_that_seed} materialised at rebuild time
+        self.closure_costs: dict[str, dict[str, float]] = {}
         self.closure: dict[str, list[str]] = {}
         self.edits_since_rebuild = 0
         self.rebuild_count = 0
         self.rebuild()
 
     def rebuild(self) -> None:
+        from toolgraph.protocol import SEED_PENALTY
+
         adj = requires_adjacency(self.store)
-        materialised: dict[str, list[str]] = {}
+        materialised: dict[str, dict[str, float]] = {}
+        ranked: dict[str, list[str]] = {}
         for name in self.store.names:
-            reachable, _reqs = expand_kv_hop([name], adj)
-            materialised[name] = reachable
-        self.closure = materialised
+            # Single-seed expand; remap costs so this seed is cost 0.
+            loaded, _reqs = expand_kv_hop([name], adj)
+            # expand_kv_hop with one seed: seed cost 0, hops add 1.
+            # Re-derive costs from hop order in loaded (seed first, then BFS).
+            costs: dict[str, float] = {name: 0.0}
+            # Recompute via a tiny BFS so costs survive ranking changes.
+            frontier = [name]
+            while frontier:
+                nxt: list[str] = []
+                for node in frontier:
+                    for neigh in adj.get(node, ()):
+                        cand = costs[node] + 1.0
+                        if neigh not in costs or cand < costs[neigh]:
+                            costs[neigh] = cand
+                            nxt.append(neigh)
+                frontier = list(dict.fromkeys(nxt))
+            materialised[name] = costs
+            ranked[name] = sorted(costs, key=lambda tool: (costs[tool], tool))
+        self.closure_costs = materialised
+        self.closure = ranked
         self.edits_since_rebuild = 0
         self.rebuild_count += 1
+        _ = SEED_PENALTY  # documented pairing with expand_kv_hop
 
     def note_edit(self) -> None:
         self.edits_since_rebuild += 1
@@ -195,24 +218,19 @@ class KvClosureIndex:
             self.rebuild()
 
     def fetch(self, seeds: list[str]) -> list[str]:
-        """One store request: union of materialised closures for seeds.
-
-        Rank with the same seed-penalty + hop costs as ``expand_kv_hop`` so
-        completeness@16 is comparable to hydra_graph / kv_hop.
-        """
+        """One store request: union of materialised closures for seeds."""
         from toolgraph.protocol import SEED_PENALTY
 
-        # Treat each seed's materialised list as a star (seed → rest) for costing.
         costs: dict[str, float] = {}
         for index, seed in enumerate(seeds):
-            seed_cost = index * SEED_PENALTY
-            members = self.closure.get(seed, [seed] if seed in self.store.names else [])
-            if seed not in costs or seed_cost < costs[seed]:
-                costs[seed] = seed_cost
-            for name in members:
-                if name == seed:
-                    continue
-                cand = seed_cost + 1.0
+            seed_penalty = index * SEED_PENALTY
+            local = self.closure_costs.get(seed)
+            if not local:
+                if seed in self.store.names:
+                    costs[seed] = min(costs.get(seed, seed_penalty), seed_penalty)
+                continue
+            for name, local_cost in local.items():
+                cand = seed_penalty + float(local_cost)
                 if name not in costs or cand < costs[name]:
                     costs[name] = cand
         return sorted(costs, key=lambda name: (costs[name], name))
