@@ -1,0 +1,16 @@
+{
+  "hydra_graph": {
+    "wrong_bundle_rate": 0.0,
+    "wrong_bundles": 0
+  },
+  "kv_closure": {
+    "wrong_bundle_rate": 0.03,
+    "wrong_bundles": 24
+  },
+  "kv_closure_rebuilds": 1,
+  "mode": "full",
+  "n_edits": 40,
+  "queries_per_edit": 20,
+  "rebuild_interval": 50,
+  "total_checks": 800
+}

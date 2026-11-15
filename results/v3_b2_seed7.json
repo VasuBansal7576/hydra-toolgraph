@@ -1,0 +1,66 @@
+{
+  "arms": {
+    "flat_topk": {
+      "c16": 0.105625,
+      "c16_micro": 0.105625,
+      "label": "measured",
+      "latency_ms_mean": 0.0034600737569689954,
+      "latency_p50_ms": 0.0017610000213608146,
+      "latency_p95_ms": 0.007197000741143711,
+      "llm_turns": 0.0,
+      "n": 1600,
+      "scoring": "query_micro",
+      "store_requests": 0.0,
+      "tokens": 1432.524375,
+      "tokens_saved": 0.0,
+      "wrong_skip_rate": 0.0
+    },
+    "hydra_graph": {
+      "c16": 0.51625,
+      "c16_micro": 0.51625,
+      "label": "measured",
+      "latency_ms_mean": 384.5194138837297,
+      "latency_p50_ms": 365.81402699994214,
+      "latency_p95_ms": 575.6863560000056,
+      "llm_turns": 0.0,
+      "n": 1600,
+      "scoring": "query_micro",
+      "store_requests": 2.0,
+      "tokens": 1238.6925,
+      "tokens_saved": 76.655625,
+      "wrong_skip_rate": 0.2525
+    },
+    "kv_hop": {
+      "c16": 0.593125,
+      "c16_micro": 0.593125,
+      "label": "measured",
+      "latency_ms_mean": 1.4819736943633188,
+      "latency_p50_ms": 1.3924039994890336,
+      "latency_p95_ms": 1.5060910000102012,
+      "llm_turns": 0.0,
+      "n": 1600,
+      "scoring": "query_micro",
+      "store_requests": 6.595,
+      "tokens": 1181.294375,
+      "tokens_saved": 0.0,
+      "wrong_skip_rate": 0.0
+    },
+    "kv_hop_session": {
+      "c16": 0.57125,
+      "c16_micro": 0.57125,
+      "label": "measured",
+      "latency_ms_mean": 1.489927835001481,
+      "latency_p50_ms": 1.402598999447946,
+      "latency_p95_ms": 1.539717999548884,
+      "llm_turns": 0.0,
+      "n": 1600,
+      "scoring": "query_micro",
+      "store_requests": 7.595,
+      "tokens": 1240.6425,
+      "tokens_saved": 124.15,
+      "wrong_skip_rate": 0.071875
+    }
+  },
+  "n_sessions": 200,
+  "tau": 0.15
+}

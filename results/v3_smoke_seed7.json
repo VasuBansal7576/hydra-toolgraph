@@ -1,0 +1,71 @@
+{
+  "arms": [
+    "preload_all",
+    "flat_topk",
+    "iterative_search",
+    "kv_hop",
+    "kv_hop_session",
+    "kv_closure",
+    "hydra_graph",
+    "oracle"
+  ],
+  "retrieval_seeded": [
+    "flat_topk",
+    "iterative_search",
+    "kv_hop",
+    "kv_hop_session",
+    "kv_closure",
+    "hydra_graph",
+    "oracle"
+  ],
+  "smoke": {
+    "flat_topk": {
+      "llm_turns": 0,
+      "n_ranked": 32,
+      "store_requests": 0,
+      "tokens": 1371
+    },
+    "hydra_graph": {
+      "llm_turns": 0,
+      "n_ranked": 32,
+      "store_requests": 2,
+      "tokens": 1371
+    },
+    "iterative_search": {
+      "llm_turns": 408,
+      "n_ranked": 16,
+      "store_requests": 0,
+      "tokens": 1308
+    },
+    "kv_closure": {
+      "llm_turns": 0,
+      "n_ranked": 395,
+      "store_requests": 1,
+      "tokens": 1073
+    },
+    "kv_hop": {
+      "llm_turns": 0,
+      "n_ranked": 395,
+      "store_requests": 6,
+      "tokens": 1371
+    },
+    "kv_hop_session": {
+      "llm_turns": 0,
+      "n_ranked": 395,
+      "store_requests": 7,
+      "tokens": 1371
+    },
+    "oracle": {
+      "llm_turns": 0,
+      "n_ranked": 42,
+      "store_requests": 1,
+      "tokens": 1173
+    },
+    "preload_all": {
+      "llm_turns": 0,
+      "n_ranked": 573,
+      "store_requests": 0,
+      "tokens": 49345
+    }
+  }
+}

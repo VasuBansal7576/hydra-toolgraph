@@ -11,3 +11,6 @@ results/smoke2.jsonl
 results/runtime_edits.jsonl
 results/eval_run.log
 *.kuzu
+# v3 sealed runtime edit logs (large; not needed to read RESULTS)
+results/v3_*edits*.jsonl
+results/v3_edits_*.jsonl

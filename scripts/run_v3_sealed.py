@@ -294,9 +294,14 @@ def _judge(report: dict) -> dict:
             (kv.get("store_requests_mean") or 0) > (hg.get("store_requests_mean") or 0)
         )
         stale = agg.get("staleness") or {}
-        stale_ok = (stale.get("kv_closure_wrong_bundle_rate_mean") or 0) > 0 and (
-            (stale.get("hydra_graph_wrong_bundle_rate_mean") or 1) == 0
-            or (stale.get("hydra_graph_wrong_bundle_rate_mean") or 1) < 1e-12
+        kv_stale = stale.get("kv_closure_wrong_bundle_rate_mean")
+        hg_stale = stale.get("hydra_graph_wrong_bundle_rate_mean")
+        # Do not use `x or default` — a true measured 0.0 must stay 0.0.
+        stale_ok = (
+            kv_stale is not None
+            and kv_stale > 0
+            and hg_stale is not None
+            and abs(float(hg_stale)) < 1e-12
         )
         out["H2"] = {
             "pass": bool(completeness_tie and req_ok and stale_ok),

@@ -701,15 +701,18 @@ def run_staleness(
             truth = _true_bundle(store, seeds)
             truth_set = set(truth)
             kv_bundle = set(kv_closure.fetch(seeds))
-            # True bundle = memory REQUIRES closure. kv_closure may be stale.
-            # hydra_graph bundle = reachable set from live HydraDB MSpaths (full
-            # costs, not top-k truncation) — must not reuse expand_kv_hop(truth).
+            # True bundle = memory REQUIRES closure after the edit+sync.
+            # kv_closure may be stale (materialised).
+            # hydra_graph after sync: MSpaths can truncate vs full BFS (pathCount /
+            # resultLimit) — that is a recall gap, not staleness. Staleness for
+            # hydra counts only phantom nodes (MSpaths returns a tool not in the
+            # true memory closure). Expected: kv_closure wrong > 0, hydra phantoms = 0.
             if kv_bundle != truth_set:
                 kv_wrong += 1
-            # closure() calls ensure_hydra_synced; skip re-sync by matching version.
             hydra_costs = store.closure(seeds, ["REQUIRES"])
             hydra_set = set(hydra_costs)
-            if hydra_set != truth_set:
+            phantoms = hydra_set - truth_set
+            if phantoms:
                 hydra_wrong += 1
             total += 1
 
