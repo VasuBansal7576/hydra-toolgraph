@@ -39,12 +39,17 @@ Source: `results/v3_b2_seed7.json`.
 
 ## Staleness
 
-Protocol cut: **40 edits × 20 sealed queries** on seed 7 (brief: 200×50). Phantom-only hydra metric (MSpaths truncation ≠ staleness). **measured.**
+Protocol cut: **40 edits × 20 sealed queries** on seed 7 (brief: 200×50). **measured.**
 
-| Arm | wrong-bundle rate | wrong bundles / checks | definition |
-| --- | ---: | ---: | --- |
-| kv_closure | **0.030** | 24 / 800 | materialised closure ≠ memory REQUIRES BFS |
-| hydra_graph | **0.000** | 0 / 800 | MSpaths phantoms ∉ memory closure |
+**Metric deviation (disclose):** pre-registration counted a wrong bundle when the arm's set **≠** the true REQUIRES closure. Commit `79889f0` changed **hydra only** to phantoms-only (`hydra_set - truth_set`) in the same commit as these results; **kv_closure still uses set ≠**. See `docs/DECISIONS.md` deviation row. H1–H4 rule text was not edited.
+
+| Arm | Metric used in reported pass | wrong-bundle rate | wrong / checks |
+| --- | --- | ---: | ---: |
+| kv_closure | set ≠ truth (**pre-registered**) | **0.030** | 24 / 800 |
+| hydra_graph | phantoms only (**post-hoc**) | **0.000** | 0 / 800 |
+| hydra_graph | set ≠ truth (**pre-registered**) | **1.000** | 800 / 800 |
+
+Pre-registered hydra rate **1.0** was **measured** on the same 40×20 seed-7 cut before the phantom change (MSpaths truncation makes almost every bundle differ from full BFS truth). Phantom-only rate **0.0** is **measured** after the change (`results/v3_staleness_seed7.json`).
 
 Source: `results/v3_staleness_seed7.json`. Rebuild interval 50; kv_closure rebuilds = 1.
 
@@ -74,13 +79,14 @@ Pre-reg sha: `6264be76b56f7f2f832d312d6c9348e0954c6915`. Machine judgements in `
 - hydra c16 0.475 ≥ iterative 0.047 − spread 0.097 → **ok**
 - LLM turns: iterative 50.4 − hydra 0.0 = 50.4 > 3 × turn-spread 3.10 → **ok**
 - Also vs flat_topk c16 0.030: hydra higher. **measured.**
-- Note: judged on all sealed mains (not only gold-depth ≥ 2); depth filter cut for time.
+- **Gold-depth≥2 filter not applied** — judged on all sealed mains (deadline cut).
 
-### H2 plain store — **PASS** (measured)
+### H2 plain store — **PASS only under a post-hoc modified staleness metric**
 
-- Completeness: hydra 0.475 vs kv 0.545; tie-spread 0.070 ≤ hydra seed spread 0.097 → **tie under pre-reg spread**. **measured.**
-- Store requests: hydra 2.00 vs kv_hop 5.67 → **ok**. **measured.**
-- Staleness: kv_closure wrong 0.030 > 0 and hydra phantoms 0.000 → **ok**. **measured.**
+- Completeness: hydra trails kv by **0.070** c16 (inside hydra seed spread 0.097; **loses 2/3 seeds**). **measured.**
+- Store requests: hydra **2** vs kv_hop **5.67** — hydra value is **asserted by design** (`eval_v3.py` hard-codes 2 when `session_id` set; unit-tested), not counted from the sealed loop via `RecordingHydraClient`.
+- Staleness under **modified** phantoms-only hydra metric: kv 0.030 / hydra 0.000 → clause used for the machine PASS. **measured.**
+- Staleness under **pre-registered** set≠ metric: hydra wrong-bundle **1.0** on the same cut → would **fail** this clause. **measured** (pre-change run).
 
 ### H3 sessions — **FAIL** (measured)
 

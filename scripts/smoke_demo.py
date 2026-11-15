@@ -14,6 +14,8 @@ if str(ROOT) not in sys.path:
 
 # Smoke stays fast: do not ingest the full learn split.
 os.environ.setdefault("DEMO_SEED_LEARN", "0")
+os.environ.setdefault("DEMO_ALLOW_WRITES", "1")
+
 
 from toolgraph.data import load_dataset
 from toolgraph.hydra import HydraClient

@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from toolgraph.data import Tool, load_dataset, split_by_main, tokenize
-from toolgraph.graph import GraphStore
+from toolgraph.graph import GraphStore, schema_token_count
 from toolgraph.hydra import HydraClient, HydraError
 from toolgraph.learn import apply_io_prior, ingest_trace_edges, propose_schema_candidates
 from toolgraph.protocol import FUSION_POOL, SEEDS
@@ -26,44 +26,47 @@ DEFAULT_DEMO_QUERY = (
     "I'd like to book a table for dinner at The Italian Bistro at 7 PM. "
     "Can you handle an OpenTable reservation?"
 )
-# Rough preload-all token estimate when tiktoken is unavailable (chars/4).
-_CHARS_PER_TOKEN = 4
 
 
 class FusionIndex:
-    def __init__(self, tools: list[Tool]) -> None:
+    """Retrieval fusion. ``mode='bm25'`` skips MiniLM (fits 512 MB free tiers)."""
+
+    def __init__(self, tools: list[Tool], *, mode: str | None = None) -> None:
         self.tools = tools
         self.names = [tool.name for tool in tools]
         self.by_name = {tool.name: tool for tool in tools}
         docs = [tokenize(tool.base_text()) for tool in tools]
         self.bm25 = Bm25Index(self.names, docs)
-        texts = [tool.base_text() for tool in tools]
-        self.tool_vecs = embed_texts(texts)
+        raw_mode = (mode or os.environ.get("DEMO_FUSION") or "dense").strip().lower()
+        self.mode = "bm25" if raw_mode in {"bm25", "lexical", "light"} else "dense"
+        self.tool_vecs = None
+        if self.mode == "dense":
+            print(f"[service] FusionIndex dense embed of {len(tools)} tools…", flush=True)
+            texts = [tool.base_text() for tool in tools]
+            self.tool_vecs = embed_texts(texts)
+            print("[service] FusionIndex dense ready", flush=True)
+        else:
+            print("[service] FusionIndex BM25-only (no MiniLM load)", flush=True)
 
     def fuse(self, query: str) -> list[str]:
         lexical = self.bm25.top(query, 64)
+        if self.mode == "bm25" or self.tool_vecs is None:
+            return lexical[:FUSION_POOL]
         query_vec = embed_texts([query])
         dense = dense_top(query_vec, self.tool_vecs, self.names, 64)[0]
         return rrf([lexical, dense], FUSION_POOL)
 
 
 def _schema_tokens(tools: list[Tool], names: list[str]) -> int:
-    try:
-        import tiktoken
-
-        enc = tiktoken.get_encoding("cl100k_base")
-        total = 0
-        by_name = {tool.name: tool for tool in tools}
-        for name in names:
-            tool = by_name.get(name)
-            if tool is None:
-                continue
-            total += len(enc.encode(tool.base_text()))
-        return total
-    except Exception:
-        by_name = {tool.name: tool for tool in tools}
-        chars = sum(len(by_name[n].base_text()) for n in names if n in by_name)
-        return max(1, chars // _CHARS_PER_TOKEN)
+    """Match B1 eval: JSON schema payload via schema_token_count (cl100k)."""
+    by_name = {tool.name: tool for tool in tools}
+    total = 0
+    for name in names:
+        tool = by_name.get(name)
+        if tool is None:
+            continue
+        total += schema_token_count(tool)
+    return total
 
 
 class ToolgraphService:
@@ -80,6 +83,15 @@ class ToolgraphService:
         self.edit_log = edit_log or DEFAULT_EDIT
         self.edit_log.parent.mkdir(parents=True, exist_ok=True)
         self.read_only_mode = read_only_mode or _env_truthy("DEMO_READ_ONLY", default=False)
+        # Public demos leave writes off unless DEMO_ALLOW_WRITES=1.
+        self.allow_writes = (not self.read_only_mode) and _env_truthy(
+            "DEMO_ALLOW_WRITES", default=False
+        )
+        print(
+            f"[service] init read_only={self.read_only_mode} "
+            f"allow_writes={self.allow_writes} fusion={os.environ.get('DEMO_FUSION', 'dense')}",
+            flush=True,
+        )
         tools, instances = load_dataset(data_dir)
         self.tools_list = tools
         self.tools = {tool.name: tool for tool in tools}
@@ -89,23 +101,31 @@ class ToolgraphService:
         self._committed_results: dict | None = None
         if self.read_only_mode:
             self._load_committed_results()
+            print("[service] load_catalog (readonly / null hydra)…", flush=True)
             self.store.load_catalog(tools, include_oracle=False)
             self._prior_stats = {"read_only": True}
         else:
+            print("[service] load_catalog…", flush=True)
             self.store.load_catalog(tools, include_oracle=False)
             if apply_prior:
+                print("[service] apply_io_prior…", flush=True)
                 self._prior_stats = apply_io_prior(self.store, propose_schema_candidates(tools))
             else:
                 self._prior_stats = {}
-            if _env_truthy("DEMO_SEED_LEARN", default=True):
+            # Default OFF — full learn split OOMs / hangs on 512 MB / 0.1 CPU.
+            if _env_truthy("DEMO_SEED_LEARN", default=False):
+                print("[service] seed learn split…", flush=True)
                 self._seed_stats = self._seed_learn_split()
+                print(f"[service] seed done: {self._seed_stats}", flush=True)
             try:
+                print("[service] ensure_hydra_synced…", flush=True)
                 self.store.ensure_hydra_synced()
-            except HydraError:
-                pass
+            except HydraError as exc:
+                print(f"[service] hydra sync skipped: {exc}", flush=True)
         self.fusion = FusionIndex(tools)
         self._last_loaded: dict[str, list[str]] = {}
         self._edit_timeline: list[dict] = []
+        print("[service] ready", flush=True)
 
     def _load_committed_results(self) -> None:
         path = ROOT / "results" / "v3_report.json"
@@ -133,12 +153,39 @@ class ToolgraphService:
     def load_tools(self, query: str, session_id: str | None = None, k: int = 16) -> dict:
         fused = self.fusion.fuse(query)
         seeds = fused[:FUSION_POOL]
+
+        # Read-only / null-Hydra: fusion ranking only — no live graph walk.
+        if self.read_only_mode:
+            ranked = seeds[:k]
+            sid_key = session_id or "_anon"
+            self._last_loaded[sid_key] = ranked
+            tools_out = [
+                {
+                    "name": name,
+                    "description": self.tools[name].description if name in self.tools else "",
+                    "provenance": [],
+                    "why_path": [name],
+                }
+                for name in ranked
+                if name in self.tools
+            ]
+            return {
+                "query": query,
+                "session_id": session_id,
+                "tools": tools_out,
+                "ranked": ranked,
+                "skipped": {},
+                "context_meter": self._context_meter(ranked),
+                "read_only": True,
+                "bundle_mode": "no-graph retrieval fallback (fusion only; HydraDB not queried)",
+                "store_requests": None,
+                "store_requests_note": "not applicable in read-only / no-graph mode",
+            }
+
         try:
-            if not self.read_only_mode:
-                self.store.ensure_hydra_synced()
+            self.store.ensure_hydra_synced()
             result = self.store.load_tools(seeds, session_id, k)
         except HydraError as exc:
-            # Offline / FakeHydra fallback: memory CTE over REQUIRES.
             costs = self.store.recursive_cte(seeds, ["REQUIRES"], 4)
             ranked = sorted(costs, key=costs.get)[:k]
             return {
@@ -157,7 +204,10 @@ class ToolgraphService:
                 "ranked": ranked,
                 "skipped": {},
                 "context_meter": self._context_meter(ranked),
+                "bundle_mode": "memory-CTE fallback (Hydra unavailable)",
+                "store_requests": None,
                 "error": f"hydra unavailable: {exc.message}",
+                "read_only": False,
             }
 
         ranked = list(result.tools)
@@ -202,6 +252,9 @@ class ToolgraphService:
             name: f"skipped, already resolved by {producer}"
             for name, producer in (result.skipped or {}).items()
         }
+        # Asserted by design (session → RESOLVED + MSpaths); unit-tested, not a
+        # RecordingHydraClient count from this path.
+        asserted_reqs = 2 if session_id else 1
         return {
             "query": query,
             "session_id": session_id,
@@ -209,12 +262,15 @@ class ToolgraphService:
             "ranked": ranked,
             "skipped": skipped_out,
             "context_meter": self._context_meter(ranked),
-            "store_requests": 2 if session_id else 1,
-            "read_only": self.read_only_mode,
+            "store_requests": asserted_reqs,
+            "store_requests_note": "asserted by design (RESOLVED+MSpaths when session_id set); see tests/test_v3_store.py",
+            "bundle_mode": "hydra_graph",
+            "read_only": False,
         }
 
     def _context_meter(self, ranked: list[str]) -> dict:
-        preload = _schema_tokens(self.tools_list, list(self.tools))
+        # Same tokenizer/payload as B1 (JSON schema via schema_token_count).
+        preload = _schema_tokens(self.tools_list, [t.name for t in self.tools_list])
         bundle = _schema_tokens(self.tools_list, ranked)
         return {
             "preload_all_tokens": preload,
@@ -222,7 +278,18 @@ class ToolgraphService:
             "tokens_saved": max(0, preload - bundle),
             "bundle_size": len(ranked),
             "catalog_size": len(self.tools),
+            "token_definition": "JSON schema (name/description/params) via cl100k — same as B1",
         }
+
+    def _writes_blocked(self, op: str) -> dict | None:
+        if self.read_only_mode:
+            return {"ok": False, "error": f"read-only demo; {op} disabled"}
+        if not self.allow_writes:
+            return {
+                "ok": False,
+                "error": f"{op} disabled on public demo; set DEMO_ALLOW_WRITES=1 to enable",
+            }
+        return None
 
     def record_trace(
         self,
@@ -231,12 +298,13 @@ class ToolgraphService:
         tools_loaded: list[str] | None = None,
         session_id: str | None = None,
     ) -> dict:
-        if self.read_only_mode:
+        blocked = self._writes_blocked("record_trace")
+        if blocked:
             return {
                 "query": query,
                 "session_id": session_id,
                 "edges_touched": 0,
-                "error": "read-only demo; learning disabled",
+                **blocked,
             }
         sid_key = session_id or "_anon"
         loaded = tools_loaded if tools_loaded is not None else list(self._last_loaded.get(sid_key) or [])
@@ -271,8 +339,9 @@ class ToolgraphService:
         }
 
     def record_result(self, session_id: str, tool: str, args_hash: str | None = None) -> dict:
-        if self.read_only_mode:
-            return {"session_id": session_id, "tool": tool, "error": "read-only demo"}
+        blocked = self._writes_blocked("record_result")
+        if blocked:
+            return {"session_id": session_id, "tool": tool, **blocked}
         digest = args_hash or hashlib.sha1(f"{session_id}:{tool}".encode()).hexdigest()[:16]
         self.store.record_result(session_id, tool, digest)
         self._edit_timeline.append(
@@ -292,8 +361,9 @@ class ToolgraphService:
         }
 
     def undo_edit(self, edit_id: str) -> dict:
-        if self.read_only_mode:
-            return {"ok": False, "undone": edit_id, "reason": "read-only demo"}
+        blocked = self._writes_blocked("undo_edit")
+        if blocked:
+            return {"undone": edit_id, **blocked}
         ok = self.store.undo_edit(edit_id)
         try:
             self.store.ensure_hydra_synced()
@@ -361,11 +431,13 @@ class ToolgraphService:
         return {
             "ok": True,
             "read_only": self.read_only_mode,
+            "allow_writes": self.allow_writes,
             "tau": self.store.tau,
             "edges": len(self.store.edges),
             "seed": self._seed_stats,
             "prior": self._prior_stats,
             "committed_results": self._committed_results is not None,
+            "fusion_mode": getattr(self.fusion, "mode", None),
         }
 
 

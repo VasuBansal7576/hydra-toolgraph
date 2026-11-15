@@ -92,3 +92,9 @@ After learning on all learn traces, apply 200 random edits from the edit log (re
 ### Forbidden
 
 Tuning on sealed; feeding catalog `depends_on` into learned arms (benchmark constructor and iterative_search simulator only, documented); claiming completeness separates graph from KV on ToolLinkOS.
+
+## Deviations from pre-registration (do not edit H1–H4 rules above)
+
+| ID | When | What changed | Why / honesty |
+| --- | --- | --- | --- |
+| DEV-staleness-phantom | commit `79889f0` (same commit as sealed RESULTS) | Hydra staleness checker changed from `hydra_set != truth_set` to phantoms-only (`hydra_set - truth_set`). kv_closure still uses set ≠. | MSpaths truncation made set≠ almost always true (measured hydra wrong-bundle **1.0** on the 40×20 seed-7 cut). Phantom metric isolates true stale extras. **H2 must be labelled “PASS only under a post-hoc modified staleness metric”**; both numbers are reported in `docs/RESULTS_V3.md`. H1–H4 rule text unchanged. |

@@ -171,6 +171,18 @@
         skippedOut.appendChild(div);
       });
       renderMeter(data.context_meter);
+      if (data.bundle_mode) {
+        const mode = document.createElement("div");
+        mode.className = "skip";
+        mode.textContent = "bundle mode: " + data.bundle_mode;
+        skippedOut.prepend(mode);
+      }
+      if (data.store_requests == null && data.store_requests_note) {
+        const note = document.createElement("div");
+        note.className = "skip";
+        note.textContent = data.store_requests_note;
+        skippedOut.appendChild(note);
+      }
       raw.textContent = JSON.stringify(data, null, 2);
       refreshTimeline();
     }

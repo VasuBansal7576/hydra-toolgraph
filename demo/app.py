@@ -1,27 +1,202 @@
-"""Minimal demo UI: three panels + JSON API backed by ToolgraphService (v3)."""
+"""Demo UI + JSON API. HTTP binds immediately; heavy init runs in a background thread.
+
+/api/health always answers (reports phase). /api/load_tools waits until ready or
+returns 503 while seeding. Constrained hosts fall back to BM25-only readonly.
+"""
 
 from __future__ import annotations
 
 import json
 import os
+import threading
+import time
+import traceback
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-from toolgraph.service import ToolgraphService, default_service
-
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
-PORT = int(os.environ.get("DEMO_PORT", "5000"))
+PORT = int(os.environ.get("PORT") or os.environ.get("DEMO_PORT") or "5000")
+SEED_TIMEOUT_SEC = float(os.environ.get("DEMO_SEED_TIMEOUT_SEC", "45"))
 
-_service: ToolgraphService | None = None
+_boot: dict = {
+    "phase": "starting",  # starting | seeding | ready | readonly_fallback | error
+    "detail": "binding port",
+    "started_at": time.time(),
+    "ready_at": None,
+    "error": None,
+    "fusion": None,
+    "fallback_reason": None,
+}
+_service = None
+_committed: dict | None = None
+_boot_lock = threading.Lock()
 
 
-def get_service() -> ToolgraphService:
-    global _service
-    if _service is None:
-        _service = default_service()
-    return _service
+def _log(msg: str) -> None:
+    print(f"[demo] {msg}", flush=True)
+
+
+def _set_phase(phase: str, detail: str = "", **extra: object) -> None:
+    with _boot_lock:
+        _boot["phase"] = phase
+        _boot["detail"] = detail
+        for key, value in extra.items():
+            _boot[key] = value
+    _log(f"phase={phase} {detail}".strip())
+
+
+def _load_committed() -> dict:
+    path = ROOT.parent / "results" / "v3_report.json"
+    if path.exists():
+        return json.loads(path.read_text())
+    return {"label": "missing", "note": "no committed results/v3_report.json"}
+
+
+def _mem_available_mb() -> float | None:
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as handle:
+            for line in handle:
+                if line.startswith("MemAvailable:"):
+                    return float(line.split()[1]) / 1024.0
+    except OSError:
+        return None
+    return None
+
+
+def _env_ro() -> bool:
+    return os.environ.get("DEMO_READ_ONLY", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _prefer_lightweight() -> bool:
+    if os.environ.get("TOOLGRAPH_MODE", "").strip().lower() == "readonly":
+        return True
+    if _env_ro():
+        return True
+    # Explicit fusion override still uses readonly-safe path on free tiers when mem is low.
+    mem = _mem_available_mb()
+    if mem is not None and mem < 700:
+        return True
+    return False
+
+
+def _build_service(*, read_only: bool, fusion: str) -> object:
+    os.environ["DEMO_FUSION"] = fusion
+    os.environ["DEMO_SEED_LEARN"] = os.environ.get("DEMO_SEED_LEARN", "0")
+    if read_only:
+        os.environ["DEMO_READ_ONLY"] = "1"
+        os.environ["DEMO_ALLOW_WRITES"] = "0"
+    # Late import so the HTTP server can bind before loading numpy/fastembed/hydra.
+    from toolgraph.service import default_service
+
+    return default_service()
+
+
+def _bootstrap() -> None:
+    global _service, _committed
+    deadline = time.time() + SEED_TIMEOUT_SEC
+    _committed = _load_committed()
+    lightweight = _prefer_lightweight()
+    _set_phase(
+        "seeding",
+        f"bootstrap start lightweight={lightweight} mem_avail_mb={_mem_available_mb()}",
+    )
+
+    def timed_out() -> bool:
+        return time.time() > deadline
+
+    try:
+        if lightweight:
+            explicit_ro = os.environ.get("TOOLGRAPH_MODE", "").strip().lower() == "readonly" or _env_ro()
+            _set_phase("seeding", "building BM25-only readonly service (512MB-safe path)")
+            svc = _build_service(read_only=True, fusion="bm25")
+            with _boot_lock:
+                _service = svc
+            if explicit_ro:
+                _set_phase("ready", "readonly BM25 ready", fusion="bm25", ready_at=time.time())
+            else:
+                _set_phase(
+                    "readonly_fallback",
+                    "BM25-only readonly ready (auto fallback)",
+                    fusion="bm25",
+                    fallback_reason="constrained_memory_or_flag",
+                    ready_at=time.time(),
+                )
+            return
+
+        # Live attempt with timeout watchdog via cooperative checks.
+        _set_phase("seeding", "attempting live service (seed_learn off by default)")
+        if timed_out():
+            raise TimeoutError("seed timeout before live build")
+        os.environ.setdefault("DEMO_SEED_LEARN", "0")
+        # Prefer BM25 even in live to avoid loading MiniLM on tiny instances.
+        fusion = os.environ.get("DEMO_FUSION", "bm25").strip().lower() or "bm25"
+        _set_phase("seeding", f"building live service fusion={fusion}")
+        svc = _build_service(read_only=False, fusion=fusion)
+        if timed_out():
+            raise TimeoutError("seed timeout after live build")
+        with _boot_lock:
+            _service = svc
+        _set_phase("ready", f"live ready fusion={fusion}", fusion=fusion, ready_at=time.time())
+    except Exception as exc:  # noqa: BLE001 — must never kill the server
+        _log(f"bootstrap error: {exc}")
+        traceback.print_exc()
+        try:
+            _set_phase(
+                "seeding",
+                f"fallback to readonly after error/timeout: {exc}",
+                fallback_reason=str(exc),
+            )
+            os.environ["DEMO_READ_ONLY"] = "1"
+            os.environ["DEMO_ALLOW_WRITES"] = "0"
+            os.environ["DEMO_SEED_LEARN"] = "0"
+            os.environ["DEMO_FUSION"] = "bm25"
+            svc = _build_service(read_only=True, fusion="bm25")
+            with _boot_lock:
+                _service = svc
+            _set_phase(
+                "readonly_fallback",
+                f"serving committed results + BM25 fallback ({exc})",
+                fusion="bm25",
+                fallback_reason=str(exc),
+                ready_at=time.time(),
+                error=str(exc),
+            )
+        except Exception as exc2:  # noqa: BLE001
+            _set_phase("error", f"bootstrap failed: {exc2}", error=str(exc2))
+            traceback.print_exc()
+
+
+def get_service():
+    with _boot_lock:
+        return _service
+
+
+def health_payload() -> dict:
+    with _boot_lock:
+        boot = dict(_boot)
+        svc = _service
+    elapsed = time.time() - float(boot.get("started_at") or time.time())
+    payload = {
+        "ok": True,
+        "phase": boot.get("phase"),
+        "detail": boot.get("detail"),
+        "elapsed_sec": round(elapsed, 2),
+        "ready": boot.get("phase") in {"ready", "readonly_fallback"},
+        "fusion": boot.get("fusion"),
+        "fallback_reason": boot.get("fallback_reason"),
+        "error": boot.get("error"),
+        "seed_timeout_sec": SEED_TIMEOUT_SEC,
+        "port": PORT,
+    }
+    if svc is not None and hasattr(svc, "status"):
+        try:
+            payload.update({f"service_{k}" if k == "ok" else k: v for k, v in svc.status().items()})
+            payload["ok"] = True
+        except Exception as exc:  # noqa: BLE001
+            payload["service_status_error"] = str(exc)
+    return payload
 
 
 class DemoHandler(SimpleHTTPRequestHandler):
@@ -57,7 +232,19 @@ class DemoHandler(SimpleHTTPRequestHandler):
         except json.JSONDecodeError:
             self._json(400, {"error": "invalid json"})
             return
+
         svc = get_service()
+        if svc is None:
+            self._json(
+                503,
+                {
+                    "error": "service not ready",
+                    "phase": _boot.get("phase"),
+                    "detail": _boot.get("detail"),
+                },
+            )
+            return
+
         path = parsed.path.rstrip("/")
         if path == "/api/load_tools":
             session = payload.get("session_id")
@@ -107,15 +294,27 @@ class DemoHandler(SimpleHTTPRequestHandler):
             self._json(404, {"error": "unknown route"})
 
     def _api_get(self, path: str) -> None:
-        svc = get_service()
+        # Health never blocks on service construction.
         if path == "/api/health":
-            self._json(200, svc.status())
+            self._json(200, health_payload())
+            return
+        if path == "/api/results":
+            committed = _committed if _committed is not None else _load_committed()
+            self._json(200, committed)
+            return
+        svc = get_service()
+        if svc is None:
+            self._json(
+                503,
+                {
+                    "error": "service not ready",
+                    "phase": _boot.get("phase"),
+                    "detail": _boot.get("detail"),
+                },
+            )
             return
         if path == "/api/timeline":
             self._json(200, svc.timeline())
-            return
-        if path == "/api/results":
-            self._json(200, svc._committed_results or {"label": "live"})
             return
         self._json(404, {"error": "not found"})
 
@@ -135,8 +334,13 @@ class DemoHandler(SimpleHTTPRequestHandler):
 
 
 def main() -> None:
+    _boot["started_at"] = time.time()
+    _set_phase("starting", f"binding 0.0.0.0:{PORT}")
     server = ThreadingHTTPServer(("0.0.0.0", PORT), DemoHandler)
-    print(f"demo http://0.0.0.0:{PORT}", flush=True)
+    # Background bootstrap so /api/health answers as soon as the port is open.
+    thread = threading.Thread(target=_bootstrap, name="demo-bootstrap", daemon=True)
+    thread.start()
+    _log(f"listening on http://0.0.0.0:{PORT} (bootstrap in background)")
     server.serve_forever()
 
 
