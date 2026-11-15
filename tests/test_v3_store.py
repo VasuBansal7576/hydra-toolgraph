@@ -238,5 +238,51 @@ class V3StoreTest(unittest.TestCase):
             self.assertTrue(open_rows)
 
 
+def _hydra_up() -> bool:
+    import urllib.error
+    import urllib.request
+
+    try:
+        urllib.request.urlopen("http://127.0.0.1:8443/healthz", timeout=2)
+        return True
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return False
+
+
+@unittest.skipUnless(
+    __import__("os").environ.get("HYDRA_INTEGRATION") == "1" or _hydra_up(),
+    "real HydraDB not reachable",
+)
+class V3StoreHydraIntegrationTest(unittest.TestCase):
+    """Measured against the real HydraDB container (not FakeHydra)."""
+
+    def test_record_trace_and_two_request_load_tools(self) -> None:
+        from toolgraph.hydra import HydraClient, RecordingHydraClient
+
+        tools = [
+            _tool("get_alpha"),
+            _tool("helper_beta"),
+            _tool("set_alpha"),
+        ]
+        base = __import__("os").environ.get("HYDRA_URL", "http://127.0.0.1:8443")
+        token = __import__("os").environ.get("HYDRA_TOKEN", "local-development-token-32-bytes")
+        hydra = RecordingHydraClient(HydraClient(base, token))
+        with tempfile.TemporaryDirectory() as tmp:
+            store = GraphStore(hydra, Path(tmp) / "edits.jsonl")
+            store.load_catalog(tools, include_oracle=False)
+            store.tau = 0.0
+            store.record_trace(None, "q", ["get_alpha", "helper_beta"], ["get_alpha", "helper_beta"])
+            store.ensure_hydra_synced()
+            hydra.reset()
+            result = store.load_tools(["get_alpha"], session_id=None, k=16)
+            self.assertEqual(hydra.call_count, 1)
+            self.assertIn("get_alpha", result.tools)
+            store.record_result("sess-int", "get_alpha", "h1")
+            hydra.reset()
+            result2 = store.load_tools(["get_alpha"], session_id="sess-int", k=16)
+            self.assertEqual(hydra.call_count, 2)
+            self.assertIn("get_alpha", result2.skipped)
+
+
 if __name__ == "__main__":
     unittest.main()

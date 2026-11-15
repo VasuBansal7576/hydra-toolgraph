@@ -173,6 +173,7 @@ class GraphStore:
         self._edit_seq = 1_000_000
         self._session_seq = 30_000
         self._entity_seq = 40_000
+        self._hist_rel_seq = 50_000_000
         self.applied = 0
         self.undone = 0
         self.edge_version = 0
@@ -1029,14 +1030,19 @@ class GraphStore:
 
     def _append_hist(self, row: HistRow) -> None:
         self.hist.append(row)
-        # Hydra write: CREATE then SET props (one relationship type, UNWIND batch).
+        # Unique relationship id so multiple HIST versions can coexist between
+        # the same Tool pair (UNWIND CREATE without id collapses to one edge).
+        # Endpoints need exactly one label (HydraDB v0.4.0 measured).
+        self._hist_rel_seq += 1
+        hist_id = self._hist_rel_seq
         self.hydra.query(
-            "UNWIND $rows AS row MATCH (a {id: row.src}), (b {id: row.dst}) "
-            "CREATE (a)-[:REQUIRES_HIST]->(b)",
-            {"rows": [{"src": row.src, "dst": row.dst}]},
+            "UNWIND $rows AS row "
+            "MATCH (a:Tool {id: row.src}), (b:Tool {id: row.dst}) "
+            "CREATE (a)-[:REQUIRES_HIST {id: row.hist_id}]->(b)",
+            {"rows": [{"src": row.src, "dst": row.dst, "hist_id": hist_id}]},
         )
         self.hydra.query(
-            "UNWIND $rows AS row MATCH (a {id: row.src})-[r:REQUIRES_HIST]->(b {id: row.dst}) "
+            "UNWIND $rows AS row MATCH (a:Tool {id: row.src})-[r:REQUIRES_HIST {id: row.hist_id}]->(b:Tool {id: row.dst}) "
             "SET r.edge_id = row.edge_id, r.cost = row.cost, r.alpha = row.alpha, r.beta = row.beta, "
             "r.beta_penalty = row.beta_penalty, r.source = row.source, r.trace_id = row.trace_id, "
             "r.valid_from = row.valid_from, r.valid_to = row.valid_to, r.op = row.op, "
@@ -1047,6 +1053,7 @@ class GraphStore:
                     {
                         "src": row.src,
                         "dst": row.dst,
+                        "hist_id": hist_id,
                         "edge_id": row.edge_id,
                         "cost": row.cost,
                         "alpha": row.alpha,
@@ -1166,12 +1173,13 @@ class GraphStore:
                 )
             sid = self.sessions[session_id]
             self.hydra.query(
-                "UNWIND $rows AS row MATCH (s {id: row.sid}), (e {id: row.eid}) "
+                "UNWIND $rows AS row "
+                "MATCH (s:Session {id: row.sid}), (e:Entity {id: row.eid}) "
                 "CREATE (s)-[:RESOLVED]->(e)",
                 {"rows": [{"sid": sid, "eid": entity_id}]},
             )
             self.hydra.query(
-                "UNWIND $rows AS row MATCH (s {id: row.sid})-[r:RESOLVED]->(e {id: row.eid}) "
+                "UNWIND $rows AS row MATCH (s:Session {id: row.sid})-[r:RESOLVED]->(e:Entity {id: row.eid}) "
                 "SET r.resolved_at = row.resolved_at",
                 {"rows": [{"sid": sid, "eid": entity_id, "resolved_at": now}]},
             )
@@ -1196,7 +1204,7 @@ class GraphStore:
             if not chunk:
                 continue
             self.hydra.query(
-                "UNWIND $rows AS row MATCH (s {id: row.sid})-[r:RESOLVED]->(e {id: row.eid}) DELETE r",
+                "UNWIND $rows AS row MATCH (s:Session {id: row.sid})-[r:RESOLVED]->(e:Entity {id: row.eid}) DELETE r",
                 {"rows": chunk},
             )
 
@@ -1218,9 +1226,9 @@ class GraphStore:
         """Edges valid at ts from REQUIRES_HIST, plus a diff against live now."""
         # Prefer local hist (always consistent). Also issue the Hydra statement for parity.
         self.hydra.query(
-            "MATCH (a)-[r:REQUIRES_HIST]->(b) "
+            "MATCH (a:Tool)-[r:REQUIRES_HIST]->(b:Tool) "
             "WHERE r.valid_from <= $ts AND r.valid_to > $ts "
-            "RETURN r.edge_id, a.id, b.id, r.cost, r.alpha, r.beta, r.source, r.op, r.edit_id",
+            "RETURN a.tool_id, b.tool_id, r.cost",
             {"ts": float(ts)},
         )
         # Replay local hist: for each edge_id, take the latest row with valid_from<=ts < valid_to
