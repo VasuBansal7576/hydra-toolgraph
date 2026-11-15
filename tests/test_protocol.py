@@ -48,7 +48,6 @@ class ProtocolTest(unittest.TestCase):
 
     def test_schema_candidates_do_not_use_catalog_depends_on(self) -> None:
         tools, _instances = load_dataset(Path(ROOT_DATA).resolve())
-        # Strip depends_on and ensure proposals still work from params alone.
         stripped = [
             type(tools[0])(
                 name=tool.name,
@@ -63,35 +62,21 @@ class ProtocolTest(unittest.TestCase):
         self.assertGreater(len(candidates), 0)
 
     def test_rise_gate_requires_three_times_spread(self) -> None:
+        def arm_series(start: float, end: float) -> list[dict]:
+            return [
+                {"traces": 0, "c10": start, "c16": start, "map10": start, "c16_spread": 0.0},
+                {"traces": 100, "c10": end, "c16": end, "map10": end, "c16_spread": 0.02, "c16_by_seed": [end - 0.01, end, end + 0.01]},
+            ]
+
         averaged = {
-            "bm25_dense": [
-                {"traces": 0, "c10": 0.03, "c16": 0.03, "c16_spread": 0.01},
-                {"traces": 100, "c10": 0.03, "c16": 0.03, "c16_spread": 0.01},
-            ],
-            "sqlite_cte": [
-                {"traces": 0, "c10": 0.03, "c16": 0.03, "c16_spread": 0.01},
-                {"traces": 100, "c10": 0.2, "c16": 0.25, "c16_spread": 0.02},
-            ],
-            "hydra_learned": [
-                {"traces": 0, "c10": 0.03, "c16": 0.03, "c16_by_seed": [0.03, 0.03, 0.03], "c16_spread": 0.0},
-                {
-                    "traces": 100,
-                    "c10": 0.2,
-                    "c16": 0.25,
-                    "c16_by_seed": [0.24, 0.25, 0.26],
-                    "c16_spread": 0.02,
-                },
-            ],
-            "hydra_learned_jev": [
-                {"traces": 0, "c10": None, "c16": None},
-                {"traces": 100, "c10": None, "c16": None},
-            ],
-            "oracle": [
-                {"traces": 0, "c10": 0.9, "c16": 0.95, "c16_spread": 0.01},
-                {"traces": 100, "c10": 0.9, "c16": 0.95, "c16_spread": 0.01},
-            ],
+            "bm25_dense": arm_series(0.03, 0.03),
+            "sqlite_one_hop": arm_series(0.03, 0.2),
+            "sqlite_cte": arm_series(0.03, 0.25),
+            "hydra_mspaths": arm_series(0.03, 0.25),
+            "hydra_mspaths_prior": arm_series(0.04, 0.26),
+            "hydra_ppr_prior": arm_series(0.04, 0.27),
+            "oracle": arm_series(0.9, 0.95),
         }
-        # delta 0.22 > 3*0.02 = 0.06 -> pass
         gate = rise_gate(averaged)
         self.assertTrue(gate["rises"])
         self.assertTrue(gate["passed"])

@@ -34,3 +34,8 @@ One row per step. Hypotheses and gates are written **before** the sealed scores 
 | R0 | Branch `cursor/toolgraph-v2-learn-edges-1c92` off v1; pre-register D0–D5 and rise test. | n/a (before run) | proceed |
 | R1 | Implement memory-first edge upserts + bulk HydraDB sync. Per-edge MATCH/SET after a full catalog load stack-overflowed graph-node (exit 139). | measured: smoke c16@40 after 50 traces: flat 0.10, CTE=Hydra 0.225, oracle 0.85; CTE set@16 == Hydra set@16 | keep bulk sync; do/undo still logged |
 | R2 | Arms: flat / sqlite_cte / hydra_learned / hydra_learned_jev / oracle; budgets 0,10,30,100,300,all. | pending full curve | — |
+| R3 | Checkpoint 1 = experiment only. MCP / demo / compose / Loom / GTM deferred until after independent review. | process | keep |
+| R4 | Guard tests: learned arms never walk `ORACLE_DEP`; load_catalog writes catalog deps only as `ORACLE_DEP`; trace ingest ignores `Tool.depends_on`; SQLite CTE and HydraDB share `MAX_LEN=4`. | measured: `python3 -m unittest tests.test_guards` OK | keep |
+| R5 | Pre-sweep curve (v2.0) rose: hydra_learned c16 0.035→0.913, tied CTE within spread; rise test passed. Archived as `results/curve_pre_sweep.json`. | measured | keep as baseline |
+| R6 | Fold sweep findings: Beta edge confidence + τ on learn; I/O prior ζ≥0.6 (Jev only on [0.4,0.6)); composition split; reverse PPR vs MSpaths; mAP@10; bootstrap CIs. Positioning vs GRTF 2502.07223 and GoS 2604.05333. | pending re-run | — |
+| R7 | Tool2Vec deferred (optional, time). Checkpoint 1 still excludes MCP/demo/compose. | process | keep |

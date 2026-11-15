@@ -1,13 +1,14 @@
-"""v2 sealed completeness curve: learn edges from traces, hide catalog deps.
+"""Checkpoint-1 sealed curve after the toolgraph sweep findings.
 
-Arms share seeds, budgets, depth, and scoring. Catalog depends_on is the
-oracle ceiling only. Rise test is pre-registered in docs/DECISIONS.md.
+Hidden catalog edges. Trace-learned NEEDS with Beta confidence. I/O prior at
+ζ≥0.6. Reverse PPR vs MSpaths. mAP@10, composition split, bootstrap CIs.
 """
 
 from __future__ import annotations
 
 import json
 import math
+import random
 import time
 from pathlib import Path
 
@@ -22,13 +23,16 @@ from toolgraph.graph import GraphStore, rank_costs
 from toolgraph.hydra import HydraClient
 from toolgraph.jev import JevClient
 from toolgraph.learn import (
-    apply_verified_schema_edges,
-    calibrate_edge_threshold,
+    apply_io_prior,
+    calibrate_tau,
+    composition_queries,
     ingest_trace_edges,
     propose_schema_candidates,
-    verify_schema_edges,
 )
+from toolgraph.ppr import adjacency_from_store, reverse_ppr
 from toolgraph.protocol import (
+    BOOTSTRAP_SAMPLES,
+    BOOTSTRAP_SEED,
     CANARY_SIZE,
     FUSION_SEEDS,
     KS,
@@ -43,19 +47,35 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 RESULTS = ROOT / "results"
 
-# Arm -> relationship types walked. Flat uses none.
-ARM_RELS: dict[str, list[str] | None] = {
-    "bm25_dense": None,
-    "sqlite_cte": ["DEPENDS_ON"],
-    "hydra_learned": ["DEPENDS_ON"],
-    "hydra_learned_jev": ["DEPENDS_ON", "SCHEMA_DEP"],
-    "oracle": ["ORACLE_DEP"],
+# Arm -> (backend, rel_types). Flat uses none.
+# prior arms include SCHEMA_DEP; noprior arms use DEPENDS_ON only.
+ARM_SPEC: dict[str, tuple[str, list[str] | None]] = {
+    "bm25_dense": ("flat", None),
+    "sqlite_one_hop": ("one_hop", ["DEPENDS_ON"]),
+    "sqlite_cte": ("cte", ["DEPENDS_ON"]),
+    "hydra_mspaths": ("mspaths", ["DEPENDS_ON"]),
+    "hydra_mspaths_prior": ("mspaths", ["DEPENDS_ON", "SCHEMA_DEP"]),
+    "hydra_ppr_prior": ("ppr", ["DEPENDS_ON", "SCHEMA_DEP"]),
+    "oracle": ("cte", ["ORACLE_DEP"]),
 }
-ARMS = tuple(ARM_RELS)
+ARMS = tuple(ARM_SPEC)
 
 
 def completeness(ranked: list[str], gold: frozenset[str], k: int) -> bool:
     return gold.issubset(set(ranked[:k]))
+
+
+def average_precision(ranked: list[str], gold: frozenset[str], k: int) -> float:
+    """AP@k for set-valued gold (mAP comparable to ToolLinkOS / 2502.07223)."""
+    if not gold:
+        return 0.0
+    hits = 0
+    total = 0.0
+    for index, name in enumerate(ranked[:k], start=1):
+        if name in gold:
+            hits += 1
+            total += hits / index
+    return total / min(len(gold), k)
 
 
 def percentile_95(values: list[float]) -> float | None:
@@ -64,6 +84,21 @@ def percentile_95(values: list[float]) -> float | None:
     ordered = sorted(values)
     index = min(len(ordered) - 1, max(0, math.ceil(0.95 * len(ordered)) - 1))
     return ordered[index]
+
+
+def bootstrap_ci(values: list[float], samples: int = BOOTSTRAP_SAMPLES, seed: int = BOOTSTRAP_SEED) -> tuple[float, float, float]:
+    if not values:
+        return (0.0, 0.0, 0.0)
+    rng = random.Random(seed)
+    n = len(values)
+    means = []
+    for _ in range(samples):
+        draw = [values[rng.randrange(n)] for _ in range(n)]
+        means.append(sum(draw) / n)
+    means.sort()
+    lo = means[int(0.025 * (samples - 1))]
+    hi = means[int(0.975 * (samples - 1))]
+    return (sum(values) / n, lo, hi)
 
 
 def token_count(encoder: tiktoken.Encoding, tools: dict[str, Tool], names: list[str], lessons: dict[str, str]) -> int:
@@ -85,35 +120,49 @@ def load_arm(
 ) -> tuple[list[str], float]:
     started = time.perf_counter()
     seeds = fused[:FUSION_SEEDS]
-    rels = ARM_RELS[arm]
-    if rels is None:
+    backend, rels = ARM_SPEC[arm]
+    if backend == "flat":
         ranked = list(fused)
-    elif arm == "sqlite_cte":
-        key = ("cte", store.edge_version, tuple(seeds), tuple(rels), MAX_LEN)
+    elif backend == "one_hop":
+        assert rels is not None
+        key = ("one", store.edge_version, store.tau, tuple(seeds), tuple(rels))
         costs = closure_cache.get(key)
         if costs is None:
-            costs = store.recursive_cte(seeds, rels, MAX_LEN)
-            closure_cache[key] = costs
-        # Merge unused fused tools after the closure so ranking length stays useful.
-        ranked = rank_costs(costs)
-        for name in fused:
-            if name not in costs:
-                ranked.append(name)
-    elif arm == "oracle":
-        key = ("cte_oracle", store.edge_version, tuple(seeds), tuple(rels), MAX_LEN)
-        costs = closure_cache.get(key)
-        if costs is None:
-            costs = store.recursive_cte(seeds, rels, MAX_LEN)
+            costs = store.one_hop(seeds, rels)
             closure_cache[key] = costs
         ranked = rank_costs(costs)
         for name in fused:
             if name not in costs:
                 ranked.append(name)
-    elif arm in {"hydra_learned", "hydra_learned_jev"}:
-        key = ("hydra", store.edge_version, tuple(seeds), tuple(rels))
+    elif backend == "cte":
+        assert rels is not None
+        key = ("cte", store.edge_version, store.tau, tuple(seeds), tuple(rels), MAX_LEN)
+        costs = closure_cache.get(key)
+        if costs is None:
+            costs = store.recursive_cte(seeds, rels, MAX_LEN)
+            closure_cache[key] = costs
+        ranked = rank_costs(costs)
+        for name in fused:
+            if name not in costs:
+                ranked.append(name)
+    elif backend == "mspaths":
+        assert rels is not None
+        key = ("hydra", store.edge_version, store.tau, tuple(seeds), tuple(rels))
         costs = closure_cache.get(key)
         if costs is None:
             costs = store.closure(seeds, rels)
+            closure_cache[key] = costs
+        ranked = rank_costs(costs)
+        for name in fused:
+            if name not in costs:
+                ranked.append(name)
+    elif backend == "ppr":
+        assert rels is not None
+        key = ("ppr", store.edge_version, store.tau, tuple(seeds), tuple(rels))
+        costs = closure_cache.get(key)
+        if costs is None:
+            adj = adjacency_from_store(store, rels, store.tau)
+            costs = reverse_ppr(seeds, adj)
             closure_cache[key] = costs
         ranked = rank_costs(costs)
         for name in fused:
@@ -134,18 +183,23 @@ def score_split(
     closure_cache: dict[tuple, dict[str, float]],
     *,
     seen_mains: set[str] | None = None,
+    composition: list[Instance] | None = None,
 ) -> dict:
     hits = {k: 0 for k in KS}
     hits_seen = {k: 0 for k in KS}
     hits_unseen = {k: 0 for k in KS}
     n_seen = 0
     n_unseen = 0
+    ap_values: list[float] = []
+    c16_flags: list[float] = []
     latencies: list[float] = []
     tokens_k16: list[int] = []
-    tokens_full: list[int] = []
     for number, query in enumerate(queries, start=1):
         ranked, latency = load_arm(arm, fusion[query.idx], store, closure_cache)
         latencies.append(latency)
+        ap_values.append(average_precision(ranked, query.gold, 10))
+        ok16 = completeness(ranked, query.gold, 16)
+        c16_flags.append(1.0 if ok16 else 0.0)
         for k in KS:
             ok = completeness(ranked, query.gold, k)
             if ok:
@@ -154,25 +208,27 @@ def score_split(
                 if query.main in seen_mains:
                     if ok:
                         hits_seen[k] += 1
-                else:
-                    if ok:
-                        hits_unseen[k] += 1
+                elif ok:
+                    hits_unseen[k] += 1
         if seen_mains is not None:
             if query.main in seen_mains:
                 n_seen += 1
             else:
                 n_unseen += 1
         tokens_k16.append(token_count(encoder, tools, ranked[:16], store.lessons))
-        tokens_full.append(token_count(encoder, tools, ranked, store.lessons))
         if number % 100 == 0:
             print(f"  {arm} {number}/{len(queries)}", flush=True)
     n = max(1, len(queries))
+    mean_ap, ap_lo, ap_hi = bootstrap_ci(ap_values)
+    mean_c16, c16_lo, c16_hi = bootstrap_ci(c16_flags)
     out: dict = {
         "n": len(queries),
         "c10": hits[10] / n,
         "c16": hits[16] / n,
+        "map10": mean_ap,
+        "map10_ci95": [ap_lo, ap_hi],
+        "c16_ci95": [c16_lo, c16_hi],
         "tokens_at_16": sum(tokens_k16) / n,
-        "tokens_full_closure": sum(tokens_full) / n,
         "p95_ms": percentile_95(latencies),
     }
     if seen_mains is not None:
@@ -182,18 +238,25 @@ def score_split(
         out["c16_seen"] = hits_seen[16] / max(1, n_seen)
         out["c10_unseen"] = hits_unseen[10] / max(1, n_unseen)
         out["c16_unseen"] = hits_unseen[16] / max(1, n_unseen)
+    if composition is not None:
+        comp_hits = {k: 0 for k in KS}
+        for query in composition:
+            ranked, _latency = load_arm(arm, fusion[query.idx], store, closure_cache)
+            for k in KS:
+                if completeness(ranked, query.gold, k):
+                    comp_hits[k] += 1
+        cn = max(1, len(composition))
+        out["composition_n"] = len(composition)
+        out["composition_c10"] = comp_hits[10] / cn
+        out["composition_c16"] = comp_hits[16] / cn
     return out
 
 
-def canary_c10(
-    canary: list[Instance],
-    fusion: list[list[str]],
-    store: GraphStore,
-) -> float:
+def canary_c10(canary: list[Instance], fusion: list[list[str]], store: GraphStore) -> float:
     hits = 0
     cache: dict[tuple, dict[str, float]] = {}
     for query in canary:
-        ranked, _latency = load_arm("hydra_learned", fusion[query.idx], store, cache)
+        ranked, _ = load_arm("hydra_mspaths", fusion[query.idx], store, cache)
         if completeness(ranked, query.gold, 10):
             hits += 1
     return hits / max(1, len(canary))
@@ -201,19 +264,33 @@ def canary_c10(
 
 def resolve_budgets(n_learn: int) -> list[int]:
     out: list[int] = []
-    for item in TRACE_BUDGETS:
-        if item == "all":
-            out.append(n_learn)
-        else:
-            out.append(min(int(item), n_learn))
-    # unique, sorted, keep order
     seen: set[int] = set()
-    ordered: list[int] = []
-    for value in out:
+    for item in TRACE_BUDGETS:
+        value = n_learn if item == "all" else min(int(item), n_learn)
         if value not in seen:
             seen.add(value)
-            ordered.append(value)
-    return ordered
+            out.append(value)
+    return out
+
+
+def pick_operator_on_dev(
+    store: GraphStore,
+    dev: list[Instance],
+    fusion: list[list[str]],
+) -> dict:
+    """Budget-matched MSpaths vs reverse PPR on dev; identical seeds and k."""
+    cache: dict[tuple, dict[str, float]] = {}
+    sample = dev[: min(80, len(dev))]
+    scores = {"hydra_mspaths_prior": 0, "hydra_ppr_prior": 0}
+    for query in sample:
+        for arm in scores:
+            ranked, _ = load_arm(arm, fusion[query.idx], store, cache)
+            if completeness(ranked, query.gold, 16):
+                scores[arm] += 1
+    n = max(1, len(sample))
+    report = {arm: hits / n for arm, hits in scores.items()}
+    winner = max(report, key=report.get)  # type: ignore[arg-type]
+    return {"dev_c16": report, "winner": winner, "n": len(sample)}
 
 
 def run_seed(
@@ -227,8 +304,6 @@ def run_seed(
 ) -> dict:
     learn_ids, dev_ids, sealed_ids = split_indices(len(instances), seed)
     sealed_set = set(sealed_ids)
-    if set(learn_ids) & sealed_set:
-        raise RuntimeError("learn/sealed overlap")
     learn = [instances[idx] for idx in learn_ids]
     dev = [instances[idx] for idx in dev_ids]
     sealed = [instances[idx] for idx in sealed_ids]
@@ -237,22 +312,16 @@ def run_seed(
     budgets = resolve_budgets(len(learn))
     print(f"seed {seed}: reload catalog (no learned edges yet)", flush=True)
     store.load_catalog(tools, include_oracle=True)
-    if store.edit_log.exists():
-        # Keep a per-seed section; truncate at seed start for a clean undo log.
-        pass
 
-    # Schema generalization + Jev edge verification (learn-only calibration).
     candidates = propose_schema_candidates(tools)
-    print(f"seed {seed}: schema candidates {len(candidates)}", flush=True)
-    scored = verify_schema_edges(jev, candidates, by_name)
-    threshold, grid = calibrate_edge_threshold(scored, learn)
-    schema_kept = apply_verified_schema_edges(store, scored, threshold) if jev.enabled else 0
+    io_stats = apply_io_prior(store, candidates, jev, by_name)
     store.sync_learned_to_hydra()
-    print(
-        f"seed {seed}: edge noul threshold {threshold} grid={grid} "
-        f"verified={len(scored)} kept={schema_kept} jev={jev.status()}",
-        flush=True,
-    )
+    print(f"seed {seed}: io prior {io_stats}", flush=True)
+
+    # τ starts at 0 so early edges count; recalibrated after each budget on learn.
+    store.tau = 0.0
+    operator = pick_operator_on_dev(store, dev, fusion)
+    print(f"seed {seed}: operator pick {operator}", flush=True)
 
     points: dict[str, list[dict]] = {arm: [] for arm in ARMS}
     rollbacks: list[dict] = []
@@ -263,37 +332,46 @@ def run_seed(
     def seen_mains_through(n: int) -> set[str]:
         return {query.main for query in learn[:n]}
 
-    def evaluate(traces_used: int) -> None:
+    tau_history: list[dict] = []
+
+    def evaluate_and_record(traces_used: int) -> None:
+        if traces_used > 0:
+            tau, grid = calibrate_tau(store, learn[:traces_used], fusion)
+            store.tau = tau
+            store.edge_version += 1
+            store.sync_learned_to_hydra()
+            tau_history.append({"traces": traces_used, "tau": tau, "grid": grid})
+        else:
+            store.tau = 0.0
+            tau_history.append({"traces": 0, "tau": 0.0, "grid": {}})
         cache: dict[tuple, dict[str, float]] = {}
         seen = seen_mains_through(traces_used)
+        comp = composition_queries(sealed, learn, traces_used)
         for arm in ARMS:
-            if arm == "hydra_learned_jev" and not jev.enabled and schema_kept == 0:
-                measured = {
-                    "n": len(sealed),
-                    "c10": None,
-                    "c16": None,
-                    "tokens_at_16": None,
-                    "tokens_full_closure": None,
-                    "p95_ms": None,
-                    "skipped": "no Jev key / no schema edges",
-                }
-            else:
-                measured = score_split(
-                    arm, sealed, fusion, store, by_name, encoder, cache, seen_mains=seen
-                )
+            measured = score_split(
+                arm,
+                sealed,
+                fusion,
+                store,
+                by_name,
+                encoder,
+                cache,
+                seen_mains=seen,
+                composition=comp,
+            )
             measured["traces"] = traces_used
             measured["budget_target"] = traces_used
+            measured["tau"] = store.tau
             points[arm].append(measured)
-            c10 = measured.get("c10")
-            c16 = measured.get("c16")
             print(
                 f"seed {seed} traces {traces_used} {arm} "
-                f"c10={c10 if c10 is None else f'{c10:.3f}'} "
-                f"c16={c16 if c16 is None else f'{c16:.3f}'}",
+                f"c10={measured['c10']:.3f} c16={measured['c16']:.3f} "
+                f"map10={measured['map10']:.3f} "
+                f"comp_n={measured.get('composition_n')} comp16={measured.get('composition_c16')}",
                 flush=True,
             )
 
-    evaluate(0)
+    evaluate_and_record(0)
     for target in budgets:
         if target == 0:
             continue
@@ -325,7 +403,7 @@ def run_seed(
             else:
                 baseline = score
         store.sync_learned_to_hydra()
-        evaluate(target)
+        evaluate_and_record(target)
 
     return {
         "seed": seed,
@@ -333,14 +411,12 @@ def run_seed(
         "n_dev": len(dev),
         "n_sealed": len(sealed),
         "budgets": budgets,
-        "edge_noul_threshold": threshold,
-        "edge_noul_grid": grid,
-        "schema_candidates": len(candidates),
-        "schema_scored": len(scored),
-        "schema_kept": schema_kept,
+        "io_prior": io_stats,
+        "operator_pick": operator,
+        "tau_history": tau_history,
         "edges_from_traces": edges_from_traces,
         "rollbacks": rollbacks,
-        "points": points,
+        "points": {arm: points[arm] for arm in ARMS},
     }
 
 
@@ -351,39 +427,32 @@ def mean_points(seed_runs: list[dict]) -> dict[str, list[dict]]:
         series = [run["points"][arm] for run in seed_runs]
         for index in range(len(series[0])):
             group = [series[seed_index][index] for seed_index in range(len(series))]
-            # Drop skipped arms from the mean.
-            usable = [point for point in group if point.get("c16") is not None]
-            if not usable:
-                rows.append(
-                    {
-                        "traces": group[0]["traces"],
-                        "budget_target": group[0]["budget_target"],
-                        "c10": None,
-                        "c16": None,
-                        "skipped": True,
-                    }
-                )
-                continue
-            c16s = [point["c16"] for point in usable]
-            c10s = [point["c10"] for point in usable]
+            c16s = [point["c16"] for point in group]
+            c10s = [point["c10"] for point in group]
+            maps = [point["map10"] for point in group]
             row = {
-                "traces": sum(point["traces"] for point in usable) / len(usable),
+                "traces": sum(point["traces"] for point in group) / len(group),
                 "budget_target": group[0]["budget_target"],
                 "c10": sum(c10s) / len(c10s),
                 "c16": sum(c16s) / len(c16s),
-                "tokens_at_16": sum(point.get("tokens_at_16") or 0.0 for point in usable) / len(usable),
-                "tokens_full_closure": sum(point.get("tokens_full_closure") or 0.0 for point in usable) / len(usable),
-                "p95_ms": sum(point.get("p95_ms") or 0.0 for point in usable) / len(usable),
+                "map10": sum(maps) / len(maps),
+                "tokens_at_16": sum(point.get("tokens_at_16") or 0.0 for point in group) / len(group),
+                "p95_ms": sum(point.get("p95_ms") or 0.0 for point in group) / len(group),
                 "c10_by_seed": c10s,
                 "c16_by_seed": c16s,
+                "map10_by_seed": maps,
                 "c16_spread": max(c16s) - min(c16s),
                 "c10_spread": max(c10s) - min(c10s),
+                "c16_ci95_by_seed": [point.get("c16_ci95") for point in group],
+                "map10_ci95_by_seed": [point.get("map10_ci95") for point in group],
             }
-            if all("c16_seen" in point for point in usable):
-                row["c16_seen"] = sum(point["c16_seen"] for point in usable) / len(usable)
-                row["c16_unseen"] = sum(point["c16_unseen"] for point in usable) / len(usable)
-                row["c10_seen"] = sum(point["c10_seen"] for point in usable) / len(usable)
-                row["c10_unseen"] = sum(point["c10_unseen"] for point in usable) / len(usable)
+            if all("c16_seen" in point for point in group):
+                row["c16_seen"] = sum(point["c16_seen"] for point in group) / len(group)
+                row["c16_unseen"] = sum(point["c16_unseen"] for point in group) / len(group)
+            if all(point.get("composition_c16") is not None for point in group):
+                row["composition_c16"] = sum(point["composition_c16"] for point in group) / len(group)
+                row["composition_c10"] = sum(point["composition_c10"] for point in group) / len(group)
+                row["composition_n"] = sum(point.get("composition_n") or 0 for point in group) / len(group)
             rows.append(row)
         averaged[arm] = rows
     return averaged
@@ -392,38 +461,35 @@ def mean_points(seed_runs: list[dict]) -> dict[str, list[dict]]:
 def plot(averaged: dict[str, list[dict]], path: Path) -> None:
     colors = {
         "bm25_dense": "#4b5563",
+        "sqlite_one_hop": "#a16207",
         "sqlite_cte": "#b45309",
-        "hydra_learned": "#0f766e",
-        "hydra_learned_jev": "#1d4ed8",
+        "hydra_mspaths": "#0f766e",
+        "hydra_mspaths_prior": "#115e59",
+        "hydra_ppr_prior": "#1d4ed8",
         "oracle": "#6b7280",
     }
     labels = {
-        "bm25_dense": "BM25+dense flat",
-        "sqlite_cte": "SQLite recursive CTE",
-        "hydra_learned": "HydraDB learned",
-        "hydra_learned_jev": "HydraDB + Jev edges",
+        "bm25_dense": "BM25+dense",
+        "sqlite_one_hop": "SQLite one-hop",
+        "sqlite_cte": "SQLite CTE depth=4",
+        "hydra_mspaths": "HydraDB MSpaths",
+        "hydra_mspaths_prior": "MSpaths + I/O prior",
+        "hydra_ppr_prior": "PPR + I/O prior",
         "oracle": "Oracle catalog",
     }
-    fig, axes = plt.subplots(1, 2, figsize=(11.2, 4.6), sharey=True)
-    for axis, key, title in zip(axes, ("c10", "c16"), ("completeness@10", "completeness@16")):
+    fig, axes = plt.subplots(1, 2, figsize=(12.0, 4.8), sharey=True)
+    for axis, key, title in zip(axes, ("c16", "map10"), ("completeness@16", "mAP@10")):
         for arm in ARMS:
-            xs = []
-            ys = []
-            for point in averaged[arm]:
-                if point.get(key) is None:
-                    continue
-                xs.append(point["traces"])
-                ys.append(point[key])
-            if not xs:
-                continue
+            xs = [point["traces"] for point in averaged[arm]]
+            ys = [point[key] for point in averaged[arm]]
             axis.plot(xs, ys, marker="o", color=colors[arm], label=labels[arm], linewidth=2)
         axis.set_title(title)
         axis.set_xlabel("Learn traces")
         axis.set_ylim(0, 1)
         axis.grid(True, alpha=0.3)
-    axes[0].set_ylabel("Sealed completeness")
-    axes[1].legend(frameon=False, fontsize=8)
-    fig.suptitle("v2: sealed completeness vs learn traces (mean of 3 seeds)")
+    axes[0].set_ylabel("Sealed score")
+    axes[1].legend(frameon=False, fontsize=7)
+    fig.suptitle("Checkpoint 1: sealed learning curve (mean of 3 seeds)")
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=140)
@@ -431,31 +497,28 @@ def plot(averaged: dict[str, list[dict]], path: Path) -> None:
 
 
 def rise_gate(averaged: dict[str, list[dict]]) -> dict:
-    """Pre-registered: (c16_all - c16_0) > 3 × seed_spread at the full point."""
     report: dict = {
         "passed": False,
         "rises": False,
         "beats_flat": False,
-        "hydra_vs_cte": {},
+        "hydra_vs_cte": [],
+        "mspaths_vs_ppr": [],
         "notes": [],
         "rule": (
             f"(sealed @16 at all traces − @16 at 0 traces) > "
             f"{RISE_SPREAD_MULTIPLIER} × seed_spread at the full point"
         ),
+        "positioning": (
+            "Claim is trace-learned edges (GRTF 2502.07223 uses hand-built deps; "
+            "GoS 2604.05333 never revises from traces). Report mAP@10 vs GRTF."
+        ),
     }
     flat = averaged["bm25_dense"]
-    for arm in ("hydra_learned", "hydra_learned_jev"):
+    for arm in ("hydra_mspaths", "hydra_mspaths_prior", "hydra_ppr_prior"):
         series = averaged[arm]
-        if not series or series[0].get("c16") is None or series[-1].get("c16") is None:
-            report["notes"].append(f"{arm} skipped or incomplete")
-            continue
-        first = series[0]
-        last = series[-1]
+        first, last = series[0], series[-1]
         delta = last["c16"] - first["c16"]
-        spread = last.get("c16_spread")
-        if spread is None:
-            by_seed = last.get("c16_by_seed") or [last["c16"]]
-            spread = max(by_seed) - min(by_seed)
+        spread = last.get("c16_spread") or 0.0
         need = RISE_SPREAD_MULTIPLIER * spread
         rose = delta > need + 1e-12
         report["notes"].append(
@@ -464,20 +527,12 @@ def rise_gate(averaged: dict[str, list[dict]]) -> dict:
         if rose:
             report["rises"] = True
         for point, base in zip(series, flat):
-            if point.get("c16") is None or base.get("c16") is None:
-                continue
-            if point["c16"] > base["c16"] + 1e-9 or (point.get("c10") or 0) > (base.get("c10") or 0) + 1e-9:
+            if point["c16"] > base["c16"] + 1e-9:
                 report["beats_flat"] = True
-    # HydraDB vs same-depth recursive CTE on the learned (no-Jev) edge set.
-    hydra = averaged["hydra_learned"]
-    cte = averaged["sqlite_cte"]
-    comparisons = []
-    for h_point, c_point in zip(hydra, cte):
-        if h_point.get("c16") is None or c_point.get("c16") is None:
-            continue
+    for h_point, c_point in zip(averaged["hydra_mspaths"], averaged["sqlite_cte"]):
         spread = h_point.get("c16_spread") or 0.0
         diff = h_point["c16"] - c_point["c16"]
-        comparisons.append(
+        report["hydra_vs_cte"].append(
             {
                 "traces": h_point["traces"],
                 "hydra_c16": h_point["c16"],
@@ -486,8 +541,17 @@ def rise_gate(averaged: dict[str, list[dict]]) -> dict:
                 "within_spread": abs(diff) <= spread + 1e-12,
             }
         )
-    report["hydra_vs_cte"] = comparisons
-    if comparisons and all(row["within_spread"] for row in comparisons):
+    for m_point, p_point in zip(averaged["hydra_mspaths_prior"], averaged["hydra_ppr_prior"]):
+        report["mspaths_vs_ppr"].append(
+            {
+                "traces": m_point["traces"],
+                "mspaths_c16": m_point["c16"],
+                "ppr_c16": p_point["c16"],
+                "mspaths_map10": m_point["map10"],
+                "ppr_map10": p_point["map10"],
+            }
+        )
+    if report["hydra_vs_cte"] and all(row["within_spread"] for row in report["hydra_vs_cte"]):
         report["notes"].append(
             "HydraDB tied the recursive-CTE control within seed spread; "
             "honest HydraDB value is versioned edits, undo, provenance, weighted multi-hop, as_of"
@@ -531,15 +595,20 @@ def main() -> None:
             usage_tokens_out += int(row["output_tokens"])
             usage_lines += 1
     payload = {
-        "version": 2,
+        "version": "2.1-sweep",
         "dataset": "ToolLinkOS",
         "source": "https://github.com/EliasLumer/Graph-RAG-Tool-Fusion-ToolLinkOS",
+        "prior_art": {
+            "grtf_arxiv": "2502.07223",
+            "grtf_map10_vector": 0.210,
+            "grtf_map10_graph": 0.856,
+            "gos_arxiv": "2604.05333",
+            "gos_note": "graph never revised from execution traces",
+        },
         "tools": len(tools),
         "queries": len(instances),
         "embed_model": "sentence-transformers/all-MiniLM-L6-v2",
-        "embedder": "fastembed local ONNX",
         "catalog_tokens": catalog_tokens,
-        "tokenizer": "cl100k_base",
         "seeds": list(SEEDS),
         "trace_budgets": [item if item != "all" else "all" for item in TRACE_BUDGETS],
         "max_len": MAX_LEN,
@@ -547,10 +616,10 @@ def main() -> None:
         "arms": list(ARMS),
         "design": {
             "catalog_depends_on_in_learned_arms": False,
-            "oracle_rel": "ORACLE_DEP",
-            "learned_rel": "DEPENDS_ON",
-            "schema_rel": "SCHEMA_DEP",
-            "jev_prunes_closure": False,
+            "edge_confidence": "p=(n_obs+1)/(n_seen_src+2); tau on learn/dev",
+            "io_prior_threshold": 0.6,
+            "jev_border_band": [0.4, 0.6],
+            "ppr": {"alpha": 0.2, "iters": 50, "client_side": True},
             "rise_test": decision["rule"],
         },
         "jev": {

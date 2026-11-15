@@ -38,6 +38,15 @@ class Edge:
     support: int
     edit_id: str
     prov: str
+    n_obs: int = 0
+    n_seen_src: int = 0
+    p: float = 0.5
+    source: str = "trace"  # trace | io_prior | oracle
+
+
+def edge_confidence(n_obs: int, n_seen_src: int) -> float:
+    """Beta(1,1) posterior mean: p = (n_obs + 1) / (n_seen_src + 2)."""
+    return (n_obs + 1) / (n_seen_src + 2)
 
 
 class GraphStore:
@@ -50,9 +59,12 @@ class GraphStore:
         self.tools: dict[str, Tool] = {}
         self.lessons: dict[str, str] = {}
         self.edges: dict[tuple[int, int, str], Edge] = {}
+        self.n_seen_src: dict[str, int] = {}
+        self.tau: float = 0.0
         self.sqlite = sqlite3.connect(":memory:")
         self.sqlite.execute(
             "CREATE TABLE edges (src INTEGER, dst INTEGER, rel TEXT, cost REAL, support INTEGER, "
+            "n_obs INTEGER, n_seen_src INTEGER, p REAL, "
             "PRIMARY KEY (src, dst, rel))"
         )
         self._edit_seq = 1_000_000
@@ -81,6 +93,8 @@ class GraphStore:
         self._node_ids = []
         self.edges.clear()
         self.lessons.clear()
+        self.n_seen_src.clear()
+        self.tau = 0.0
         self.sqlite.execute("DELETE FROM edges")
         self.sqlite.commit()
         self.edge_version += 1
@@ -174,6 +188,10 @@ class GraphStore:
                         support=0,
                         edit_id="oracle",
                         prov="catalog_oracle",
+                        n_obs=0,
+                        n_seen_src=0,
+                        p=1.0,
+                        source="oracle",
                     )
                 )
         self._insert_edges(oracle, record=False)
@@ -218,11 +236,19 @@ class GraphStore:
                 costs[name] = min(costs.get(name, total), total)
         return costs
 
-    def recursive_cte(self, seeds: list[str], rel_types: list[str], max_len: int = MAX_LEN) -> dict[str, float]:
+    def recursive_cte(
+        self,
+        seeds: list[str],
+        rel_types: list[str],
+        max_len: int = MAX_LEN,
+        *,
+        tau: float | None = None,
+    ) -> dict[str, float]:
         """Same-depth plain-store control: recursive CTE over SQLite edges."""
         costs = {name: index * SEED_PENALTY for index, name in enumerate(seeds)}
         if not seeds:
             return costs
+        threshold = self.tau if tau is None else tau
         placeholders = ",".join("?" for _ in rel_types)
         for index, name in enumerate(seeds):
             src = self.names[name]
@@ -234,11 +260,13 @@ class GraphStore:
                   SELECT e.dst, walk.depth + 1, walk.cost + e.cost
                   FROM walk
                   JOIN edges e ON e.src = walk.node
-                  WHERE walk.depth < ? AND e.rel IN ({placeholders})
+                  WHERE walk.depth < ?
+                    AND e.rel IN ({placeholders})
+                    AND (e.rel != 'DEPENDS_ON' OR e.p >= ?)
                 )
                 SELECT node, MIN(cost) AS cost FROM walk GROUP BY node
                 """,
-                (src, index * SEED_PENALTY, max_len, *rel_types),
+                (src, index * SEED_PENALTY, max_len, *rel_types, threshold),
             )
             for node_id, cost in rows:
                 tool = self.by_id.get(int(node_id))
@@ -246,6 +274,48 @@ class GraphStore:
                     continue
                 costs[tool] = min(costs.get(tool, float(cost)), float(cost))
         return costs
+
+    def one_hop(
+        self,
+        seeds: list[str],
+        rel_types: list[str],
+        *,
+        tau: float | None = None,
+    ) -> dict[str, float]:
+        """One-hop plain-store contrast for the composition split."""
+        return self.recursive_cte(seeds, rel_types, max_len=1, tau=tau)
+
+    def note_src_seen(self, src_name: str) -> None:
+        """Count a learn trace whose main tool is src (denominator for confidence)."""
+        self.n_seen_src[src_name] = self.n_seen_src.get(src_name, 0) + 1
+        if src_name not in self.names:
+            return
+        src_id = self.names[src_name]
+        seen = self.n_seen_src[src_name]
+        for (s, d, rel), edge in list(self.edges.items()):
+            if s != src_id or rel != "DEPENDS_ON":
+                continue
+            p = edge_confidence(edge.n_obs, seen)
+            updated = Edge(
+                src=edge.src,
+                dst=edge.dst,
+                rel=edge.rel,
+                cost=edge.cost,
+                support=edge.support,
+                edit_id=edge.edit_id,
+                prov=edge.prov,
+                n_obs=edge.n_obs,
+                n_seen_src=seen,
+                p=p,
+                source=edge.source,
+            )
+            self.edges[(s, d, rel)] = updated
+            self.sqlite.execute(
+                "UPDATE edges SET n_seen_src = ?, p = ? WHERE src = ? AND dst = ? AND rel = ?",
+                (seen, p, s, d, rel),
+            )
+        self.sqlite.commit()
+        self.edge_version += 1
 
     def learn_depends(self, src_name: str, dst_name: str, prov: str) -> bool:
         """Add or strengthen DEPENDS_ON(main -> helper) from an observed trace.
@@ -258,7 +328,7 @@ class GraphStore:
             return False
         src = self.names[src_name]
         dst = self.names[dst_name]
-        return self._memory_upsert_edge(src, dst, "DEPENDS_ON", LEARNED_BASE_COST, prov)
+        return self._memory_upsert_edge(src, dst, "DEPENDS_ON", LEARNED_BASE_COST, prov, source="trace")
 
     def add_schema_edge(self, src_name: str, dst_name: str, prov: str, cost: float = LEARNED_BASE_COST) -> bool:
         if src_name not in self.names or dst_name not in self.names or src_name == dst_name:
@@ -268,7 +338,20 @@ class GraphStore:
         key = (src, dst, "SCHEMA_DEP")
         if key in self.edges:
             return False
-        return self._memory_upsert_edge(src, dst, "SCHEMA_DEP", cost, prov, strengthen=False)
+        return self._memory_upsert_edge(
+            src, dst, "SCHEMA_DEP", cost, prov, strengthen=False, source="io_prior"
+        )
+
+    def active_edges(self, rel_types: list[str], *, tau: float | None = None) -> list[Edge]:
+        threshold = self.tau if tau is None else tau
+        out: list[Edge] = []
+        for (_src, _dst, rel), edge in self.edges.items():
+            if rel not in rel_types:
+                continue
+            if rel == "DEPENDS_ON" and edge.p < threshold:
+                continue
+            out.append(edge)
+        return out
 
     def sync_learned_to_hydra(self) -> None:
         """Replace DEPENDS_ON and SCHEMA_DEP in HydraDB from the SQLite truth."""
@@ -290,11 +373,13 @@ class GraphStore:
                     f"UNWIND $rows AS row MATCH (a {{id: row.src}})-[r:{rel}]->(b {{id: row.dst}}) DELETE r",
                     {"rows": [{"src": src, "dst": dst} for src, dst in chunk]},
                 )
-            fresh = [
-                edge
-                for (src, dst, edge_rel), edge in self.edges.items()
-                if edge_rel == rel
-            ]
+            fresh = []
+            for (_src, _dst, edge_rel), edge in self.edges.items():
+                if edge_rel != rel:
+                    continue
+                if rel == "DEPENDS_ON" and edge.p < self.tau:
+                    continue
+                fresh.append(edge)
             if fresh:
                 self._insert_edges(fresh, record=False)
         self.edge_version += 1
@@ -374,42 +459,61 @@ class GraphStore:
         prov: str,
         *,
         strengthen: bool = True,
+        source: str = "trace",
     ) -> bool:
         key = (src, dst, rel)
         current = self.edges.get(key)
         edit_id = self._next_edit()
+        src_name = self.by_id[src]
+        seen = self.n_seen_src.get(src_name, 0)
         if current is None:
-            cost = base_cost
+            n_obs = 1 if source == "trace" else 0
             support = 1
+            cost = base_cost if source != "trace" else 1.0 / (1.0 + n_obs)
+            p = edge_confidence(n_obs, seen) if source == "trace" else 1.0
             existed = False
             prev = None
             do_query = (
                 f"UNWIND $rows AS row CREATE (a {{id: row.src}})-[:{rel}]->(b {{id: row.dst}}) "
-                f"/* then SET cost/support via bulk sync */"
+                "/* bulk sync sets n_obs, n_seen_src, p, cost */"
             )
             undo_query = f"MATCH (a {{id: $src}})-[r:{rel}]->(b {{id: $dst}}) DELETE r"
-            do_parameters = {"rows": [{"src": src, "dst": dst}], "cost": cost, "support": support}
+            do_parameters = {
+                "rows": [{"src": src, "dst": dst}],
+                "cost": cost,
+                "support": support,
+                "n_obs": n_obs,
+                "n_seen_src": seen,
+                "p": p,
+            }
             undo_parameters = {"src": src, "dst": dst}
         else:
             if not strengthen:
                 return False
+            n_obs = current.n_obs + 1
             support = current.support + 1
-            cost = 1.0 / (1.0 + support)
+            cost = 1.0 / (1.0 + n_obs)
+            p = edge_confidence(n_obs, seen)
             existed = True
             prev = current
             do_query = (
                 f"MATCH (a {{id: $src}})-[r:{rel}]->(b {{id: $dst}}) "
-                "SET r.cost = $cost, r.support = $support, r.edit_id = $edit_id, r.prov = $prov"
+                "SET r.cost = $cost, r.support = $support, r.n_obs = $n_obs, "
+                "r.n_seen_src = $n_seen_src, r.p = $p, r.edit_id = $edit_id, r.prov = $prov"
             )
             undo_query = (
                 f"MATCH (a {{id: $src}})-[r:{rel}]->(b {{id: $dst}}) "
-                "SET r.cost = $cost, r.support = $support, r.edit_id = $edit_id, r.prov = $prov"
+                "SET r.cost = $cost, r.support = $support, r.n_obs = $n_obs, "
+                "r.n_seen_src = $n_seen_src, r.p = $p, r.edit_id = $edit_id, r.prov = $prov"
             )
             do_parameters = {
                 "src": src,
                 "dst": dst,
                 "cost": cost,
                 "support": support,
+                "n_obs": n_obs,
+                "n_seen_src": seen,
+                "p": p,
                 "edit_id": edit_id,
                 "prov": prov,
             }
@@ -418,6 +522,9 @@ class GraphStore:
                 "dst": dst,
                 "cost": current.cost,
                 "support": current.support,
+                "n_obs": current.n_obs,
+                "n_seen_src": current.n_seen_src,
+                "p": current.p,
                 "edit_id": current.edit_id,
                 "prov": current.prov,
             }
@@ -428,9 +535,13 @@ class GraphStore:
             "src": src,
             "dst": dst,
             "rel": rel,
+            "source": source,
             "existed": existed,
             "prev_cost": None if prev is None else prev.cost,
             "prev_support": None if prev is None else prev.support,
+            "prev_n_obs": None if prev is None else prev.n_obs,
+            "prev_n_seen_src": None if prev is None else prev.n_seen_src,
+            "prev_p": None if prev is None else prev.p,
             "prev_edit_id": None if prev is None else prev.edit_id,
             "prev_prov": None if prev is None else prev.prov,
             "do_query": do_query,
@@ -440,11 +551,24 @@ class GraphStore:
             "hydra_mode": "bulk_sync",
         }
         self._write_record(rec)
-        edge = Edge(src, dst, rel, cost, support, edit_id, prov)
+        edge = Edge(
+            src=src,
+            dst=dst,
+            rel=rel,
+            cost=cost,
+            support=support,
+            edit_id=edit_id,
+            prov=prov,
+            n_obs=n_obs,
+            n_seen_src=seen,
+            p=p,
+            source=source,
+        )
         self.edges[key] = edge
         self.sqlite.execute(
-            "INSERT OR REPLACE INTO edges (src, dst, rel, cost, support) VALUES (?, ?, ?, ?, ?)",
-            (src, dst, rel, cost, support),
+            "INSERT OR REPLACE INTO edges (src, dst, rel, cost, support, n_obs, n_seen_src, p) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (src, dst, rel, cost, support, n_obs, seen, p),
         )
         self.sqlite.commit()
         self.edge_version += 1
@@ -470,11 +594,16 @@ class GraphStore:
                 support=rec["prev_support"],
                 edit_id=rec["prev_edit_id"],
                 prov=rec["prev_prov"],
+                n_obs=int(rec.get("prev_n_obs") or 0),
+                n_seen_src=int(rec.get("prev_n_seen_src") or 0),
+                p=float(rec.get("prev_p") or 0.5),
+                source=str(rec.get("source") or "trace"),
             )
             self.edges[key] = edge
             self.sqlite.execute(
-                "UPDATE edges SET cost = ?, support = ? WHERE src = ? AND dst = ? AND rel = ?",
-                (edge.cost, edge.support, src, dst, rel),
+                "UPDATE edges SET cost = ?, support = ?, n_obs = ?, n_seen_src = ?, p = ? "
+                "WHERE src = ? AND dst = ? AND rel = ?",
+                (edge.cost, edge.support, edge.n_obs, edge.n_seen_src, edge.p, src, dst, rel),
             )
         else:
             self.edges.pop(key, None)
@@ -521,7 +650,9 @@ class GraphStore:
                 )
                 self.hydra.query(
                     f"UNWIND $rows AS row MATCH (a {{id: row.src}})-[r:{rel}]->(b {{id: row.dst}}) "
-                    "SET r.cost = row.cost, r.support = row.support, r.edit_id = row.edit_id, r.prov = row.prov",
+                    "SET r.cost = row.cost, r.support = row.support, r.edit_id = row.edit_id, "
+                    "r.prov = row.prov, r.n_obs = row.n_obs, r.n_seen_src = row.n_seen_src, "
+                    "r.p = row.p, r.source = row.source",
                     {
                         "rows": [
                             {
@@ -531,14 +662,22 @@ class GraphStore:
                                 "support": edge.support,
                                 "edit_id": edge.edit_id,
                                 "prov": edge.prov,
+                                "n_obs": edge.n_obs,
+                                "n_seen_src": edge.n_seen_src,
+                                "p": edge.p,
+                                "source": edge.source,
                             }
                             for edge in chunk
                         ]
                     },
                 )
         self.sqlite.executemany(
-            "INSERT OR REPLACE INTO edges (src, dst, rel, cost, support) VALUES (?, ?, ?, ?, ?)",
-            [(edge.src, edge.dst, edge.rel, edge.cost, edge.support) for edge in edges],
+            "INSERT OR REPLACE INTO edges (src, dst, rel, cost, support, n_obs, n_seen_src, p) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (edge.src, edge.dst, edge.rel, edge.cost, edge.support, edge.n_obs, edge.n_seen_src, edge.p)
+                for edge in edges
+            ],
         )
         self.sqlite.commit()
         for edge in edges:

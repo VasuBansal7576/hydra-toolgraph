@@ -7,7 +7,7 @@ __pycache__/
 data/embeddings.npz
 results/jev_cache.json
 results/smoke_edits.jsonl
+results/smoke2.jsonl
 results/runtime_edits.jsonl
 results/eval_run.log
 *.kuzu
-web/node_modules/
