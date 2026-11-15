@@ -2,8 +2,8 @@
 
 Catalog depends_on is never read as a learning signal. The I/O prior is
 deterministic: keep an edge iff schema overlap ≥ 0.6. Trace edges carry Beta
-confidence. Composition uses prior→learned reachability on sealed mains with
-no learned out-edges.
+confidence on live REQUIRES (source=trace). Composition uses prior→learned
+reachability on sealed mains with no learned out-edges.
 """
 
 from __future__ import annotations
@@ -24,17 +24,11 @@ TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 
 def ingest_trace_edges(store: GraphStore, query: Instance) -> int:
-    """Treat gold ∪ {main} as an observed agent trace. Returns edges touched."""
-    store.note_src_seen(query.main)
-    helpers = sorted(name for name in query.gold if name != query.main)
-    if not helpers:
-        return 0
-    prov = f"trace_idx={query.idx};main={query.main}"
-    touched = 0
-    for helper in helpers:
-        if store.learn_depends(query.main, helper, prov):
-            touched += 1
-    return touched
+    """Treat gold ∪ {main} as an observed agent trace (co-occurrence). Returns edges touched."""
+    tools_used = sorted(query.gold)
+    if query.main not in tools_used:
+        tools_used = [query.main, *tools_used]
+    return store.learn_from_tools(tools_used, prov=f"trace_idx={query.idx};main={query.main}")
 
 
 def _tokens(text: str) -> set[str]:
@@ -131,7 +125,7 @@ def calibrate_tau(
         for query in sample:
             costs = store.recursive_cte(
                 fusion[query.idx][:FUSION_POOL],
-                ["DEPENDS_ON", "SCHEMA_DEP"],
+                ["REQUIRES"],
                 tau=threshold,
             )
             ranked = rank_costs(costs)
@@ -150,22 +144,23 @@ def calibrate_tau(
 
 def composition_queries(sealed: list[Instance], store: GraphStore) -> list[Instance]:
     """Sealed queries whose main has no learned out-edges, but gold is reachable
-    via a SCHEMA_DEP first hop then DEPENDS_ON walks.
+    via an io_prior first hop then trace REQUIRES walks.
 
-    Example shape: main -SCHEMA_DEP→ bridge -DEPENDS_ON→ helper (OpenTable→Resy
-    prior, then Resy→weather/holiday learned).
+    Example shape: main -REQUIRES(io_prior)→ bridge -REQUIRES(trace)→ helper.
     """
     threshold = store.tau
     prior_out: dict[str, set[str]] = defaultdict(set)
     learned_out: dict[str, set[str]] = defaultdict(set)
     for (src, dst, rel), edge in store.edges.items():
+        if rel != "REQUIRES":
+            continue
         src_name = store.by_id.get(src)
         dst_name = store.by_id.get(dst)
         if src_name is None or dst_name is None:
             continue
-        if rel == "SCHEMA_DEP":
+        if edge.source == "io_prior":
             prior_out[src_name].add(dst_name)
-        elif rel == "DEPENDS_ON" and edge.p >= threshold:
+        elif edge.source == "trace" and edge.p >= threshold:
             learned_out[src_name].add(dst_name)
 
     out: list[Instance] = []

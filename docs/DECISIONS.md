@@ -47,3 +47,20 @@ One row per step. Hypotheses and gates are written **before** the sealed scores 
 | R12 | Grouped-main curve (`results/curve.json` v2.2-fix-first). Rise **passed**. Hydra **tied** CTE+prior within spread. Hydra **lost** to metadata-vector also-load (c16 0.532 vs 0.657 at full). Composition mean n≈2 queries / ≤1 main; when non-empty, graph arms score 1.0 @16. | measured | keep; confound identified: metadata fan-in=32 vs graph seeds=4 |
 | R13 | Matched fan-in: `ARM_KNOBS` forces metadata / one-hop / CTE / Hydra to share fused[:32]. k4 variants labelled ablations. `tests/test_arm_parity.py` guards knob parity. Product: MCP + demo + compose. | measured v2.3-matched-fanin: Hydra 0.656 ≈ metadata/CTE 0.649 (tie within spread); k4 ablation 0.532 confirms confound; rise passed | keep; blunt: Hydra does not beat matched metadata |
 | R14 | Ship MCP (stdio+HTTP), demo UI, docker compose, Loom/GTM drafts. | process | keep |
+
+## HydraDB constraints (re-checked)
+
+Measured against `ghcr.io/hydra-db/hydradb:latest` **v0.4.0** (labelled).
+
+| Constraint | Status |
+| --- | --- |
+| Writes require `UNWIND $rows` batch form | **measured**: plain `MERGE…SET` / `MATCH…CREATE` rejected |
+| Vertex upsert | `UNWIND $rows AS row MERGE (a {id: row.id}) SET a:Label, …` |
+| Rel create then SET | two statements: `UNWIND…CREATE` then `UNWIND…MATCH…SET` |
+| One relationship type per `MATCH`; one statement per request | **measured** |
+| `min` / `max` aggregates | still **rejected** |
+| `CONTAINS` | still **rejected** |
+| `IN` and `IS NULL` | appear **accepted** in v0.4.0 (unlike older `cypher-compat.md` claim); still prefer open-hist sentinel `valid_to = 9e15` over `IS NULL` |
+| `algo.MSpaths` | inlined `sourceValues` string lists; `costProp` / `maxLen` in edges; pairs with no path silently absent |
+| Native time travel | **none** — `REQUIRES_HIST` + client `as_of` |
+| `MERGE` without `UNWIND` | **rejected** |

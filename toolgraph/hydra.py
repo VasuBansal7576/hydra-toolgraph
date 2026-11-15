@@ -64,7 +64,30 @@ def unwrap(cell: object) -> object:
         return cell["Float"]
     if isinstance(cell, dict) and set(cell.keys()) == {"Integer"}:
         return cell["Integer"]
+    if isinstance(cell, dict) and set(cell.keys()) == {"Bool"}:
+        return cell["Bool"]
+    if isinstance(cell, dict) and set(cell.keys()) == {"Boolean"}:
+        return cell["Boolean"]
     return cell
+
+
+class RecordingHydraClient:
+    """Wraps HydraClient and counts real store requests (for the two-request test)."""
+
+    def __init__(self, inner: HydraClient) -> None:
+        self.inner = inner
+        self.calls: list[str] = []
+
+    @property
+    def call_count(self) -> int:
+        return len(self.calls)
+
+    def reset(self) -> None:
+        self.calls.clear()
+
+    def query(self, statement: str, parameters: dict | None = None) -> dict:
+        self.calls.append(statement)
+        return self.inner.query(statement, parameters)
 
 
 def as_float(cell: object) -> float:

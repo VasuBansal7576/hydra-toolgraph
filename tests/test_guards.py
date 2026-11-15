@@ -76,13 +76,13 @@ class HiddenEdgeGuardTest(unittest.TestCase):
             hydra = FakeHydra()
             store = GraphStore(hydra, Path(tmp) / "edits.jsonl")  # type: ignore[arg-type]
             store.load_catalog(tools, include_oracle=True)
-            learned = [edge for key, edge in store.edges.items() if key[2] == "DEPENDS_ON"]
+            learned = [edge for key, edge in store.edges.items() if key[2] == "REQUIRES"]
             oracle = [edge for key, edge in store.edges.items() if key[2] == "ORACLE_DEP"]
             self.assertEqual(learned, [])
             self.assertEqual(len(oracle), 2)
             creates = [s for s in hydra.statements if "CREATE" in s and "]->(" in s]
-            dep_creates = [s for s in creates if "DEPENDS_ON" in s and "ORACLE" not in s]
-            self.assertEqual(dep_creates, [])
+            req_creates = [s for s in creates if "[:REQUIRES]" in s]
+            self.assertEqual(req_creates, [])
 
     def test_trace_learning_does_not_read_catalog_depends_on(self) -> None:
         tools = [
@@ -96,10 +96,11 @@ class HiddenEdgeGuardTest(unittest.TestCase):
             store.load_catalog(tools, include_oracle=False)
             query = Instance(idx=0, text="do alpha", main="alpha", gold=frozenset({"alpha", "beta"}))
             ingest_trace_edges(store, query)
-            learned = {(store.by_id[s], store.by_id[d]) for (s, d, rel) in store.edges if rel == "DEPENDS_ON"}
-            self.assertEqual(learned, {("alpha", "beta")})
+            learned = {(store.by_id[s], store.by_id[d]) for (s, d, rel) in store.edges if rel == "REQUIRES"}
+            # Co-occurrence: ordered pairs over gold ∪ {main}, not star main→helper.
+            self.assertEqual(learned, {("alpha", "beta"), ("beta", "alpha")})
             self.assertNotIn(("alpha", "secret_helper"), learned)
-            edge = next(e for e in store.edges.values() if e.rel == "DEPENDS_ON")
+            edge = next(e for e in store.edges.values() if e.rel == "REQUIRES" and e.source == "trace")
             self.assertGreater(edge.p, 0.0)
             self.assertEqual(edge.n_obs, 1)
 
@@ -127,7 +128,8 @@ class HiddenEdgeGuardTest(unittest.TestCase):
             stats = apply_io_prior(store, candidates)
             self.assertEqual(stats["border_judged"], 0)
             self.assertEqual(stats["overlap_keep"], IO_OVERLAP_KEEP)
-            schema = [e for e in store.edges.values() if e.rel == "SCHEMA_DEP"]
+            schema = [e for e in store.edges.values() if e.rel == "REQUIRES" and e.source == "io_prior"]
+            self.assertGreater(len(schema), 0)
             for edge in schema:
                 self.assertGreaterEqual(edge.p, 1.0 - 1e-9)
 
@@ -167,16 +169,16 @@ class EqualDepthGuardTest(unittest.TestCase):
             store.tools = {name: _tool(name) for name in names}
             for i in range(4):
                 src, dst = store.names[names[i]], store.names[names[i + 1]]
-                edge = Edge(src, dst, "DEPENDS_ON", 1.0, 1, "test", "test", n_obs=1, n_seen_src=1, p=1.0)
-                store.edges[(src, dst, "DEPENDS_ON")] = edge
+                edge = Edge(src, dst, "REQUIRES", 1.0, 1, "test", "test", n_obs=1, n_seen_src=1, p=1.0)
+                store.edges[(src, dst, "REQUIRES")] = edge
                 store.sqlite.execute(
                     "INSERT INTO edges (src, dst, rel, cost, support, n_obs, n_seen_src, p) "
-                    "VALUES (?, ?, 'DEPENDS_ON', 1.0, 1, 1, 1, 1.0)",
+                    "VALUES (?, ?, 'REQUIRES', 1.0, 1, 1, 1, 1.0)",
                     (src, dst),
                 )
             store.sqlite.commit()
-            deep = store.recursive_cte(["t0"], ["DEPENDS_ON"], max_len=MAX_LEN)
-            shallow = store.recursive_cte(["t0"], ["DEPENDS_ON"], max_len=1)
+            deep = store.recursive_cte(["t0"], ["REQUIRES"], max_len=MAX_LEN)
+            shallow = store.recursive_cte(["t0"], ["REQUIRES"], max_len=1)
             self.assertIn("t4", deep)
             self.assertNotIn("t4", shallow)
             self.assertIn("t1", shallow)
@@ -220,7 +222,7 @@ class MSpathsPrefixCostTest(unittest.TestCase):
             tools = [_tool("s"), _tool("a"), _tool("b")]
             store.load_catalog(tools, include_oracle=False)
             store.tau = 0.0
-            costs = store.closure(["s"], ["DEPENDS_ON"])
+            costs = store.closure(["s"], ["REQUIRES"])
             self.assertAlmostEqual(costs["s"], 0.0)
             self.assertAlmostEqual(costs["a"], 1.0)
             self.assertAlmostEqual(costs["b"], 2.0)
@@ -274,7 +276,7 @@ class GroupedSplitAndCompositionTest(unittest.TestCase):
             store.learn_depends("resy_bridge", "get_current_weather", "trace")
             store.learn_depends("resy_bridge", "get_us_national_holiday", "trace")
             for edge in store.edges.values():
-                if edge.rel == "DEPENDS_ON":
+                if edge.rel == "REQUIRES" and edge.source == "trace":
                     edge.p = 1.0
             store.tau = 0.15
             sealed = [
@@ -298,7 +300,7 @@ class GroupedSplitAndCompositionTest(unittest.TestCase):
             store.note_src_seen("opentable_search")
             store.learn_depends("opentable_search", "get_current_weather", "trace")
             for edge in store.edges.values():
-                if edge.rel == "DEPENDS_ON":
+                if edge.rel == "REQUIRES" and edge.source == "trace":
                     edge.p = 1.0
             self.assertEqual(composition_queries(sealed, store), [])
 
