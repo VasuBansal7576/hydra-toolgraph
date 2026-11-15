@@ -1,7 +1,9 @@
 """Demo UI + JSON API. HTTP binds immediately; heavy init runs in a background thread.
 
 /api/health always answers (reports phase). /api/load_tools waits until ready or
-returns 503 while seeding. Constrained hosts fall back to BM25-only readonly.
+returns 503 while seeding. Default path is live + BM25 (graph seeded from
+precomputed edges). Readonly only when explicitly requested, Hydra is down, or
+seeding exceeds DEMO_SEED_TIMEOUT_SEC.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 PORT = int(os.environ.get("PORT") or os.environ.get("DEMO_PORT") or "5000")
-SEED_TIMEOUT_SEC = float(os.environ.get("DEMO_SEED_TIMEOUT_SEC", "45"))
+SEED_TIMEOUT_SEC = float(os.environ.get("DEMO_SEED_TIMEOUT_SEC", "180"))
 
 _boot: dict = {
     "phase": "starting",  # starting | seeding | ready | readonly_fallback | error
@@ -69,25 +71,33 @@ def _env_ro() -> bool:
     return os.environ.get("DEMO_READ_ONLY", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _prefer_lightweight() -> bool:
+def _explicit_readonly() -> bool:
+    """Readonly only when the operator asked for it — not when RAM is tight."""
     if os.environ.get("TOOLGRAPH_MODE", "").strip().lower() == "readonly":
         return True
-    if _env_ro():
-        return True
-    # Explicit fusion override still uses readonly-safe path on free tiers when mem is low.
+    return _env_ro()
+
+
+def _force_bm25_on_small_box() -> None:
+    """≤768 MiB hosts skip MiniLM; live graph + BM25 still runs."""
     mem = _mem_available_mb()
     if mem is not None and mem < 700:
-        return True
-    return False
+        os.environ["DEMO_FUSION"] = "bm25"
+        _log(f"small box MemAvailable={mem:.0f}MiB → DEMO_FUSION=bm25")
 
 
 def _build_service(*, read_only: bool, fusion: str) -> object:
     os.environ["DEMO_FUSION"] = fusion
-    os.environ["DEMO_SEED_LEARN"] = os.environ.get("DEMO_SEED_LEARN", "0")
     if read_only:
         os.environ["DEMO_READ_ONLY"] = "1"
         os.environ["DEMO_ALLOW_WRITES"] = "0"
-    # Late import so the HTTP server can bind before loading numpy/fastembed/hydra.
+        os.environ["DEMO_SEED_LEARN"] = "0"
+        os.environ["DEMO_LOAD_PRECOMPUTED_EDGES"] = "0"
+    else:
+        os.environ.setdefault("DEMO_LOAD_PRECOMPUTED_EDGES", "1")
+        os.environ.setdefault("DEMO_SEED_LEARN", "1")
+        os.environ.setdefault("DEMO_ALLOW_WRITES", "0")
+    # Late import so the HTTP server can bind before loading numpy/hydra.
     from toolgraph.service import default_service
 
     return default_service()
@@ -97,48 +107,45 @@ def _bootstrap() -> None:
     global _service, _committed
     deadline = time.time() + SEED_TIMEOUT_SEC
     _committed = _load_committed()
-    lightweight = _prefer_lightweight()
+    _force_bm25_on_small_box()
     _set_phase(
         "seeding",
-        f"bootstrap start lightweight={lightweight} mem_avail_mb={_mem_available_mb()}",
+        f"bootstrap start explicit_ro={_explicit_readonly()} "
+        f"mem_avail_mb={_mem_available_mb()} timeout={SEED_TIMEOUT_SEC}",
     )
 
     def timed_out() -> bool:
         return time.time() > deadline
 
     try:
-        if lightweight:
-            explicit_ro = os.environ.get("TOOLGRAPH_MODE", "").strip().lower() == "readonly" or _env_ro()
-            _set_phase("seeding", "building BM25-only readonly service (512MB-safe path)")
+        if _explicit_readonly():
+            _set_phase("seeding", "building BM25-only readonly service (explicit)")
             svc = _build_service(read_only=True, fusion="bm25")
             with _boot_lock:
                 _service = svc
-            if explicit_ro:
-                _set_phase("ready", "readonly BM25 ready", fusion="bm25", ready_at=time.time())
-            else:
-                _set_phase(
-                    "readonly_fallback",
-                    "BM25-only readonly ready (auto fallback)",
-                    fusion="bm25",
-                    fallback_reason="constrained_memory_or_flag",
-                    ready_at=time.time(),
-                )
+            _set_phase("ready", "readonly BM25 ready", fusion="bm25", ready_at=time.time())
             return
 
-        # Live attempt with timeout watchdog via cooperative checks.
-        _set_phase("seeding", "attempting live service (seed_learn off by default)")
         if timed_out():
             raise TimeoutError("seed timeout before live build")
-        os.environ.setdefault("DEMO_SEED_LEARN", "0")
-        # Prefer BM25 even in live to avoid loading MiniLM on tiny instances.
         fusion = os.environ.get("DEMO_FUSION", "bm25").strip().lower() or "bm25"
-        _set_phase("seeding", f"building live service fusion={fusion}")
+        _set_phase(
+            "seeding",
+            f"building live service fusion={fusion} "
+            f"(precomputed={os.environ.get('DEMO_LOAD_PRECOMPUTED_EDGES', '1')})",
+        )
         svc = _build_service(read_only=False, fusion=fusion)
         if timed_out():
             raise TimeoutError("seed timeout after live build")
         with _boot_lock:
             _service = svc
-        _set_phase("ready", f"live ready fusion={fusion}", fusion=fusion, ready_at=time.time())
+        edges = getattr(svc, "status", lambda: {})().get("edges")
+        _set_phase(
+            "ready",
+            f"live ready fusion={fusion} edges={edges}",
+            fusion=fusion,
+            ready_at=time.time(),
+        )
     except Exception as exc:  # noqa: BLE001 — must never kill the server
         _log(f"bootstrap error: {exc}")
         traceback.print_exc()
@@ -151,6 +158,7 @@ def _bootstrap() -> None:
             os.environ["DEMO_READ_ONLY"] = "1"
             os.environ["DEMO_ALLOW_WRITES"] = "0"
             os.environ["DEMO_SEED_LEARN"] = "0"
+            os.environ["DEMO_LOAD_PRECOMPUTED_EDGES"] = "0"
             os.environ["DEMO_FUSION"] = "bm25"
             svc = _build_service(read_only=True, fusion="bm25")
             with _boot_lock:

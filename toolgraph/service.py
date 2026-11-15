@@ -107,21 +107,35 @@ class ToolgraphService:
         else:
             print("[service] load_catalog…", flush=True)
             self.store.load_catalog(tools, include_oracle=False)
-            if apply_prior:
-                print("[service] apply_io_prior…", flush=True)
-                self._prior_stats = apply_io_prior(self.store, propose_schema_candidates(tools))
+            # Prefer cheap precomputed edges on free tiers; optional full learn.
+            precomputed = self._load_precomputed_requires()
+            if precomputed:
+                self._seed_stats = precomputed
+                # Skip io_prior when the dump already carries the demo graph —
+                # prior scan is expensive on 0.1 CPU free hosts.
+                self._prior_stats = {"skipped": "precomputed_seed"}
             else:
-                self._prior_stats = {}
-            # Default OFF — full learn split OOMs / hangs on 512 MB / 0.1 CPU.
-            if _env_truthy("DEMO_SEED_LEARN", default=False):
-                print("[service] seed learn split…", flush=True)
-                self._seed_stats = self._seed_learn_split()
-                print(f"[service] seed done: {self._seed_stats}", flush=True)
+                if apply_prior:
+                    print("[service] apply_io_prior…", flush=True)
+                    self._prior_stats = apply_io_prior(
+                        self.store, propose_schema_candidates(tools)
+                    )
+                else:
+                    self._prior_stats = {}
+                if _env_truthy("DEMO_SEED_LEARN", default=True):
+                    print("[service] seed learn split…", flush=True)
+                    self._seed_stats = self._seed_learn_split()
+                    print(f"[service] seed done: {self._seed_stats}", flush=True)
             try:
                 print("[service] ensure_hydra_synced…", flush=True)
                 self.store.ensure_hydra_synced()
+                print(
+                    f"[service] hydra sync done edges={len(self.store.active_edges(['REQUIRES']))}",
+                    flush=True,
+                )
             except HydraError as exc:
-                print(f"[service] hydra sync skipped: {exc}", flush=True)
+                print(f"[service] hydra sync failed: {exc}", flush=True)
+                raise
         self.fusion = FusionIndex(tools)
         self._last_loaded: dict[str, list[str]] = {}
         self._edit_timeline: list[dict] = []
@@ -134,6 +148,30 @@ class ToolgraphService:
         else:
             self._committed_results = {"label": "missing", "note": "no committed results"}
 
+    def _load_precomputed_requires(self) -> dict | None:
+        """Load results/demo_requires_edges.json when present (cheap hosted-demo seed)."""
+        if not _env_truthy("DEMO_LOAD_PRECOMPUTED_EDGES", default=True):
+            return None
+        path = ROOT / "results" / "demo_requires_edges.json"
+        if not path.exists():
+            return None
+        print(f"[service] loading precomputed edges from {path}…", flush=True)
+        payload = json.loads(path.read_text())
+        tau = float(payload.get("tau") or os.environ.get("DEMO_TAU", "0.15"))
+        rows = list(payload.get("edges") or [])
+        loaded = self.store.import_requires_rows(rows, tau=tau)
+        stats = {
+            "mode": "precomputed",
+            "path": str(path.name),
+            "seed": payload.get("seed"),
+            "tau": tau,
+            "rows_in_file": len(rows),
+            "edges_loaded": loaded,
+            "total_edges": len(self.store.edges),
+        }
+        print(f"[service] precomputed edges loaded: {stats}", flush=True)
+        return stats
+
     def _seed_learn_split(self) -> dict:
         """Ingest grouped-main learn-split traces so cold demo shows learned edges."""
         seed = int(os.environ.get("DEMO_SEED", str(SEEDS[0])))
@@ -143,6 +181,7 @@ class ToolgraphService:
             touched += ingest_trace_edges(self.store, query)
         self.store.tau = float(os.environ.get("DEMO_TAU", "0.15"))
         return {
+            "mode": "learn_split",
             "seed": seed,
             "learn_queries": len(learn),
             "edges_touched": touched,

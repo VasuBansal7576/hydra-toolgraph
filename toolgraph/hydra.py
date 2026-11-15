@@ -53,6 +53,8 @@ class HydraClient:
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode(errors="replace")[:600]
             raise HydraError(f"HTTP {exc.code}: {detail}") from exc
+        except urllib.error.URLError as exc:
+            raise HydraError(f"unreachable: {exc.reason}") from exc
 
 
 def unwrap(cell: object) -> object:

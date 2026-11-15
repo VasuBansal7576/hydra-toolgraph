@@ -320,5 +320,30 @@ class MatplotlibOptionalTest(unittest.TestCase):
         self.assertNotIn("import matplotlib\n", source.split("def plot")[0])
 
 
+class PrecomputedDemoSeedTest(unittest.TestCase):
+    def test_import_requires_rows_loads_committed_dump(self) -> None:
+        import json
+
+        root = Path(__file__).resolve().parents[1]
+        dump = root / "results" / "demo_requires_edges.json"
+        self.assertTrue(dump.exists(), "results/demo_requires_edges.json must be committed")
+        payload = json.loads(dump.read_text())
+        tools, _instances = load_dataset(root / "data")
+        with tempfile.TemporaryDirectory() as tmp:
+            store = GraphStore(FakeHydra(), Path(tmp) / "edits.jsonl")  # type: ignore[arg-type]
+            store.load_catalog(tools, include_oracle=False)
+            loaded = store.import_requires_rows(payload["edges"], tau=float(payload["tau"]))
+            self.assertGreater(loaded, 1000)
+            self.assertEqual(loaded, len(store.active_edges(["REQUIRES"])))
+            # OpenTable reserve should have at least one helper dependency in the dump.
+            src = store.names["opentable_reserve_restaurant_table"]
+            outs = [
+                store.by_id[edge.dst]
+                for edge in store.active_edges(["REQUIRES"])
+                if edge.src == src
+            ]
+            self.assertTrue(outs, "opentable_reserve must have outbound REQUIRES in demo dump")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -75,7 +75,7 @@ Every ToolLinkOS main has exactly 3 queries with an identical gold set (`1569/15
 - `as_of` uses `REQUIRES_HIST` (+ local hist); no native HydraDB time-travel.
 - Public demo writes (`record_trace` / `undo_edit` / `record_result`) require `DEMO_ALLOW_WRITES=1`.
 - No Jev / no paid LLM judge.
-- HF free 512 MB: use `TOOLGRAPH_MODE=readonly` (live HydraDB+embed exceeds typical free RAM — see `deploy/hf-space/README.md`).
+- Hosted demo default is **live + BM25** (no MiniLM) with precomputed edges; dense MiniLM needs ≥1–2 GB. Readonly is fallback when Hydra is down or seeding times out — see `deploy/hf-space/README.md`.
 
 ## Quickstart
 

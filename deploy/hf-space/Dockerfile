@@ -5,7 +5,7 @@
 #   docker build -f deploy/hf-space/Dockerfile -t toolgraph-hf .
 #
 # Runtime is non-root friendly: writable state under /tmp/toolgraph (1777).
-# For ≤512 MB free instances prefer TOOLGRAPH_MODE=readonly (no graph-node).
+# Default: live + BM25 + precomputed edges (fits 512 MB / 0.1 CPU).
 
 FROM ghcr.io/hydra-db/hydradb:latest
 
@@ -43,7 +43,8 @@ RUN chmod +x /app/entrypoint.sh \
     && chmod -R 1777 /tmp/toolgraph /var/cache/slatedb \
     && chmod -R a+rX /app
 
-# Defaults tuned for Render/HF free tiers (512 MB). Override TOOLGRAPH_MODE=live for full Hydra.
+# Defaults: live HydraDB + BM25 (no MiniLM) + precomputed REQUIRES dump.
+# Set TOOLGRAPH_MODE=readonly only when Hydra must stay off.
 ENV CLOUD_PROVIDER=local \
     TOOLGRAPH_RUNTIME=/tmp/toolgraph \
     LOCAL_PATH=/tmp/toolgraph/store \
@@ -54,15 +55,16 @@ ENV CLOUD_PROVIDER=local \
     GRAPH_AUTH_TOKEN_FILE=/tmp/toolgraph/secrets/auth-token \
     HYDRA_URL=http://127.0.0.1:8443 \
     DEMO_PORT=7860 \
-    DEMO_SEED_LEARN=0 \
+    DEMO_SEED_LEARN=1 \
+    DEMO_LOAD_PRECOMPUTED_EDGES=1 \
     DEMO_SEED=7 \
     DEMO_TAU=0.15 \
     DEMO_ALLOW_WRITES=0 \
     DEMO_FUSION=bm25 \
-    DEMO_SEED_TIMEOUT_SEC=45 \
+    DEMO_SEED_TIMEOUT_SEC=180 \
     PYTHONPATH=/app \
     FASTEMBED_CACHE_PATH=/tmp/toolgraph/fastembed_cache \
-    TOOLGRAPH_MODE=readonly
+    TOOLGRAPH_MODE=live
 
 # Do not force USER root at runtime — hosts often remount as uid 1000.
 EXPOSE 7860

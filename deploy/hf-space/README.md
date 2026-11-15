@@ -6,7 +6,7 @@ app_port: 7860
 
 # Hugging Face Space — single-container Toolgraph
 
-One Docker image can run **HydraDB (`graph-node`)** and the **demo UI** together.
+One Docker image runs **HydraDB (`graph-node`)** and the **demo UI** together.
 Listens on **`$PORT` if set (Render), else 7860** (HF Spaces). Auth token from an env secret — never commit a real token.
 
 ## Non-root / free-tier hosts
@@ -14,35 +14,37 @@ Listens on **`$PORT` if set (Render), else 7860** (HF Spaces). Auth token from a
 HF Spaces and Render-style hosts often run the container as **uid 1000**. This image:
 
 - Keeps all writable state under **`/tmp/toolgraph`** (token, store, caches) with mode **1777**
-- Writes the auth token **only in live mode**, after the readonly short-circuit
 - Honours **`$PORT`** then `DEMO_PORT` then `7860`
-- Defaults **`TOOLGRAPH_MODE=readonly`**, **`DEMO_FUSION=bm25`**, **`DEMO_SEED_LEARN=0`**, **`DEMO_ALLOW_WRITES=0`**
-- **HTTP binds immediately**; `/api/health` reports `phase` (`starting` → `seeding` → `ready` / `readonly_fallback`) without blocking on MiniLM/Hydra
-- If cgroup memory ≤768 MiB, entrypoint forces readonly + BM25
+- Defaults **`TOOLGRAPH_MODE=live`**, **`DEMO_FUSION=bm25`**, **`DEMO_LOAD_PRECOMPUTED_EDGES=1`**, **`DEMO_ALLOW_WRITES=0`**
+- Seeds the graph from `results/demo_requires_edges.json` (~2.7k REQUIRES); falls back to learn-split ingest if that file is missing
+- **HTTP binds immediately**; `/api/health` reports `phase` (`starting` → `seeding` → `ready` / `readonly_fallback`)
+- If cgroup memory ≤768 MiB, entrypoint forces **BM25** (not readonly) — skips MiniLM
+- Readonly only when HydraDB is unreachable, seeding exceeds `DEMO_SEED_TIMEOUT_SEC` (default 180s), or `TOOLGRAPH_MODE=readonly`
 
 ### Memory (512 MB free / 0.1 CPU)
 
 | Mode | Expected | Notes |
 | --- | --- | --- |
-| `readonly` + `DEMO_FUSION=bm25` (default) | fits ~512 MB | no MiniLM load; committed RESULTS + fusion ranking |
-| `live` + dense MiniLM | often OOM / hang on free tier | set only on ≥1–2 GB instances |
+| `live` + `DEMO_FUSION=bm25` (default) | fits ~512 MB | graph-node + precomputed edges; no MiniLM |
+| `live` + dense MiniLM | often OOM / restart on free tier | set only on ≥1–2 GB instances |
+| `readonly` + BM25 | emergency fallback | no graph-node; committed RESULTS only |
 
 Verify locally:
 
 ```bash
-docker run --rm --user 1000 --memory 512m --cpus 0.1 -p 7860:7860 toolgraph-hf
-# within ~5s of port open:
+docker run --rm --user 1000:1000 --memory 512m --cpus 0.1 -p 7860:7860 toolgraph-hf
+# within a few seconds of port open:
 curl -s http://127.0.0.1:7860/api/health   # phase seeding|ready|readonly_fallback
-# after ready:
+# after phase=ready, edges > 0:
 curl -s -X POST http://127.0.0.1:7860/api/load_tools -H 'content-type: application/json' \
-  -d '{"query":"book a table","k":4}'
+  -d '{"query":"book a table on OpenTable","k":8}'
 ```
 
 ## Why HydraDB can be embedded
 
 `ghcr.io/hydra-db/hydradb:latest` (v0.4.0) ships `graph-node` on Ubuntu 24.04. This Dockerfile uses that image as the base, installs Python + app deps, and starts both from `entrypoint.sh`. No DinD.
 
-If the base image cannot be pulled, or RAM is tight, set `TOOLGRAPH_MODE=readonly`.
+If the base image cannot be pulled, set `TOOLGRAPH_MODE=readonly`.
 
 ## Exact deploy steps (do this yourself — agents must not deploy)
 
@@ -57,13 +59,13 @@ If the base image cannot be pulled, or RAM is tight, set `TOOLGRAPH_MODE=readonl
 ```bash
 docker build -f deploy/hf-space/Dockerfile -t toolgraph-hf .
 
-# live as uid 1000
-docker run --rm --user 1000 -p 7860:7860 \
+# live as uid 1000 on a free-tier shaped box
+docker run --rm --user 1000:1000 --memory 512m --cpus 0.1 -p 7860:7860 \
   -e HYDRA_TOKEN=local-development-token-32-bytes \
-  -e DEMO_SEED_LEARN=0 toolgraph-hf
-curl -s http://127.0.0.1:7860/api/health
+  toolgraph-hf
+curl -s http://127.0.0.1:7860/api/health   # edges > 0 when ready
 
-# readonly as uid 1000 (512 MB–friendly)
+# explicit readonly
 docker run --rm --user 1000 -p 7860:7860 -e TOOLGRAPH_MODE=readonly toolgraph-hf
 curl -s http://127.0.0.1:7860/api/health   # read_only: true
 ```

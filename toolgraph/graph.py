@@ -1138,6 +1138,63 @@ class GraphStore:
         if getattr(self, "_hydra_synced_version", None) != self.edge_version:
             self.sync_learned_to_hydra()
 
+    def import_requires_rows(self, rows: list[dict], *, tau: float | None = None) -> int:
+        """Bulk-load precomputed REQUIRES edges into memory/SQLite (Hydra sync separate).
+
+        Used by the hosted demo to avoid replaying the full learn split on tiny CPUs.
+        """
+        if tau is not None:
+            self.tau = float(tau)
+        now = float(self._now())
+        loaded = 0
+        sqlite_rows: list[tuple] = []
+        for row in rows:
+            src_name = str(row.get("src") or "")
+            dst_name = str(row.get("dst") or "")
+            if src_name not in self.names or dst_name not in self.names or src_name == dst_name:
+                continue
+            src = self.names[src_name]
+            dst = self.names[dst_name]
+            p = float(row.get("p") or 0.0)
+            if p < self.tau:
+                continue
+            n_obs = int(row.get("n_obs") or 0)
+            n_seen = int(row.get("n_seen_src") or 0)
+            self.n_seen_src[src_name] = max(self.n_seen_src.get(src_name, 0), n_seen)
+            self.n_ab[(src_name, dst_name)] = max(self.n_ab.get((src_name, dst_name), 0), n_obs)
+            edge = Edge(
+                src=src,
+                dst=dst,
+                rel="REQUIRES",
+                cost=float(row.get("cost") or 1.0),
+                support=int(row.get("support") or 1),
+                edit_id=str(row.get("edit_id") or self._next_edit()),
+                prov=str(row.get("prov") or "demo_seed"),
+                n_obs=n_obs,
+                n_seen_src=n_seen,
+                p=p,
+                source=str(row.get("source") or "trace"),
+                alpha=float(row.get("alpha") or 1.0),
+                beta=float(row.get("beta") or 1.0),
+                beta_penalty=float(row.get("beta_penalty") or 0.0),
+                valid_from=now,
+                edge_id=_logical_edge_id(src, dst),
+            )
+            self.edges[(src, dst, "REQUIRES")] = edge
+            sqlite_rows.append(
+                (src, dst, "REQUIRES", edge.cost, edge.support, edge.n_obs, edge.n_seen_src, edge.p)
+            )
+            loaded += 1
+        if sqlite_rows:
+            self.sqlite.executemany(
+                "INSERT OR REPLACE INTO edges (src, dst, rel, cost, support, n_obs, n_seen_src, p) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                sqlite_rows,
+            )
+            self.sqlite.commit()
+        self.edge_version += 1
+        return loaded
+
     def note(self, tool: str, text: str, prov: str) -> None:
         self._lesson(tool, text, prov)
 
