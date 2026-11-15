@@ -269,6 +269,8 @@ class V3StoreHydraIntegrationTest(unittest.TestCase):
         hydra = RecordingHydraClient(HydraClient(base, token))
         with tempfile.TemporaryDirectory() as tmp:
             store = GraphStore(hydra, Path(tmp) / "edits.jsonl")
+            store.hydra_hist_eager = True
+            store.hydra_session_eager = True
             store.load_catalog(tools, include_oracle=False)
             store.tau = 0.0
             store.record_trace(None, "q", ["get_alpha", "helper_beta"], ["get_alpha", "helper_beta"])

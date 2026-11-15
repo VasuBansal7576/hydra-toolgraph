@@ -181,6 +181,10 @@ class GraphStore:
         self._synced_requires: set[tuple[int, int]] = set()
         self._node_ids: list[int] = []
         self._now = time.time  # wall-clock float for valid_from/resolved_at
+        # Eager Hydra hist/session writes are for the product path. Sealed eval
+        # keeps local hist + resolved shadow and bulk-syncs live REQUIRES only.
+        self.hydra_hist_eager = False
+        self.hydra_session_eager = False
 
     def wipe(self, *, tool_count: int = 0) -> None:
         # Label-wide DETACH DELETE can stack-overflow the local graph-node.
@@ -1028,8 +1032,18 @@ class GraphStore:
                 row.valid_to = now
                 break
 
-    def _append_hist(self, row: HistRow) -> None:
+    def _append_hist(self, row: HistRow, *, write_hydra: bool | None = None) -> None:
+        """Append REQUIRES_HIST locally; Hydra write is deferred unless asked.
+
+        Sealed learning issues thousands of hist rows; writing each to Hydra
+        inline is too slow. Local hist is source of truth for as_of/undo in
+        eval; call ``flush_hist_to_hydra`` when the product needs Hydra hist.
+        """
         self.hist.append(row)
+        if write_hydra is None:
+            write_hydra = bool(getattr(self, "hydra_hist_eager", False))
+        if not write_hydra:
+            return
         # Unique relationship id so multiple HIST versions can coexist between
         # the same Tool pair (UNWIND CREATE without id collapses to one edge).
         # Endpoints need exactly one label (HydraDB v0.4.0 measured).
@@ -1142,6 +1156,7 @@ class GraphStore:
                 entity_id = self._entity_seq
                 self.entities[key] = entity_id
                 self._node_ids.append(entity_id)
+            if self.hydra_session_eager:
                 self.hydra.query(
                     "UNWIND $rows AS row MERGE (a {id: row.id}) "
                     "SET a:Entity, a.key = row.key, a.producer = row.producer, a.resolved_at = row.resolved_at",
@@ -1156,33 +1171,18 @@ class GraphStore:
                         ]
                     },
                 )
-            else:
+                sid = self.sessions[session_id]
                 self.hydra.query(
-                    "UNWIND $rows AS row MERGE (a {id: row.id}) "
-                    "SET a:Entity, a.key = row.key, a.producer = row.producer, a.resolved_at = row.resolved_at",
-                    {
-                        "rows": [
-                            {
-                                "id": entity_id,
-                                "key": key,
-                                "producer": tool,
-                                "resolved_at": now,
-                            }
-                        ]
-                    },
+                    "UNWIND $rows AS row "
+                    "MATCH (s:Session {id: row.sid}), (e:Entity {id: row.eid}) "
+                    "CREATE (s)-[:RESOLVED]->(e)",
+                    {"rows": [{"sid": sid, "eid": entity_id}]},
                 )
-            sid = self.sessions[session_id]
-            self.hydra.query(
-                "UNWIND $rows AS row "
-                "MATCH (s:Session {id: row.sid}), (e:Entity {id: row.eid}) "
-                "CREATE (s)-[:RESOLVED]->(e)",
-                {"rows": [{"sid": sid, "eid": entity_id}]},
-            )
-            self.hydra.query(
-                "UNWIND $rows AS row MATCH (s:Session {id: row.sid})-[r:RESOLVED]->(e:Entity {id: row.eid}) "
-                "SET r.resolved_at = row.resolved_at",
-                {"rows": [{"sid": sid, "eid": entity_id, "resolved_at": now}]},
-            )
+                self.hydra.query(
+                    "UNWIND $rows AS row MATCH (s:Session {id: row.sid})-[r:RESOLVED]->(e:Entity {id: row.eid}) "
+                    "SET r.resolved_at = row.resolved_at",
+                    {"rows": [{"sid": sid, "eid": entity_id, "resolved_at": now}]},
+                )
             self.resolved.setdefault(session_id, {})[tool] = now
 
         # INVALIDATES: set_X clears RESOLVED entities produced by get_X for this session.
@@ -1191,7 +1191,7 @@ class GraphStore:
 
     def _clear_resolved_producer(self, session_id: str, producer: str) -> None:
         self.resolved.get(session_id, {}).pop(producer, None)
-        if session_id not in self.sessions:
+        if not self.hydra_session_eager or session_id not in self.sessions:
             return
         sid = self.sessions[session_id]
         # Delete RESOLVED edges to entities with this producer (local entity map).
@@ -1215,10 +1215,11 @@ class GraphStore:
         sid = self._session_seq
         self.sessions[session_id] = sid
         self._node_ids.append(sid)
-        self.hydra.query(
-            "UNWIND $rows AS row MERGE (a {id: row.id}) SET a:Session, a.sid = row.sid",
-            {"rows": [{"id": sid, "sid": session_id}]},
-        )
+        if self.hydra_session_eager:
+            self.hydra.query(
+                "UNWIND $rows AS row MERGE (a {id: row.id}) SET a:Session, a.sid = row.sid",
+                {"rows": [{"id": sid, "sid": session_id}]},
+            )
         self.resolved.setdefault(session_id, {})
         return sid
 
