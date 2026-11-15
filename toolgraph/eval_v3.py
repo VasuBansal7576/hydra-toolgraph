@@ -123,29 +123,37 @@ def oracle_adjacency(store: GraphStore) -> dict[str, list[str]]:
 def expand_kv_hop(seeds: list[str], adj: dict[str, list[str]]) -> tuple[list[str], int]:
     """Expand one hop per store request until fixpoint.
 
-    store_requests = hops + 1: each frontier fetch is one request, including the
-    final empty expansion that confirms fixpoint (H2: constant 2 vs hops + 1).
+    store_requests = number of frontier expansions until fixpoint (H2: constant 2
+    vs kv_hop hops). Ranked by hop distance then name so completeness@16 is fair
+    vs hydra_graph prefix costs.
     """
     if not seeds:
         return [], 0
-    loaded: list[str] = []
-    seen: set[str] = set()
+    hop_of: dict[str, int] = {}
+    for index, name in enumerate(seeds):
+        if name not in hop_of:
+            hop_of[name] = 0
+    frontier = [name for name in seeds if hop_of.get(name) == 0]
+    # Deduplicate frontier while preserving seed order.
+    seen_f: set[str] = set()
+    ordered_frontier: list[str] = []
     for name in seeds:
-        if name not in seen:
-            seen.add(name)
-            loaded.append(name)
-    frontier = list(loaded)
+        if name not in seen_f:
+            seen_f.add(name)
+            ordered_frontier.append(name)
+    frontier = ordered_frontier
     requests = 0
     while frontier:
         requests += 1
         nxt: list[str] = []
         for node in frontier:
             for neigh in adj.get(node, ()):
-                if neigh not in seen:
-                    seen.add(neigh)
-                    loaded.append(neigh)
-                    nxt.append(neigh)
+                if neigh in hop_of:
+                    continue
+                hop_of[neigh] = hop_of[node] + 1
+                nxt.append(neigh)
         frontier = nxt
+    loaded = sorted(hop_of, key=lambda name: (hop_of[name], name))
     return loaded, requests
 
 
@@ -229,20 +237,24 @@ def iterative_search_load(
             loaded.append(name)
     turns = 0
     for _round in range(max_rounds):
-        searches: list[dict] = []
+        # One search per missing producer (param name+description as query).
+        searches: list[tuple[str, dict]] = []
+        seen_producers: set[str] = set()
         for name in list(loaded):
             tool = tools.get(name)
             if tool is None:
                 continue
             for param, producer in _params_needing_producer(tool):
-                if producer in seen:
+                if producer in seen or producer in seen_producers:
                     continue
-                searches.append(param)
+                seen_producers.add(producer)
+                searches.append((producer, param))
         if not searches:
             break
         progressed = False
-        for param in searches:
+        for producer, param in searches:
             query = f"{param.get('name', '')} {param.get('description', '')}".strip()
+            del producer  # need is catalog-side; retrieval is BM25 on param text only
             hits = bm25.top(query, search_top + len(seen))
             added = [hit for hit in hits if hit not in seen][:search_top]
             turns += 1
@@ -429,18 +441,63 @@ def score_task(
     )
 
 
-def aggregate_task_metrics(rows: list[TaskMetrics]) -> dict[str, float]:
+def _percentile(values: list[float], pct: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return ordered[0]
+    # Nearest-rank at pct in (0, 1].
+    index = min(len(ordered) - 1, max(0, int(round(pct * (len(ordered) - 1)))))
+    return ordered[index]
+
+
+def aggregate_task_metrics(
+    rows: list[TaskMetrics],
+    *,
+    mains: list[str] | None = None,
+) -> dict[str, float | int | None]:
+    """Micro mean, plus main-macro mean when ``mains`` aligns with ``rows``."""
     n = max(1, len(rows))
-    return {
-        "n": float(len(rows)),
-        "c16": sum(1.0 for row in rows if row.completeness_16) / n,
+    latencies = [row.latency_ms for row in rows]
+    out: dict[str, float | int | None] = {
+        "n": len(rows),
+        "c16_micro": sum(1.0 for row in rows if row.completeness_16) / n,
         "tokens": sum(row.tokens for row in rows) / n,
         "llm_turns": sum(row.llm_turns for row in rows) / n,
         "store_requests": sum(row.store_requests for row in rows) / n,
-        "latency_ms": sum(row.latency_ms for row in rows) / n,
+        "latency_ms_mean": sum(latencies) / n,
+        "latency_p50_ms": _percentile(latencies, 0.50),
+        "latency_p95_ms": _percentile(latencies, 0.95),
         "wrong_skip_rate": sum(1.0 for row in rows if row.wrong_skip) / n,
         "tokens_saved": sum(row.tokens_saved for row in rows) / n,
+        "label": "measured",
     }
+    if mains is not None and len(mains) == len(rows):
+        by_main: dict[str, list[TaskMetrics]] = defaultdict(list)
+        for main, row in zip(mains, rows):
+            by_main[main].append(row)
+        main_c16 = []
+        main_tokens = []
+        main_turns = []
+        main_reqs = []
+        for _main, group in by_main.items():
+            g_n = max(1, len(group))
+            main_c16.append(sum(1.0 for row in group if row.completeness_16) / g_n)
+            main_tokens.append(sum(row.tokens for row in group) / g_n)
+            main_turns.append(sum(row.llm_turns for row in group) / g_n)
+            main_reqs.append(sum(row.store_requests for row in group) / g_n)
+        m_n = max(1, len(main_c16))
+        out["c16"] = sum(main_c16) / m_n
+        out["tokens_main_macro"] = sum(main_tokens) / m_n
+        out["llm_turns_main_macro"] = sum(main_turns) / m_n
+        out["store_requests_main_macro"] = sum(main_reqs) / m_n
+        out["n_mains"] = len(main_c16)
+        out["scoring"] = "main_macro"
+    else:
+        out["c16"] = out["c16_micro"]
+        out["scoring"] = "query_micro"
+    return out
 
 
 def _prepare_bm25(store: GraphStore) -> Bm25Index:
@@ -465,6 +522,7 @@ def run_b1(
     out: dict[str, dict] = {}
     for arm in arms:
         rows: list[TaskMetrics] = []
+        mains: list[str] = []
         for query in sealed:
             fused = fusion[query.idx]
             result = load_arm(
@@ -477,7 +535,8 @@ def run_b1(
                 all_tool_names=all_names,
             )
             rows.append(score_task(result, query.gold))
-        out[arm] = aggregate_task_metrics(rows)
+            mains.append(query.main)
+        out[arm] = aggregate_task_metrics(rows, mains=mains)
     return out
 
 
@@ -587,18 +646,16 @@ def run_staleness(
             truth = _true_bundle(store, seeds)
             truth_set = set(truth)
             kv_bundle = set(kv_closure.fetch(seeds))
-            hydra = store.load_tools(seeds=seeds, session_id=None, k=TOP_K)
-            hydra_set = set(hydra.tools) | {n for n in seeds if n not in hydra.skipped}
-            # Bundle = reachable set under current edges (compare as sets).
+            # True bundle = memory REQUIRES closure. kv_closure may be stale.
+            # hydra_graph bundle = reachable set from live HydraDB MSpaths (full
+            # costs, not top-k truncation) — must not reuse expand_kv_hop(truth).
             if kv_bundle != truth_set:
                 kv_wrong += 1
-            # hydra_graph ranked prefix may be truncated at k; compare closure via costs keys.
-            hydra_full, _ = expand_kv_hop(seeds, requires_adjacency(store))
-            if set(hydra_full) != truth_set:
+            hydra_costs = store.closure(seeds, ["REQUIRES"])
+            hydra_set = set(hydra_costs)
+            if hydra_set != truth_set:
                 hydra_wrong += 1
             total += 1
-            # Silence unused — hydra_set kept for future ranked-bundle variants.
-            _ = hydra_set
 
     denom = max(1, total)
     return {
@@ -685,18 +742,22 @@ def run_h4_curve(
     fusion: list[list[str]],
     *,
     budgets: tuple = TRACE_BUDGETS,
+    dev: list[Instance] | None = None,
 ) -> dict[str, Any]:
     """H4: hydra_graph tokens and c16 over TRACE_BUDGETS (learn then score sealed)."""
+    from toolgraph.learn import calibrate_tau
+
     resolved_budgets = resolve_budgets(len(learn))
-    # Honour explicit budgets tuple order when provided as TRACE_BUDGETS.
     _ = budgets
     points: list[dict] = []
     cursor = 0
     bm25 = _prepare_bm25(store)
+    tau_history: list[dict] = []
 
     def score_hydra() -> dict:
         store.ensure_hydra_synced()
         rows: list[TaskMetrics] = []
+        mains: list[str] = []
         for query in sealed:
             result = load_arm(
                 "hydra_graph",
@@ -706,14 +767,18 @@ def run_h4_curve(
                 bm25=bm25,
             )
             rows.append(score_task(result, query.gold))
+            mains.append(query.main)
         complete = [row for row in rows if row.completeness_16]
         tokens_per_complete = (
             sum(row.tokens for row in complete) / len(complete) if complete else 0.0
         )
-        agg = aggregate_task_metrics(rows)
+        agg = aggregate_task_metrics(rows, mains=mains)
         agg["tokens_per_complete"] = tokens_per_complete
+        agg["tau"] = store.tau
         return agg
 
+    store.tau = 0.0
+    tau_history.append({"traces": 0, "tau": 0.0})
     points.append({"traces": 0, **score_hydra()})
     for target in resolved_budgets:
         if target == 0:
@@ -722,12 +787,19 @@ def run_h4_curve(
             query = learn[cursor]
             cursor += 1
             ingest_trace_edges(store, query)
-        if target > 0:
-            # τ left at caller/store default; optional calibrate outside.
-            pass
+        if dev:
+            tau, grid = calibrate_tau(store, dev, fusion)
+            store.tau = tau
+            tau_history.append({"traces": target, "tau": tau, "grid": grid})
         store.ensure_hydra_synced()
         points.append({"traces": target, **score_hydra()})
-    return {"arm": "hydra_graph", "points": points, "budgets": resolved_budgets}
+    return {
+        "arm": "hydra_graph",
+        "points": points,
+        "budgets": resolved_budgets,
+        "tau_history": tau_history,
+        "label": "measured",
+    }
 
 
 def learn_all_traces(store: GraphStore, learn: list[Instance]) -> int:
@@ -772,7 +844,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     tools, instances = load_dataset(DATA)
-    learn, _dev, sealed, _asn = split_by_main(instances, args.seed)
+    learn, dev, sealed, _asn = split_by_main(instances, args.seed)
 
     if args.fake or args.command == "smoke":
         hydra: Any = _FakeHydra()
@@ -783,15 +855,29 @@ def main(argv: list[str] | None = None) -> None:
     edit_log = RESULTS / f"v3_edits_seed{args.seed}.jsonl"
     if edit_log.exists():
         edit_log.unlink()
-    store = bootstrap_store(hydra, tools, edit_log)
-    learn_all_traces(store, learn)
-    if len(learn) > 0:
-        # Light τ=0 for scaffolding; sealed step 4 may calibrate on dev.
-        store.tau = 0.0
-        store.ensure_hydra_synced()
 
     print("building fusion (may embed)…", flush=True)
     fusion = build_fusion(tools, [query.text for query in instances])
+
+    if args.command == "h4":
+        store = bootstrap_store(hydra, tools, edit_log)
+        # Curve starts at 0 traces; run_h4_curve learns progressively.
+        store.tau = 0.0
+        store.ensure_hydra_synced()
+    else:
+        store = bootstrap_store(hydra, tools, edit_log)
+        learn_all_traces(store, learn)
+        if args.command == "smoke" or args.fake:
+            store.tau = 0.0
+        elif dev:
+            from toolgraph.learn import calibrate_tau
+
+            tau, grid = calibrate_tau(store, dev, fusion)
+            store.tau = tau
+            print(f"calibrated tau={tau} on dev (grid={grid})", flush=True)
+        else:
+            store.tau = 0.0
+        store.ensure_hydra_synced()
 
     if args.command == "smoke":
         sample = sealed[:5]
@@ -835,13 +921,9 @@ def main(argv: list[str] | None = None) -> None:
             ),
         }
     elif args.command == "h4":
-        # Reset learned edges for curve from null — reload catalog + prior + progressive traces.
-        if edit_log.exists():
-            edit_log.unlink()
-        store = bootstrap_store(hydra, tools, edit_log)
         payload = {
             "seed": args.seed,
-            "h4": run_h4_curve(store, learn, sealed, fusion),
+            "h4": run_h4_curve(store, learn, sealed, fusion, dev=dev),
         }
     else:
         raise ValueError(args.command)
