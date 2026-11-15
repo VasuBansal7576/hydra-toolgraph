@@ -47,6 +47,23 @@ python3 -m toolgraph.eval_curve
 
 No `JEV_API_KEY` is required or read.
 
+## Grouped-main headline table (mean of seeds 7/21/42)
+
+Main-macro completeness@16 / mAP@10. Source: `results/curve.json` v2.2-fix-first.
+
+| Traces | Flat | Metadata also-load | One-hop+prior | CTE+prior | Hydra+prior | Trace-only | Prior-only | Oracle |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0 | 0.030 | 0.033 | 0.030 | 0.030 | 0.030 | 0.030 | 0.030 | 0.954 |
+| 10 | 0.030 | 0.053 | 0.041 | 0.041 | 0.041 | 0.041 | 0.030 | 0.954 |
+| 30 | 0.030 | 0.089 | 0.056 | 0.056 | 0.056 | 0.056 | 0.030 | 0.954 |
+| 100 | 0.030 | 0.227 | 0.115 | 0.117 | 0.117 | 0.114 | 0.030 | 0.954 |
+| 300 | 0.030 | 0.453 | 0.245 | 0.247 | 0.247 | 0.244 | 0.030 | 0.954 |
+| 939 (all) | 0.030 | **0.657** | 0.527 | 0.528 | 0.532 | 0.530 | 0.030 | 0.954 |
+
+Full-trace mAP@10: metadata 0.565, Hydra+prior 0.560, CTE+prior 0.555, flat 0.208. GRTF's 0.856 is **reference, different protocol**.
+
+Composition slice (prior→learned on sealed mains with no learned out-edges): mean **n≈2** queries / **≤1** main across seeds; when non-empty, Hydra/CTE/metadata score **1.0** @16 (flat 0.0). Seed 42 had size 0.
+
 ## Arms (headline)
 
 | Arm | Role |
