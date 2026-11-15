@@ -62,10 +62,16 @@ class GraphStore:
         self._hydra_synced_version = 0
         self._node_ids: list[int] = []
 
-    def wipe(self) -> None:
+    def wipe(self, *, tool_count: int = 0) -> None:
         # Label-wide DETACH DELETE can stack-overflow the local graph-node.
-        # Delete only ids we previously created, in small batches.
+        # Delete tracked ids plus the stable tool/param/meta ranges so a new
+        # GraphStore on a reused HydraDB volume cannot inherit stale edges.
         ids = list(dict.fromkeys(self._node_ids))
+        if tool_count > 0:
+            ids.extend(range(1, tool_count + 1))
+            ids.extend(range(10_001, 10_001 + max(2_000, tool_count * 3)))
+            ids.extend(range(20_000, 20_010))
+        ids = list(dict.fromkeys(ids))
         for start in range(0, len(ids), 50):
             chunk = ids[start : start + 50]
             self.hydra.query(
@@ -82,7 +88,7 @@ class GraphStore:
 
     def load_catalog(self, tools: list[Tool], *, include_oracle: bool = True) -> None:
         """Load tool nodes and param structure. Never loads catalog DEPENDS_ON into learned rels."""
-        self.wipe()
+        self.wipe(tool_count=len(tools))
         self.tools = {tool.name: tool for tool in tools}
         self.names = {tool.name: idx + 1 for idx, tool in enumerate(tools)}
         self.by_id = {idx: name for name, idx in self.names.items()}

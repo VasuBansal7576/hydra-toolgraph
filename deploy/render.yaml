@@ -1,0 +1,15 @@
+# Free-host deploy config for Render. DO NOT deploy without Vasu's approval.
+services:
+  - type: web
+    name: hydra-toolgraph-demo
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: false
+    envVars:
+      - key: PYTHONPATH
+        value: /app
+      - key: HYDRA_URL
+        sync: false
+      - key: JEV_API_KEY
+        sync: false

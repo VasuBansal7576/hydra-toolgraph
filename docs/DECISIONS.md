@@ -32,3 +32,5 @@ One row per step. Hypotheses and gates are written **before** the sealed scores 
 | Step | Change | Measurement | Decision |
 | --- | --- | --- | --- |
 | R0 | Branch `cursor/toolgraph-v2-learn-edges-1c92` off v1; pre-register D0–D5 and rise test. | n/a (before run) | proceed |
+| R1 | Implement memory-first edge upserts + bulk HydraDB sync. Per-edge MATCH/SET after a full catalog load stack-overflowed graph-node (exit 139). | measured: smoke c16@40 after 50 traces: flat 0.10, CTE=Hydra 0.225, oracle 0.85; CTE set@16 == Hydra set@16 | keep bulk sync; do/undo still logged |
+| R2 | Arms: flat / sqlite_cte / hydra_learned / hydra_learned_jev / oracle; budgets 0,10,30,100,300,all. | pending full curve | — |
