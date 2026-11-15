@@ -1,0 +1,40 @@
+services:
+  hydradb:
+    image: ghcr.io/hydra-db/hydradb:latest
+    environment:
+      CLOUD_PROVIDER: local
+      LOCAL_PATH: /data/store
+      GRAPH_NAMESPACE: default
+      GRAPH_ID: default
+      GRAPH_ALLOW_PLAINTEXT: "true"
+      GRAPH_USAGE_REPORT_ENABLED: "false"
+    volumes:
+      - hydradb_data:/data/store
+    ports:
+      - "8443:8443"
+
+  mcp:
+    build: .
+    depends_on:
+      - hydradb
+    environment:
+      HYDRA_URL: http://hydradb:8443
+      HYDRA_TOKEN: local-development-token-32-bytes
+    ports:
+      - "8080:8080"
+    command: ["python", "-m", "toolgraph.mcp_server", "--http", "8080", "--http-only"]
+
+  demo:
+    build: .
+    depends_on:
+      - hydradb
+    environment:
+      HYDRA_URL: http://hydradb:8443
+      HYDRA_TOKEN: local-development-token-32-bytes
+      DEMO_PORT: "5000"
+    ports:
+      - "5000:5000"
+    command: ["python", "-m", "demo.app"]
+
+volumes:
+  hydradb_data:

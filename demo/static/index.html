@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>toolgraph demo</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #111; background: #f6f7f9; }
+    body { max-width: 960px; margin: 1.5rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.25rem; font-weight: 600; }
+    section { background: #fff; border: 1px solid #dde1e8; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    label { display: block; font-size: 0.85rem; color: #444; margin-top: 0.5rem; }
+    input, textarea, button { font: inherit; margin-top: 0.25rem; }
+    input, textarea { width: 100%; box-sizing: border-box; padding: 0.4rem 0.5rem; border: 1px solid #ccd; border-radius: 4px; }
+    button { margin-top: 0.75rem; padding: 0.45rem 0.9rem; border: 0; border-radius: 4px; background: #1a5fb4; color: #fff; cursor: pointer; }
+    button.secondary { background: #5e5c64; }
+    pre { background: #f0f2f5; padding: 0.75rem; overflow: auto; font-size: 0.78rem; border-radius: 4px; max-height: 320px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 700px) { .row { grid-template-columns: 1fr; } }
+    .tool { border-top: 1px solid #eee; padding-top: 0.5rem; margin-top: 0.5rem; }
+    .prov { font-size: 0.75rem; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>toolgraph — load, trace, undo, as-of</h1>
+  <p style="color:#555;font-size:0.9rem;">local demo against <code>/api/*</code> (no paid APIs).</p>
+
+  <section>
+    <label for="query">task query</label>
+    <textarea id="query" rows="2">convert 100 usd to eur using live rates</textarea>
+    <div class="row">
+      <div>
+        <label for="k">top k</label>
+        <input id="k" type="number" value="12" min="1" max="32" />
+      </div>
+      <div>
+        <label for="tools_used">trace tools (comma-separated, main first)</label>
+        <input id="tools_used" placeholder="main_tool, helper_a, helper_b" />
+      </div>
+    </div>
+    <button id="loadBtn">load tools</button>
+    <button id="traceBtn" class="secondary">record trace</button>
+  </section>
+
+  <section class="row">
+    <div>
+      <label for="edit_id">undo edit id</label>
+      <input id="edit_id" placeholder="e1000001" />
+      <button id="undoBtn" class="secondary">undo</button>
+    </div>
+    <div>
+      <label for="as_of">as_of (ISO date)</label>
+      <input id="as_of" type="datetime-local" />
+      <button id="asOfBtn" class="secondary">rebuild as_of</button>
+    </div>
+  </section>
+
+  <section>
+    <label for="explain_tool">explain tool</label>
+    <input id="explain_tool" placeholder="tool name" />
+    <button id="explainBtn" class="secondary">explain</button>
+  </section>
+
+  <section>
+    <h2 style="font-size:1rem;margin:0 0 0.5rem;">response</h2>
+    <div id="toolsOut"></div>
+    <pre id="raw"></pre>
+  </section>
+
+  <script>
+    const raw = document.getElementById("raw");
+    const toolsOut = document.getElementById("toolsOut");
+
+    async function post(path, body) {
+      const res = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return res.json();
+    }
+
+    function renderLoad(data) {
+      toolsOut.innerHTML = "";
+      (data.tools || []).forEach((t) => {
+        const div = document.createElement("div");
+        div.className = "tool";
+        const edges = (t.provenance || [])
+          .map((e) => `${e.src} -[${e.rel} p=${e.p?.toFixed?.(2)}]-> ${e.dst} (${e.prov})`)
+          .join("<br/>");
+        div.innerHTML = `<strong>${t.name}</strong><div>${t.description || ""}</div>` +
+          (edges ? `<div class="prov">${edges}</div>` : "");
+        toolsOut.appendChild(div);
+      });
+      raw.textContent = JSON.stringify(data, null, 2);
+    }
+
+    document.getElementById("loadBtn").onclick = async () => {
+      const data = await post("/api/load_tools", {
+        query: document.getElementById("query").value,
+        k: Number(document.getElementById("k").value || 16),
+      });
+      renderLoad(data);
+    };
+
+    document.getElementById("traceBtn").onclick = async () => {
+      const tools_used = document.getElementById("tools_used").value
+        .split(",").map((s) => s.trim()).filter(Boolean);
+      const data = await post("/api/record_trace", {
+        query: document.getElementById("query").value,
+        tools_used,
+      });
+      raw.textContent = JSON.stringify(data, null, 2);
+      if (data.edit_ids?.length) {
+        document.getElementById("edit_id").value = data.edit_ids[data.edit_ids.length - 1];
+      }
+    };
+
+    document.getElementById("undoBtn").onclick = async () => {
+      const data = await post("/api/undo_edit", { edit_id: document.getElementById("edit_id").value });
+      raw.textContent = JSON.stringify(data, null, 2);
+    };
+
+    document.getElementById("asOfBtn").onclick = async () => {
+      const v = document.getElementById("as_of").value;
+      const date_iso = v ? new Date(v).toISOString() : new Date().toISOString();
+      const data = await post("/api/as_of", { date_iso });
+      raw.textContent = JSON.stringify(data, null, 2);
+    };
+
+    document.getElementById("explainBtn").onclick = async () => {
+      const data = await post("/api/explain", { tool: document.getElementById("explain_tool").value });
+      raw.textContent = JSON.stringify(data, null, 2);
+    };
+  </script>
+</body>
+</html>
