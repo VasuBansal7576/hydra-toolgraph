@@ -1,9 +1,7 @@
-"""Checkpoint-2 (fix-first) grouped-main sealed curve.
+"""Matched-fan-in grouped-main sealed curve (post fix-first).
 
-Headline split is by main (all 3 sibling queries stay together). Query-level
-split is appendix-only. No Jev. Deterministic I/O prior at ζ≥0.6. Controls:
-flat, metadata-vector also-load, one-hop+prior, CTE+prior, Hydra+prior,
-oracle, plus trace-removed / prior-removed ablations.
+Headline graph arms seed from the same FUSION_POOL (32) fused hits as
+metadata also-load. 4-seed variants are labelled ablations. No Jev.
 """
 
 from __future__ import annotations
@@ -17,6 +15,7 @@ from pathlib import Path
 
 import tiktoken
 
+from toolgraph.arms import ARM_KNOBS, ARMS, HEADLINE_ARMS, MATCHED_FANIN_ARMS
 from toolgraph.data import Instance, Tool, load_dataset, split_by_main, split_indices
 from toolgraph.graph import GraphStore, rank_costs
 from toolgraph.hydra import HydraClient
@@ -31,7 +30,6 @@ from toolgraph.protocol import (
     BOOTSTRAP_SAMPLES,
     BOOTSTRAP_SEED,
     CANARY_SIZE,
-    FUSION_SEEDS,
     KS,
     MAX_LEN,
     RISE_SPREAD_MULTIPLIER,
@@ -44,19 +42,11 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 RESULTS = ROOT / "results"
 
-# Arm -> (backend, rel_types). Flat uses none.
-# Headline graph arms include SCHEMA_DEP when marked *_prior.
-ARM_SPEC: dict[str, tuple[str, list[str] | None]] = {
-    "bm25_dense": ("flat", None),
-    "metadata_vector": ("metadata", ["DEPENDS_ON", "SCHEMA_DEP"]),
-    "sqlite_one_hop_prior": ("one_hop", ["DEPENDS_ON", "SCHEMA_DEP"]),
-    "sqlite_cte_prior": ("cte", ["DEPENDS_ON", "SCHEMA_DEP"]),
-    "hydra_mspaths_prior": ("mspaths", ["DEPENDS_ON", "SCHEMA_DEP"]),
-    "hydra_mspaths_trace_only": ("mspaths", ["DEPENDS_ON"]),  # prior removed
-    "hydra_mspaths_prior_only": ("mspaths", ["SCHEMA_DEP"]),  # trace removed
-    "oracle": ("cte", ["ORACLE_DEP"]),
+# Back-compat alias used by older guards.
+ARM_SPEC = {
+    name: (knob.backend, list(knob.rels) if knob.rels is not None else None)
+    for name, knob in ARM_KNOBS.items()
 }
-ARMS = tuple(ARM_SPEC)
 
 # Appendix (leaky query split) keeps a smaller arm set.
 APPENDIX_ARMS = (
@@ -176,19 +166,28 @@ def load_arm(
     store: GraphStore,
     closure_cache: dict[tuple, dict[str, float] | list[str]],
 ) -> tuple[list[str], float]:
+    """Dispatch one arm using ARM_KNOBS fan-in / depth / rels / fallback."""
     started = time.perf_counter()
-    seeds = fused[:FUSION_SEEDS]
-    backend, rels = ARM_SPEC[arm]
+    knob = ARM_KNOBS[arm]
+    fan_in = knob.fan_in
+    seeds = list(fused) if fan_in is None else list(fused[:fan_in])
+    backend = knob.backend
+    rels = list(knob.rels) if knob.rels is not None else None
+    depth = knob.depth if knob.depth is not None else MAX_LEN
     if backend == "flat":
         ranked = list(fused)
     elif backend == "metadata":
         assert rels is not None
-        key = ("meta", store.edge_version, store.tau, tuple(rels))
+        key = ("meta", store.edge_version, store.tau, tuple(rels), fan_in)
         also = closure_cache.get(key)
         if also is None:
             also = _also_load_map(store, rels)
             closure_cache[key] = also  # type: ignore[assignment]
-        ranked = metadata_vector_rank(fused, also)  # type: ignore[arg-type]
+        ranked = metadata_vector_rank(seeds, also)  # type: ignore[arg-type]
+        if knob.fallback:
+            for name in fused:
+                if name not in ranked:
+                    ranked.append(name)
     elif backend == "one_hop":
         assert rels is not None
         key = ("one", store.edge_version, store.tau, tuple(seeds), tuple(rels))
@@ -197,31 +196,37 @@ def load_arm(
             costs = store.one_hop(seeds, rels)
             closure_cache[key] = costs
         ranked = rank_costs(costs)  # type: ignore[arg-type]
-        for name in fused:
-            if name not in costs:
-                ranked.append(name)
+        if knob.fallback:
+            for name in fused:
+                if name not in costs:
+                    ranked.append(name)
     elif backend == "cte":
         assert rels is not None
-        key = ("cte", store.edge_version, store.tau, tuple(seeds), tuple(rels), MAX_LEN)
+        key = ("cte", store.edge_version, store.tau, tuple(seeds), tuple(rels), depth)
         costs = closure_cache.get(key)
         if costs is None:
-            costs = store.recursive_cte(seeds, rels, MAX_LEN)
+            costs = store.recursive_cte(seeds, rels, depth)
             closure_cache[key] = costs
         ranked = rank_costs(costs)  # type: ignore[arg-type]
-        for name in fused:
-            if name not in costs:
-                ranked.append(name)
+        if knob.fallback:
+            for name in fused:
+                if name not in costs:
+                    ranked.append(name)
     elif backend == "mspaths":
         assert rels is not None
+        # Hydra maxLen is protocol MAX_LEN; depth knob must match for parity.
+        if depth != MAX_LEN:
+            raise ValueError(f"{arm}: mspaths depth {depth} != MAX_LEN {MAX_LEN}")
         key = ("hydra", store.edge_version, store.tau, tuple(seeds), tuple(rels))
         costs = closure_cache.get(key)
         if costs is None:
             costs = store.closure(seeds, rels)
             closure_cache[key] = costs
         ranked = rank_costs(costs)  # type: ignore[arg-type]
-        for name in fused:
-            if name not in costs:
-                ranked.append(name)
+        if knob.fallback:
+            for name in fused:
+                if name not in costs:
+                    ranked.append(name)
     else:
         raise ValueError(arm)
     return ranked, (time.perf_counter() - started) * 1000.0
@@ -559,33 +564,50 @@ def plot(averaged: dict[str, list[dict]], path: Path) -> bool:
         "sqlite_one_hop_prior": "#a16207",
         "sqlite_cte_prior": "#b45309",
         "hydra_mspaths_prior": "#115e59",
+        "sqlite_one_hop_prior_k4": "#ca8a04",
+        "sqlite_cte_prior_k4": "#d97706",
+        "hydra_mspaths_prior_k4": "#14b8a6",
         "hydra_mspaths_trace_only": "#0f766e",
         "hydra_mspaths_prior_only": "#0891b2",
         "oracle": "#6b7280",
     }
     labels = {
         "bm25_dense": "BM25+dense",
-        "metadata_vector": "Metadata also-load",
-        "sqlite_one_hop_prior": "SQLite one-hop + prior",
-        "sqlite_cte_prior": "SQLite CTE + prior",
-        "hydra_mspaths_prior": "Hydra MSpaths + prior",
-        "hydra_mspaths_trace_only": "Hydra trace-only",
-        "hydra_mspaths_prior_only": "Hydra prior-only",
+        "metadata_vector": "Metadata also-load (fan-in 32)",
+        "sqlite_one_hop_prior": "SQLite one-hop+prior (32)",
+        "sqlite_cte_prior": "SQLite CTE+prior (32)",
+        "hydra_mspaths_prior": "Hydra MSpaths+prior (32)",
+        "sqlite_one_hop_prior_k4": "one-hop k4 ablation",
+        "sqlite_cte_prior_k4": "CTE k4 ablation",
+        "hydra_mspaths_prior_k4": "Hydra k4 ablation",
+        "hydra_mspaths_trace_only": "Hydra trace-only (32)",
+        "hydra_mspaths_prior_only": "Hydra prior-only (32)",
         "oracle": "Oracle catalog",
     }
-    fig, axes = plt.subplots(1, 2, figsize=(12.0, 4.8), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(13.0, 5.0), sharey=True)
     for axis, key, title in zip(axes, ("c16", "map10"), ("completeness@16", "mAP@10")):
         for arm in ARMS:
+            if arm not in averaged:
+                continue
             xs = [point["traces"] for point in averaged[arm]]
             ys = [point[key] for point in averaged[arm]]
-            axis.plot(xs, ys, marker="o", color=colors[arm], label=labels[arm], linewidth=2)
+            style = "--" if arm.endswith("_k4") else "-"
+            axis.plot(
+                xs,
+                ys,
+                marker="o",
+                color=colors.get(arm, "#111"),
+                label=labels.get(arm, arm),
+                linewidth=2,
+                linestyle=style,
+            )
         axis.set_title(title)
         axis.set_xlabel("Learn traces")
         axis.set_ylim(0, 1)
         axis.grid(True, alpha=0.3)
     axes[0].set_ylabel("Sealed main-macro score")
-    axes[1].legend(frameon=False, fontsize=7)
-    fig.suptitle("Checkpoint 2: grouped-main learning curve (mean of 3 seeds)")
+    axes[1].legend(frameon=False, fontsize=6)
+    fig.suptitle("Matched fan-in=32 grouped-main curve (mean of 3 seeds)")
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=140)
@@ -670,8 +692,19 @@ def rise_gate(averaged: dict[str, list[dict]]) -> dict:
         )
     if report["hydra_vs_metadata"] and not report["beats_metadata"]:
         report["notes"].append(
-            "HydraDB did not beat the metadata-vector also-load control beyond seed spread on this dataset"
+            "Matched fan-in=32: HydraDB did not beat metadata also-load beyond seed spread"
         )
+    elif report["beats_metadata"]:
+        report["notes"].append(
+            "Matched fan-in=32: HydraDB beat metadata also-load beyond seed spread"
+        )
+    if "hydra_mspaths_prior_k4" in averaged:
+        h32 = averaged["hydra_mspaths_prior"][-1]["c16"]
+        h4 = averaged["hydra_mspaths_prior_k4"][-1]["c16"]
+        report["notes"].append(
+            f"fan-in ablation: hydra@32 c16={h32:.4f} vs hydra@4 c16={h4:.4f} (delta={h32 - h4:.4f})"
+        )
+    report["matched_fan_in"] = list(MATCHED_FANIN_ARMS)
     report["passed"] = bool(report["rises"])
     return report
 
@@ -689,7 +722,9 @@ def main() -> None:
         edit_log.unlink()
     store = GraphStore(hydra, edit_log)
 
-    print("=== HEADLINE: grouped-by-main split ===", flush=True)
+    print("=== HEADLINE: grouped-by-main matched fan-in=32 ===", flush=True)
+    print(f"arms={list(ARMS)}", flush=True)
+    print(f"matched={list(MATCHED_FANIN_ARMS)}", flush=True)
     seed_runs = []
     for seed in SEEDS:
         seed_runs.append(
@@ -700,32 +735,38 @@ def main() -> None:
     averaged = mean_points(seed_runs, ARMS)
     decision = rise_gate(averaged)
 
-    print("=== APPENDIX: query-level split (leaky; labelled) ===", flush=True)
-    appendix_runs = []
-    for seed in SEEDS:
-        appendix_runs.append(
-            run_seed(
-                seed,
-                tools,
-                instances,
-                fusion,
-                store,
-                encoder,
-                split_mode="query_level",
-                arms=APPENDIX_ARMS,
-            )
+    # Reuse prior leaky query-split appendix if present (not re-run; headline is grouped).
+    appendix_payload: dict
+    prev = RESULTS / "curve.json"
+    if prev.exists():
+        old = json.loads(prev.read_text())
+        appendix_payload = old.get("appendix_query_split") or {
+            "label": "leaky query-level split; not re-run in matched-fan-in pass",
+            "arms": list(APPENDIX_ARMS),
+            "mean": {},
+            "by_seed": [],
+        }
+        appendix_payload["label"] = (
+            "leaky query-level split; carried from prior run (not the headline)"
         )
-        (RESULTS / f"seed_{seed}_query_split_appendix.json").write_text(json.dumps(appendix_runs[-1], indent=2))
-    appendix_mean = mean_points(appendix_runs, APPENDIX_ARMS)
+    else:
+        appendix_payload = {
+            "label": "leaky query-level split; not re-run in matched-fan-in pass",
+            "arms": list(APPENDIX_ARMS),
+            "mean": {},
+            "by_seed": [],
+        }
 
     payload = {
-        "version": "2.2-fix-first",
+        "version": "2.3-matched-fanin",
         "dataset": "ToolLinkOS",
         "source": "https://github.com/EliasLumer/Graph-RAG-Tool-Fusion-ToolLinkOS",
         "headline_split": "grouped_main",
+        "matched_fan_in": 32,
         "leak_fact": (
             "Every main tool has exactly 3 queries with an identical gold set "
-            "(1569/1569). Query-level split leaks sibling answer sets."
+            "(1569/1569). Query-level split leaks sibling answer sets and inflates "
+            "c16 from ~0.53 (grouped) to ~0.91 (query-level)."
         ),
         "prior_art": {
             "grtf_arxiv": "2502.07223",
@@ -739,6 +780,7 @@ def main() -> None:
             "trace_only": "hydra_mspaths_trace_only endpoints are not mixed with prior-enabled",
             "grtf_map10": "0.856 is reference, different protocol",
             "jev": "removed; I/O prior is deterministic overlap >= 0.6 only",
+            "fan_in": "headline graph arms use fan_in=32 matching metadata; k4 is ablation",
         },
         "tools": len(tools),
         "queries": len(instances),
@@ -749,6 +791,20 @@ def main() -> None:
         "max_len": MAX_LEN,
         "k": list(KS),
         "arms": list(ARMS),
+        "headline_arms": list(HEADLINE_ARMS),
+        "matched_fanin_arms": list(MATCHED_FANIN_ARMS),
+        "arm_knobs": {
+            name: {
+                "backend": knob.backend,
+                "fan_in": knob.fan_in,
+                "depth": knob.depth,
+                "rels": list(knob.rels) if knob.rels else None,
+                "top_k": knob.top_k,
+                "fallback": knob.fallback,
+                "headline": knob.headline,
+            }
+            for name, knob in ARM_KNOBS.items()
+        },
         "design": {
             "catalog_depends_on_in_learned_arms": False,
             "edge_confidence": "p=(n_obs+1)/(n_seen_src+2); tau on dev only",
@@ -757,17 +813,13 @@ def main() -> None:
             "mspaths_cost": "minimum prefix cost per node",
             "composition": "sealed mains with no learned out-edges; gold via SCHEMA_DEP then DEPENDS_ON",
             "scoring": "main-macro with bootstrap CIs clustered by main",
+            "matched_fan_in": "metadata / one-hop / CTE / Hydra all seed from fused[:32]",
             "rise_test": decision["rule"],
         },
         "mean": averaged,
         "by_seed": seed_runs,
         "gate": decision,
-        "appendix_query_split": {
-            "label": "leaky query-level split; not the headline",
-            "arms": list(APPENDIX_ARMS),
-            "mean": appendix_mean,
-            "by_seed": appendix_runs,
-        },
+        "appendix_query_split": appendix_payload,
     }
     (RESULTS / "curve.json").write_text(json.dumps(payload, indent=2))
     plot(averaged, RESULTS / "completeness_curve.png")

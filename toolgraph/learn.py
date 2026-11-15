@@ -117,7 +117,7 @@ def calibrate_tau(
 ) -> tuple[float, dict[str, float]]:
     """Pick τ on the given split (dev only in the headline protocol)."""
     from toolgraph.graph import rank_costs
-    from toolgraph.protocol import FUSION_SEEDS
+    from toolgraph.protocol import FUSION_POOL
 
     def _complete(ranked: list[str], gold: frozenset[str], k: int) -> bool:
         return gold.issubset(set(ranked[:k]))
@@ -130,7 +130,7 @@ def calibrate_tau(
         hits = 0
         for query in sample:
             costs = store.recursive_cte(
-                fusion[query.idx][:FUSION_SEEDS],
+                fusion[query.idx][:FUSION_POOL],
                 ["DEPENDS_ON", "SCHEMA_DEP"],
                 tau=threshold,
             )

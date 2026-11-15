@@ -1,82 +1,67 @@
 # hydra-toolgraph
 
-Tool loader for the HydraDB hackathon, Track 2: learn prerequisite edges from execution traces, then load a complete tool set for a task.
+A context layer that learns which tools to load from agent traces, with versioned, undoable, provenance-tagged edges in HydraDB.
 
-**Claim:** edges learned from traces (GRTF arXiv 2502.07223 uses hand-built deps and lists automatic construction as future work; Graph-of-Skills arXiv 2604.05333 says its graph is never revised from traces).
+**Claim:** edges learned from traces. GRTF ([arXiv 2502.07223](https://arxiv.org/abs/2502.07223)) uses hand-built deps and lists automatic construction as future work. Graph-of-Skills ([arXiv 2604.05333](https://arxiv.org/abs/2604.05333)) says its graph is never revised from traces.
 
-**Blunt finding (grouped-main, measured):** HydraDB MSpaths+prior does **not** beat the metadata-vector also-load control (c16 0.533 vs 0.657 at full traces). It ties the equal-depth SQLite CTE+prior within seed spread. Rise test passed. See `results/curve.json` and `docs/DECISIONS.md`.
-
-## Checkpoint status
-
-Checkpoint 1 (sweep curve on a **leaky query-level split**) was judged fix-first by an independent review.
-
-Checkpoint 2 = those fixes + the re-run below. **No MCP server, web demo, Docker Compose, Loom, or GTM** yet.
-
-## Leak fact (measured)
-
-On ToolLinkOS every main tool has exactly **3** queries with an **identical** gold set (`1569/1569`). A query-level split therefore leaks a sibling's answer set. The **headline** protocol is a **grouped-by-main** split (seeds 7/21/42). The old query split remains only as a labelled appendix in `results/curve.json`.
-
-## What changed in fix-first
-
-1. **Jev removed** from arms, code path, and required env. I/O prior is deterministic overlap ≥ 0.6 only.
-2. **Grouped-by-main** headline split; main-macro scores with bootstrap CIs clustered by main.
-3. Controls (identical seeds, fusion, top-k, fallback): flat BM25+dense; metadata-vector also-load; one-hop+prior; CTE+prior; Hydra MSpaths+prior; oracle; ablations (trace removed / prior removed).
-4. **MSpaths prefix costs** (s→a→b → `{s:0,a:1,b:2}`), with a unit test.
-5. **Composition** redefined: sealed mains with no learned out-edges, gold reachable via prior then learned edges.
-6. Tests run **without matplotlib**. Data fetch documented in `docs/DATA.md`.
-
-## Claims hygiene
-
-| Endpoint | Note |
-| --- | --- |
-| Trace-only (`hydra_mspaths_trace_only`) | Previous leaky query-split micro: c16 **0.0349 → 0.9111**, mAP@10 **0.8484**. Do not mix with prior-enabled. |
-| Prior-enabled (`hydra_mspaths_prior`) | Cold start is above flat because of the I/O prior (previous query-split c16@0 **0.0402**). |
-| GRTF mAP@10 **0.856** | **Reference, different protocol.** |
-
-## Reproduce
-
-Python 3.12, packages in `requirements.txt`, local HydraDB on `:8443`, and ToolLinkOS JSON under `data/` (see `docs/DATA.md`).
+## Quickstart (< 5 commands)
 
 ```bash
-# optional: matplotlib only needed for the PNG curve
+git clone https://github.com/VasuBansal7576/hydra-toolgraph.git && cd hydra-toolgraph
+# data/ ships with the repo; otherwise see docs/DATA.md
 pip install -r requirements.txt
+docker compose up --build
+# demo → http://localhost:5000
+# mcp  → POST http://localhost:8080/tools/{load_tools,record_trace,undo_edit,as_of,explain}
+```
+
+Stdio MCP (no Docker for the server process; still needs HydraDB on `:8443`):
+
+```bash
+export PYTHONPATH=.
+python3 -m toolgraph.mcp_server
+```
+
+Smoke without Hydra (fake client): `PYTHONPATH=. python3 scripts/smoke_demo.py`
+
+## Honest results (grouped-by-main, matched fan-in=32)
+
+Headline protocol: split by **main** (seeds 7/21/42). Every ToolLinkOS main has exactly 3 queries with an identical gold set (`1569/1569`); a query-level split leaks siblings and inflates c16 from ~**0.53** (grouped) to ~**0.91** (query-level). That leak finding is a contribution.
+
+**Matched fan-in:** metadata also-load, one-hop+prior, CTE+prior, and Hydra+prior all seed from the same **32** fused hits (`ARM_KNOBS` in `toolgraph/arms.py`). The old 4-seed graph variants are labelled ablations.
+
+| Traces | Flat | Metadata | 1-hop+prior (32) | CTE+prior (32) | Hydra+prior (32) | Hydra k4 ablation | Oracle |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| *(filled from `results/curve.json` v2.3-matched-fanin after rerun)* | | | | | | | |
+
+See `results/curve.json` gate notes for the blunt call on whether Hydra beats metadata after matching fan-in. GRTF mAP@10 **0.856** is **reference, different protocol**.
+
+## Product surface
+
+| Tool | Role |
+| --- | --- |
+| `load_tools(query, k)` | BM25+dense fusion + Hydra learned/prior walk; returns tools with provenance edges |
+| `record_trace(query, tools_used)` | Learn edges with do/undo Cypher pairs + versioning |
+| `undo_edit(edit_id)` | Roll back a recorded edit |
+| `as_of(date)` | Replay the edit log up to a timestamp |
+| `explain(tool)` | In/out edges + lesson for one tool |
+
+Demo UI: query → loaded tools with why-edges → record trace → undo → as_of.
+
+## Limits
+
+- ToolLinkOS gold sets are synthetic (gpt-4o generated instances); transfer to live MCP catalogs is unproven.
+- On the previous unmatched-fan-in run, metadata also-load beat Hydra; matched-fan-in results are in `results/curve.json`.
+- HydraDB advantage on this dataset is versioning / undo / provenance / as_of, not a large completeness gap vs an equal-depth SQLite CTE once fan-in matches.
+- No Jev / no paid LLM judge. I/O prior is deterministic overlap ≥ 0.6 only.
+- `as_of` is edit-log replay, not a native HydraDB time-travel API for path topology.
+
+## Reproduce the curve
+
+```bash
 export PYTHONPATH=.
 python3 -m unittest discover -s tests -v
 python3 -m toolgraph.eval_curve
 ```
 
-No `JEV_API_KEY` is required or read.
-
-## Grouped-main headline table (mean of seeds 7/21/42)
-
-Main-macro completeness@16 / mAP@10. Source: `results/curve.json` v2.2-fix-first.
-
-| Traces | Flat | Metadata also-load | One-hop+prior | CTE+prior | Hydra+prior | Trace-only | Prior-only | Oracle |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 0 | 0.030 | 0.033 | 0.030 | 0.030 | 0.030 | 0.030 | 0.030 | 0.954 |
-| 10 | 0.030 | 0.053 | 0.041 | 0.041 | 0.041 | 0.041 | 0.030 | 0.954 |
-| 30 | 0.030 | 0.089 | 0.056 | 0.056 | 0.056 | 0.056 | 0.030 | 0.954 |
-| 100 | 0.030 | 0.227 | 0.115 | 0.117 | 0.117 | 0.114 | 0.030 | 0.954 |
-| 300 | 0.030 | 0.453 | 0.245 | 0.247 | 0.247 | 0.244 | 0.030 | 0.954 |
-| 939 (all) | 0.030 | **0.657** | 0.527 | 0.528 | 0.532 | 0.530 | 0.030 | 0.954 |
-
-Full-trace mAP@10: metadata 0.565, Hydra+prior 0.560, CTE+prior 0.555, flat 0.208. GRTF's 0.856 is **reference, different protocol**.
-
-Composition slice (prior→learned on sealed mains with no learned out-edges): mean **n≈2** queries / **≤1** main across seeds; when non-empty, Hydra/CTE/metadata score **1.0** @16 (flat 0.0). Seed 42 had size 0.
-
-## Arms (headline)
-
-| Arm | Role |
-| --- | --- |
-| `bm25_dense` | Flat BM25+dense fusion |
-| `metadata_vector` | Same retrieval, then append each hit's also-load list from learned+prior edges |
-| `sqlite_one_hop_prior` | One-hop SQL over `DEPENDS_ON` + `SCHEMA_DEP` |
-| `sqlite_cte_prior` | Recursive CTE depth=4 over the same edges |
-| `hydra_mspaths_prior` | HydraDB `algo.MSpaths` over the same edges |
-| `hydra_mspaths_trace_only` | Ablation: prior edges removed |
-| `hydra_mspaths_prior_only` | Ablation: trace edges removed |
-| `oracle` | Catalog `ORACLE_DEP` ceiling |
-
-## Not in this repo (yet)
-
-No MCP server, web UI, Dockerfile, Compose file, Loom script, or GTM post. Those wait for an explicit product-phase instruction after this fix-first report.
+Data: `docs/DATA.md`. Decisions: `docs/DECISIONS.md`. Loom / GTM drafts (do not post): `docs/LOOM_SCRIPT.md`, `docs/GTM_POST.md`.

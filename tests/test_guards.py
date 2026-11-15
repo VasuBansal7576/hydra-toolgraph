@@ -148,9 +148,14 @@ class EqualDepthGuardTest(unittest.TestCase):
         self.assertEqual(MAX_LEN, 4)
         source = Path(__file__).resolve().parents[1] / "toolgraph" / "eval_curve.py"
         text = source.read_text()
-        self.assertIn("store.recursive_cte(seeds, rels, MAX_LEN)", text)
+        self.assertIn("store.recursive_cte(seeds, rels, depth)", text)
+        self.assertIn("if depth != MAX_LEN", text)
         graph = Path(__file__).resolve().parents[1].joinpath("toolgraph/graph.py").read_text()
         self.assertIn("maxLen: {MAX_LEN}", graph)
+        from toolgraph.arms import ARM_KNOBS
+
+        self.assertEqual(ARM_KNOBS["sqlite_cte_prior"].depth, MAX_LEN)
+        self.assertEqual(ARM_KNOBS["hydra_mspaths_prior"].depth, MAX_LEN)
 
     def test_recursive_cte_reaches_same_depth_as_protocol(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

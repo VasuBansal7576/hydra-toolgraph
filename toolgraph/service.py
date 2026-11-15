@@ -11,7 +11,7 @@ from toolgraph.data import Tool, load_dataset, tokenize
 from toolgraph.graph import Edge, GraphStore, rank_costs
 from toolgraph.hydra import HydraClient, HydraError
 from toolgraph.learn import apply_io_prior, propose_schema_candidates
-from toolgraph.protocol import FUSION_POOL, FUSION_SEEDS, MAX_LEN
+from toolgraph.protocol import FUSION_POOL, MAX_LEN
 from toolgraph.retrieve import Bm25Index, dense_top, embed_texts, rrf
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -170,7 +170,7 @@ class ToolgraphService:
     def _rank_tools(self, query: str, k: int) -> tuple[list[str], dict[str, list[str]]]:
         store = self._active_store()
         fused = self.fusion.fuse(query)
-        seeds = fused[:FUSION_SEEDS]
+        seeds = fused[:FUSION_POOL]
         costs: dict[str, float]
         if store is self.store:
             try:
