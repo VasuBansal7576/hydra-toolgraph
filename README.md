@@ -4,13 +4,13 @@ Tool loader for the HydraDB hackathon, Track 2: learn prerequisite edges from ex
 
 **Claim:** edges learned from traces (GRTF arXiv 2502.07223 uses hand-built deps and lists automatic construction as future work; Graph-of-Skills arXiv 2604.05333 says its graph is never revised from traces).
 
-**Not claimed yet:** that HydraDB multi-hop beats a metadata also-load control on ToolLinkOS. Numbers below come from the fix-first re-run; see `results/curve.json` and `docs/DECISIONS.md`.
+**Blunt finding (grouped-main, measured):** HydraDB MSpaths+prior does **not** beat the metadata-vector also-load control (c16 0.533 vs 0.657 at full traces). It ties the equal-depth SQLite CTE+prior within seed spread. Rise test passed. See `results/curve.json` and `docs/DECISIONS.md`.
 
 ## Checkpoint status
 
 Checkpoint 1 (sweep curve on a **leaky query-level split**) was judged fix-first by an independent review.
 
-Checkpoint 2 = those fixes only. **No MCP server, web demo, Docker Compose, Loom, or GTM** in this checkpoint.
+Checkpoint 2 = those fixes + the re-run below. **No MCP server, web demo, Docker Compose, Loom, or GTM** yet.
 
 ## Leak fact (measured)
 

@@ -42,5 +42,6 @@ One row per step. Hypotheses and gates are written **before** the sealed scores 
 | --- | --- | --- | --- |
 | R0–R8 | Checkpoint 1 sweep curve on leaky query split; Jev border band; composition size 0. | measured; see archived `results/curve.json` v2.1-sweep | superseded |
 | R9 | Independent Codex gpt-5.1-sol review: fix-first. Leak fact confirmed. | process | proceed |
-| R10 | Drop Jev entirely. Grouped-main headline. Metadata-vector + CTE/one-hop with prior. MSpaths prefix costs. Composition redefined. Tests run without matplotlib. | pending re-run | — |
+| R10 | Drop Jev entirely. Grouped-main headline. Metadata-vector + CTE/one-hop with prior. MSpaths prefix costs. Composition redefined. Tests run without matplotlib. | measured in R12 | keep |
 | R11 | Checkpoint 2 = fix-first report only. Still no MCP / demo / compose / Loom / GTM. | process | keep |
+| R12 | Grouped-main curve (`results/curve.json` v2.2-fix-first). Rise **passed**. Hydra **tied** CTE+prior within spread. Hydra **lost** to metadata-vector also-load (c16 0.532 vs 0.657 at full). Composition mean n≈2 queries / ≤1 main; when non-empty, graph arms score 1.0 @16. | measured | keep; be blunt about metadata win |
