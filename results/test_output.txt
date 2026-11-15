@@ -1,3 +1,9 @@
+test_declared_comparisons_respect_allowed_diffs (test_arm_parity.ArmParityTest.test_declared_comparisons_respect_allowed_diffs) ... ok
+test_every_compares_with_edge_is_declared (test_arm_parity.ArmParityTest.test_every_compares_with_edge_is_declared) ... ok
+test_k4_ablations_only_change_fan_in (test_arm_parity.ArmParityTest.test_k4_ablations_only_change_fan_in) ... ok
+test_load_arm_uses_arm_knobs_fan_in (test_arm_parity.ArmParityTest.test_load_arm_uses_arm_knobs_fan_in)
+Source guard: load_arm must read fan_in from ARM_KNOBS, not a hard-coded 4. ... ok
+test_matched_fanin_arms_share_fan_in_32 (test_arm_parity.ArmParityTest.test_matched_fanin_arms_share_fan_in_32) ... ok
 test_map10_defined (test_guards.EqualDepthGuardTest.test_map10_defined) ... ok
 test_recursive_cte_reaches_same_depth_as_protocol (test_guards.EqualDepthGuardTest.test_recursive_cte_reaches_same_depth_as_protocol) ... ok
 test_sqlite_cte_and_hydra_arms_share_max_len (test_guards.EqualDepthGuardTest.test_sqlite_cte_and_hydra_arms_share_max_len) ... ok
@@ -27,6 +33,6 @@ test_schema_candidates_do_not_use_catalog_depends_on (test_protocol.ProtocolTest
 test_trace_budgets_include_all_and_rise_multiplier (test_protocol.ProtocolTest.test_trace_budgets_include_all_and_rise_multiplier) ... ok
 
 ----------------------------------------------------------------------
-Ran 25 tests in 19.102s
+Ran 30 tests in 21.438s
 
 OK

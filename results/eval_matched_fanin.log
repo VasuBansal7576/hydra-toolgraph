@@ -1,0 +1,952 @@
+embedding 573 tools and 1569 queries
+=== HEADLINE: grouped-by-main matched fan-in=32 ===
+arms=['bm25_dense', 'metadata_vector', 'sqlite_one_hop_prior', 'sqlite_cte_prior', 'hydra_mspaths_prior', 'sqlite_one_hop_prior_k4', 'sqlite_cte_prior_k4', 'hydra_mspaths_prior_k4', 'hydra_mspaths_trace_only', 'hydra_mspaths_prior_only', 'oracle']
+matched=['metadata_vector', 'sqlite_one_hop_prior', 'sqlite_cte_prior', 'hydra_mspaths_prior']
+seed 7 [grouped_main]: reload catalog (no learned edges yet)
+seed 7: io prior {'candidates': 400, 'auto_kept': 26, 'overlap_keep': 0.6, 'border_judged': 0}
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 7 [grouped_main] traces 0 bm25_dense c10=0.003 c16=0.006 map10=0.200 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 7 [grouped_main] traces 0 metadata_vector c10=0.003 c16=0.013 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 7 [grouped_main] traces 0 sqlite_one_hop_prior c10=0.003 c16=0.013 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 7 [grouped_main] traces 0 sqlite_cte_prior c10=0.003 c16=0.013 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 7 [grouped_main] traces 0 hydra_mspaths_prior c10=0.003 c16=0.013 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 7 [grouped_main] traces 0 sqlite_one_hop_prior_k4 c10=0.003 c16=0.006 map10=0.202 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 7 [grouped_main] traces 0 sqlite_cte_prior_k4 c10=0.003 c16=0.006 map10=0.202 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 7 [grouped_main] traces 0 hydra_mspaths_prior_k4 c10=0.003 c16=0.006 map10=0.202 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 7 [grouped_main] traces 0 hydra_mspaths_trace_only c10=0.003 c16=0.006 map10=0.200 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 7 [grouped_main] traces 0 hydra_mspaths_prior_only c10=0.003 c16=0.013 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 7 [grouped_main] traces 0 oracle c10=0.701 c16=0.959 map10=0.780 comp_n=0 comp_mains=0 comp16=0.0
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 7 [grouped_main] traces 10 bm25_dense c10=0.003 c16=0.006 map10=0.200 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 7 [grouped_main] traces 10 metadata_vector c10=0.025 c16=0.047 map10=0.213 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 7 [grouped_main] traces 10 sqlite_one_hop_prior c10=0.025 c16=0.047 map10=0.213 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 7 [grouped_main] traces 10 sqlite_cte_prior c10=0.025 c16=0.047 map10=0.213 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 7 [grouped_main] traces 10 hydra_mspaths_prior c10=0.025 c16=0.047 map10=0.213 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 7 [grouped_main] traces 10 sqlite_one_hop_prior_k4 c10=0.022 c16=0.025 map10=0.209 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 7 [grouped_main] traces 10 sqlite_cte_prior_k4 c10=0.022 c16=0.025 map10=0.209 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 7 [grouped_main] traces 10 hydra_mspaths_prior_k4 c10=0.022 c16=0.025 map10=0.209 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 7 [grouped_main] traces 10 hydra_mspaths_trace_only c10=0.025 c16=0.041 map10=0.210 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 7 [grouped_main] traces 10 hydra_mspaths_prior_only c10=0.003 c16=0.013 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 7 [grouped_main] traces 10 oracle c10=0.701 c16=0.959 map10=0.780 comp_n=0 comp_mains=0 comp16=0.0
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 7 [grouped_main] traces 30 bm25_dense c10=0.003 c16=0.006 map10=0.200 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 7 [grouped_main] traces 30 metadata_vector c10=0.044 c16=0.079 map10=0.233 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 7 [grouped_main] traces 30 sqlite_one_hop_prior c10=0.044 c16=0.079 map10=0.233 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 7 [grouped_main] traces 30 sqlite_cte_prior c10=0.044 c16=0.079 map10=0.233 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 7 [grouped_main] traces 30 hydra_mspaths_prior c10=0.044 c16=0.079 map10=0.233 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 7 [grouped_main] traces 30 sqlite_one_hop_prior_k4 c10=0.038 c16=0.038 map10=0.224 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 7 [grouped_main] traces 30 sqlite_cte_prior_k4 c10=0.038 c16=0.038 map10=0.224 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 7 [grouped_main] traces 30 hydra_mspaths_prior_k4 c10=0.038 c16=0.038 map10=0.224 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 7 [grouped_main] traces 30 hydra_mspaths_trace_only c10=0.044 c16=0.072 map10=0.230 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 7 [grouped_main] traces 30 hydra_mspaths_prior_only c10=0.003 c16=0.013 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 7 [grouped_main] traces 30 oracle c10=0.701 c16=0.959 map10=0.780 comp_n=0 comp_mains=0 comp16=0.0
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 7 [grouped_main] traces 100 bm25_dense c10=0.003 c16=0.006 map10=0.200 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 7 [grouped_main] traces 100 metadata_vector c10=0.082 c16=0.223 map10=0.288 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 7 [grouped_main] traces 100 sqlite_one_hop_prior c10=0.082 c16=0.223 map10=0.288 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 7 [grouped_main] traces 100 sqlite_cte_prior c10=0.082 c16=0.223 map10=0.288 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 7 [grouped_main] traces 100 hydra_mspaths_prior c10=0.082 c16=0.223 map10=0.288 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 7 [grouped_main] traces 100 sqlite_one_hop_prior_k4 c10=0.057 c16=0.085 map10=0.265 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 7 [grouped_main] traces 100 sqlite_cte_prior_k4 c10=0.057 c16=0.085 map10=0.265 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 7 [grouped_main] traces 100 hydra_mspaths_prior_k4 c10=0.057 c16=0.085 map10=0.265 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 7 [grouped_main] traces 100 hydra_mspaths_trace_only c10=0.082 c16=0.217 map10=0.285 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 7 [grouped_main] traces 100 hydra_mspaths_prior_only c10=0.003 c16=0.013 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 7 [grouped_main] traces 100 oracle c10=0.701 c16=0.959 map10=0.780 comp_n=0 comp_mains=0 comp16=0.0
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 7 [grouped_main] traces 300 bm25_dense c10=0.003 c16=0.006 map10=0.200 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 7 [grouped_main] traces 300 metadata_vector c10=0.248 c16=0.481 map10=0.394 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 7 [grouped_main] traces 300 sqlite_one_hop_prior c10=0.248 c16=0.481 map10=0.395 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 7 [grouped_main] traces 300 sqlite_cte_prior c10=0.248 c16=0.481 map10=0.395 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 7 [grouped_main] traces 300 hydra_mspaths_prior c10=0.248 c16=0.481 map10=0.395 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 7 [grouped_main] traces 300 sqlite_one_hop_prior_k4 c10=0.201 c16=0.245 map10=0.351 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 7 [grouped_main] traces 300 sqlite_cte_prior_k4 c10=0.201 c16=0.245 map10=0.351 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 7 [grouped_main] traces 300 hydra_mspaths_prior_k4 c10=0.201 c16=0.245 map10=0.351 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 7 [grouped_main] traces 300 hydra_mspaths_trace_only c10=0.258 c16=0.487 map10=0.396 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 7 [grouped_main] traces 300 hydra_mspaths_prior_only c10=0.003 c16=0.013 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 7 [grouped_main] traces 300 oracle c10=0.701 c16=0.959 map10=0.780 comp_n=0 comp_mains=0 comp16=0.0
+seed 7: rolled back batch canary 0.275 < 0.300
+seed 7: rolled back batch canary 0.275 < 0.300
+seed 7: rolled back batch canary 0.275 < 0.300
+seed 7: rolled back batch canary 0.275 < 0.300
+seed 7: rolled back batch canary 0.275 < 0.300
+seed 7: rolled back batch canary 0.275 < 0.300
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 7 [grouped_main] traces 939 bm25_dense c10=0.003 c16=0.006 map10=0.200 comp_n=3 comp_mains=1 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 7 [grouped_main] traces 939 metadata_vector c10=0.431 c16=0.657 map10=0.549 comp_n=3 comp_mains=1 comp16=1.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 7 [grouped_main] traces 939 sqlite_one_hop_prior c10=0.437 c16=0.657 map10=0.554 comp_n=3 comp_mains=1 comp16=1.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 7 [grouped_main] traces 939 sqlite_cte_prior c10=0.434 c16=0.657 map10=0.552 comp_n=3 comp_mains=1 comp16=1.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 7 [grouped_main] traces 939 hydra_mspaths_prior c10=0.459 c16=0.679 map10=0.565 comp_n=3 comp_mains=1 comp16=1.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 7 [grouped_main] traces 939 sqlite_one_hop_prior_k4 c10=0.409 c16=0.491 map10=0.533 comp_n=3 comp_mains=1 comp16=1.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 7 [grouped_main] traces 939 sqlite_cte_prior_k4 c10=0.406 c16=0.491 map10=0.532 comp_n=3 comp_mains=1 comp16=1.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 7 [grouped_main] traces 939 hydra_mspaths_prior_k4 c10=0.443 c16=0.544 map10=0.552 comp_n=3 comp_mains=1 comp16=1.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 7 [grouped_main] traces 939 hydra_mspaths_trace_only c10=0.462 c16=0.676 map10=0.564 comp_n=3 comp_mains=1 comp16=1.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 7 [grouped_main] traces 939 hydra_mspaths_prior_only c10=0.003 c16=0.013 map10=0.203 comp_n=3 comp_mains=1 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 7 [grouped_main] traces 939 oracle c10=0.701 c16=0.959 map10=0.780 comp_n=3 comp_mains=1 comp16=1.0
+seed 21 [grouped_main]: reload catalog (no learned edges yet)
+seed 21: io prior {'candidates': 400, 'auto_kept': 26, 'overlap_keep': 0.6, 'border_judged': 0}
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 21 [grouped_main] traces 0 bm25_dense c10=0.031 c16=0.035 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 21 [grouped_main] traces 0 metadata_vector c10=0.031 c16=0.035 map10=0.206 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 21 [grouped_main] traces 0 sqlite_one_hop_prior c10=0.031 c16=0.035 map10=0.206 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 21 [grouped_main] traces 0 sqlite_cte_prior c10=0.031 c16=0.035 map10=0.206 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 21 [grouped_main] traces 0 hydra_mspaths_prior c10=0.031 c16=0.035 map10=0.206 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 21 [grouped_main] traces 0 sqlite_one_hop_prior_k4 c10=0.031 c16=0.035 map10=0.206 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 21 [grouped_main] traces 0 sqlite_cte_prior_k4 c10=0.031 c16=0.035 map10=0.206 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 21 [grouped_main] traces 0 hydra_mspaths_prior_k4 c10=0.031 c16=0.035 map10=0.206 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 21 [grouped_main] traces 0 hydra_mspaths_trace_only c10=0.031 c16=0.035 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 21 [grouped_main] traces 0 hydra_mspaths_prior_only c10=0.031 c16=0.035 map10=0.206 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 21 [grouped_main] traces 0 oracle c10=0.689 c16=0.943 map10=0.778 comp_n=0 comp_mains=0 comp16=0.0
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 21 [grouped_main] traces 10 bm25_dense c10=0.031 c16=0.035 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 21 [grouped_main] traces 10 metadata_vector c10=0.035 c16=0.044 map10=0.214 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 21 [grouped_main] traces 10 sqlite_one_hop_prior c10=0.035 c16=0.044 map10=0.214 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 21 [grouped_main] traces 10 sqlite_cte_prior c10=0.035 c16=0.044 map10=0.214 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 21 [grouped_main] traces 10 hydra_mspaths_prior c10=0.035 c16=0.044 map10=0.214 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 21 [grouped_main] traces 10 sqlite_one_hop_prior_k4 c10=0.035 c16=0.038 map10=0.211 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 21 [grouped_main] traces 10 sqlite_cte_prior_k4 c10=0.035 c16=0.038 map10=0.211 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 21 [grouped_main] traces 10 hydra_mspaths_prior_k4 c10=0.035 c16=0.038 map10=0.211 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 21 [grouped_main] traces 10 hydra_mspaths_trace_only c10=0.035 c16=0.044 map10=0.211 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 21 [grouped_main] traces 10 hydra_mspaths_prior_only c10=0.031 c16=0.035 map10=0.206 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 21 [grouped_main] traces 10 oracle c10=0.689 c16=0.943 map10=0.778 comp_n=0 comp_mains=0 comp16=0.0
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 21 [grouped_main] traces 30 bm25_dense c10=0.031 c16=0.035 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 21 [grouped_main] traces 30 metadata_vector c10=0.057 c16=0.079 map10=0.228 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 21 [grouped_main] traces 30 sqlite_one_hop_prior c10=0.057 c16=0.079 map10=0.228 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 21 [grouped_main] traces 30 sqlite_cte_prior c10=0.057 c16=0.079 map10=0.228 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 21 [grouped_main] traces 30 hydra_mspaths_prior c10=0.057 c16=0.079 map10=0.228 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 21 [grouped_main] traces 30 sqlite_one_hop_prior_k4 c10=0.044 c16=0.047 map10=0.220 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 21 [grouped_main] traces 30 sqlite_cte_prior_k4 c10=0.044 c16=0.047 map10=0.220 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 21 [grouped_main] traces 30 hydra_mspaths_prior_k4 c10=0.044 c16=0.047 map10=0.220 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 21 [grouped_main] traces 30 hydra_mspaths_trace_only c10=0.057 c16=0.079 map10=0.226 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 21 [grouped_main] traces 30 hydra_mspaths_prior_only c10=0.031 c16=0.035 map10=0.206 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 21 [grouped_main] traces 30 oracle c10=0.689 c16=0.943 map10=0.778 comp_n=0 comp_mains=0 comp16=0.0
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 21 [grouped_main] traces 100 bm25_dense c10=0.031 c16=0.035 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 21 [grouped_main] traces 100 metadata_vector c10=0.142 c16=0.226 map10=0.289 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 21 [grouped_main] traces 100 sqlite_one_hop_prior c10=0.157 c16=0.226 map10=0.293 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 21 [grouped_main] traces 100 sqlite_cte_prior c10=0.157 c16=0.226 map10=0.299 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 21 [grouped_main] traces 100 hydra_mspaths_prior c10=0.157 c16=0.226 map10=0.299 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 21 [grouped_main] traces 100 sqlite_one_hop_prior_k4 c10=0.119 c16=0.129 map10=0.271 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 21 [grouped_main] traces 100 sqlite_cte_prior_k4 c10=0.119 c16=0.135 map10=0.277 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 21 [grouped_main] traces 100 hydra_mspaths_prior_k4 c10=0.119 c16=0.135 map10=0.277 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 21 [grouped_main] traces 100 hydra_mspaths_trace_only c10=0.157 c16=0.226 map10=0.291 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 21 [grouped_main] traces 100 hydra_mspaths_prior_only c10=0.031 c16=0.035 map10=0.206 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 21 [grouped_main] traces 100 oracle c10=0.689 c16=0.943 map10=0.778 comp_n=0 comp_mains=0 comp16=0.0
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 21 [grouped_main] traces 300 bm25_dense c10=0.031 c16=0.035 map10=0.203 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 21 [grouped_main] traces 300 metadata_vector c10=0.239 c16=0.443 map10=0.393 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 21 [grouped_main] traces 300 sqlite_one_hop_prior c10=0.245 c16=0.443 map10=0.395 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 21 [grouped_main] traces 300 sqlite_cte_prior c10=0.245 c16=0.437 map10=0.397 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 21 [grouped_main] traces 300 hydra_mspaths_prior c10=0.245 c16=0.437 map10=0.397 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 21 [grouped_main] traces 300 sqlite_one_hop_prior_k4 c10=0.195 c16=0.245 map10=0.351 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 21 [grouped_main] traces 300 sqlite_cte_prior_k4 c10=0.195 c16=0.248 map10=0.354 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 21 [grouped_main] traces 300 hydra_mspaths_prior_k4 c10=0.195 c16=0.248 map10=0.354 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 21 [grouped_main] traces 300 hydra_mspaths_trace_only c10=0.248 c16=0.443 map10=0.396 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 21 [grouped_main] traces 300 hydra_mspaths_prior_only c10=0.031 c16=0.035 map10=0.206 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 21 [grouped_main] traces 300 oracle c10=0.689 c16=0.943 map10=0.778 comp_n=0 comp_mains=0 comp16=0.0
+seed 21: rolled back batch canary 0.275 < 0.300
+seed 21: rolled back batch canary 0.275 < 0.300
+seed 21: rolled back batch canary 0.275 < 0.300
+seed 21: rolled back batch canary 0.275 < 0.300
+seed 21: rolled back batch canary 0.275 < 0.300
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 21 [grouped_main] traces 939 bm25_dense c10=0.031 c16=0.035 map10=0.203 comp_n=3 comp_mains=1 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 21 [grouped_main] traces 939 metadata_vector c10=0.459 c16=0.667 map10=0.576 comp_n=3 comp_mains=1 comp16=1.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 21 [grouped_main] traces 939 sqlite_one_hop_prior c10=0.462 c16=0.667 map10=0.578 comp_n=3 comp_mains=1 comp16=1.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 21 [grouped_main] traces 939 sqlite_cte_prior c10=0.462 c16=0.667 map10=0.578 comp_n=3 comp_mains=1 comp16=1.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 21 [grouped_main] traces 939 hydra_mspaths_prior c10=0.465 c16=0.670 map10=0.582 comp_n=3 comp_mains=1 comp16=1.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 21 [grouped_main] traces 939 sqlite_one_hop_prior_k4 c10=0.450 c16=0.566 map10=0.570 comp_n=3 comp_mains=1 comp16=1.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 21 [grouped_main] traces 939 sqlite_cte_prior_k4 c10=0.450 c16=0.566 map10=0.570 comp_n=3 comp_mains=1 comp16=1.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 21 [grouped_main] traces 939 hydra_mspaths_prior_k4 c10=0.453 c16=0.569 map10=0.574 comp_n=3 comp_mains=1 comp16=1.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 21 [grouped_main] traces 939 hydra_mspaths_trace_only c10=0.475 c16=0.676 map10=0.583 comp_n=3 comp_mains=1 comp16=1.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 21 [grouped_main] traces 939 hydra_mspaths_prior_only c10=0.031 c16=0.035 map10=0.206 comp_n=3 comp_mains=1 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 21 [grouped_main] traces 939 oracle c10=0.689 c16=0.943 map10=0.778 comp_n=3 comp_mains=1 comp16=1.0
+seed 42 [grouped_main]: reload catalog (no learned edges yet)
+seed 42: io prior {'candidates': 400, 'auto_kept': 26, 'overlap_keep': 0.6, 'border_judged': 0}
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 42 [grouped_main] traces 0 bm25_dense c10=0.047 c16=0.050 map10=0.222 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 42 [grouped_main] traces 0 metadata_vector c10=0.047 c16=0.050 map10=0.223 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 42 [grouped_main] traces 0 sqlite_one_hop_prior c10=0.047 c16=0.050 map10=0.223 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 42 [grouped_main] traces 0 sqlite_cte_prior c10=0.047 c16=0.050 map10=0.223 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 42 [grouped_main] traces 0 hydra_mspaths_prior c10=0.047 c16=0.050 map10=0.223 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 42 [grouped_main] traces 0 sqlite_one_hop_prior_k4 c10=0.047 c16=0.050 map10=0.223 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 42 [grouped_main] traces 0 sqlite_cte_prior_k4 c10=0.047 c16=0.050 map10=0.223 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 42 [grouped_main] traces 0 hydra_mspaths_prior_k4 c10=0.047 c16=0.050 map10=0.223 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 42 [grouped_main] traces 0 hydra_mspaths_trace_only c10=0.047 c16=0.050 map10=0.222 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 42 [grouped_main] traces 0 hydra_mspaths_prior_only c10=0.047 c16=0.050 map10=0.223 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 42 [grouped_main] traces 0 oracle c10=0.670 c16=0.962 map10=0.794 comp_n=0 comp_mains=0 comp16=0.0
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 42 [grouped_main] traces 10 bm25_dense c10=0.047 c16=0.050 map10=0.222 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 42 [grouped_main] traces 10 metadata_vector c10=0.060 c16=0.069 map10=0.237 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 42 [grouped_main] traces 10 sqlite_one_hop_prior c10=0.060 c16=0.069 map10=0.237 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 42 [grouped_main] traces 10 sqlite_cte_prior c10=0.060 c16=0.069 map10=0.237 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 42 [grouped_main] traces 10 hydra_mspaths_prior c10=0.060 c16=0.069 map10=0.237 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 42 [grouped_main] traces 10 sqlite_one_hop_prior_k4 c10=0.053 c16=0.060 map10=0.232 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 42 [grouped_main] traces 10 sqlite_cte_prior_k4 c10=0.053 c16=0.060 map10=0.232 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 42 [grouped_main] traces 10 hydra_mspaths_prior_k4 c10=0.053 c16=0.060 map10=0.232 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 42 [grouped_main] traces 10 hydra_mspaths_trace_only c10=0.060 c16=0.069 map10=0.236 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 42 [grouped_main] traces 10 hydra_mspaths_prior_only c10=0.047 c16=0.050 map10=0.223 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 42 [grouped_main] traces 10 oracle c10=0.670 c16=0.962 map10=0.794 comp_n=0 comp_mains=0 comp16=0.0
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 42 [grouped_main] traces 30 bm25_dense c10=0.047 c16=0.050 map10=0.222 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 42 [grouped_main] traces 30 metadata_vector c10=0.069 c16=0.110 map10=0.251 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 42 [grouped_main] traces 30 sqlite_one_hop_prior c10=0.069 c16=0.110 map10=0.251 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 42 [grouped_main] traces 30 sqlite_cte_prior c10=0.069 c16=0.110 map10=0.251 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 42 [grouped_main] traces 30 hydra_mspaths_prior c10=0.069 c16=0.110 map10=0.251 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 42 [grouped_main] traces 30 sqlite_one_hop_prior_k4 c10=0.063 c16=0.082 map10=0.242 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 42 [grouped_main] traces 30 sqlite_cte_prior_k4 c10=0.063 c16=0.082 map10=0.242 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 42 [grouped_main] traces 30 hydra_mspaths_prior_k4 c10=0.063 c16=0.082 map10=0.242 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 42 [grouped_main] traces 30 hydra_mspaths_trace_only c10=0.069 c16=0.110 map10=0.252 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 42 [grouped_main] traces 30 hydra_mspaths_prior_only c10=0.047 c16=0.050 map10=0.223 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 42 [grouped_main] traces 30 oracle c10=0.670 c16=0.962 map10=0.794 comp_n=0 comp_mains=0 comp16=0.0
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 42 [grouped_main] traces 100 bm25_dense c10=0.047 c16=0.050 map10=0.222 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 42 [grouped_main] traces 100 metadata_vector c10=0.126 c16=0.233 map10=0.294 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 42 [grouped_main] traces 100 sqlite_one_hop_prior c10=0.126 c16=0.233 map10=0.294 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 42 [grouped_main] traces 100 sqlite_cte_prior c10=0.126 c16=0.233 map10=0.294 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 42 [grouped_main] traces 100 hydra_mspaths_prior c10=0.126 c16=0.233 map10=0.294 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 42 [grouped_main] traces 100 sqlite_one_hop_prior_k4 c10=0.107 c16=0.132 map10=0.266 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 42 [grouped_main] traces 100 sqlite_cte_prior_k4 c10=0.107 c16=0.132 map10=0.266 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 42 [grouped_main] traces 100 hydra_mspaths_prior_k4 c10=0.107 c16=0.132 map10=0.266 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 42 [grouped_main] traces 100 hydra_mspaths_trace_only c10=0.123 c16=0.230 map10=0.295 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 42 [grouped_main] traces 100 hydra_mspaths_prior_only c10=0.047 c16=0.050 map10=0.223 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 42 [grouped_main] traces 100 oracle c10=0.670 c16=0.962 map10=0.794 comp_n=0 comp_mains=0 comp16=0.0
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 42 [grouped_main] traces 300 bm25_dense c10=0.047 c16=0.050 map10=0.222 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 42 [grouped_main] traces 300 metadata_vector c10=0.239 c16=0.434 map10=0.413 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 42 [grouped_main] traces 300 sqlite_one_hop_prior c10=0.242 c16=0.434 map10=0.413 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 42 [grouped_main] traces 300 sqlite_cte_prior c10=0.242 c16=0.437 map10=0.416 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 42 [grouped_main] traces 300 hydra_mspaths_prior c10=0.242 c16=0.437 map10=0.416 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 42 [grouped_main] traces 300 sqlite_one_hop_prior_k4 c10=0.201 c16=0.245 map10=0.375 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 42 [grouped_main] traces 300 sqlite_cte_prior_k4 c10=0.201 c16=0.248 map10=0.379 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 42 [grouped_main] traces 300 hydra_mspaths_prior_k4 c10=0.201 c16=0.248 map10=0.379 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 42 [grouped_main] traces 300 hydra_mspaths_trace_only c10=0.236 c16=0.431 map10=0.417 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 42 [grouped_main] traces 300 hydra_mspaths_prior_only c10=0.047 c16=0.050 map10=0.223 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 42 [grouped_main] traces 300 oracle c10=0.670 c16=0.962 map10=0.794 comp_n=0 comp_mains=0 comp16=0.0
+seed 42: rolled back batch canary 0.325 < 0.350
+seed 42: rolled back batch canary 0.500 < 0.525
+seed 42: rolled back batch canary 0.500 < 0.525
+seed 42: rolled back batch canary 0.475 < 0.525
+seed 42: rolled back batch canary 0.475 < 0.525
+seed 42: rolled back batch canary 0.475 < 0.525
+seed 42: rolled back batch canary 0.475 < 0.525
+seed 42: rolled back batch canary 0.475 < 0.525
+seed 42: rolled back batch canary 0.475 < 0.525
+seed 42: rolled back batch canary 0.475 < 0.525
+seed 42: rolled back batch canary 0.475 < 0.525
+  bm25_dense 100/318
+  bm25_dense 200/318
+  bm25_dense 300/318
+seed 42 [grouped_main] traces 939 bm25_dense c10=0.047 c16=0.050 map10=0.222 comp_n=0 comp_mains=0 comp16=0.0
+  metadata_vector 100/318
+  metadata_vector 200/318
+  metadata_vector 300/318
+seed 42 [grouped_main] traces 939 metadata_vector c10=0.418 c16=0.623 map10=0.553 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior 100/318
+  sqlite_one_hop_prior 200/318
+  sqlite_one_hop_prior 300/318
+seed 42 [grouped_main] traces 939 sqlite_one_hop_prior c10=0.421 c16=0.623 map10=0.554 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior 100/318
+  sqlite_cte_prior 200/318
+  sqlite_cte_prior 300/318
+seed 42 [grouped_main] traces 939 sqlite_cte_prior c10=0.412 c16=0.623 map10=0.553 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior 100/318
+  hydra_mspaths_prior 200/318
+  hydra_mspaths_prior 300/318
+seed 42 [grouped_main] traces 939 hydra_mspaths_prior c10=0.428 c16=0.619 map10=0.566 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_one_hop_prior_k4 100/318
+  sqlite_one_hop_prior_k4 200/318
+  sqlite_one_hop_prior_k4 300/318
+seed 42 [grouped_main] traces 939 sqlite_one_hop_prior_k4 c10=0.403 c16=0.469 map10=0.539 comp_n=0 comp_mains=0 comp16=0.0
+  sqlite_cte_prior_k4 100/318
+  sqlite_cte_prior_k4 200/318
+  sqlite_cte_prior_k4 300/318
+seed 42 [grouped_main] traces 939 sqlite_cte_prior_k4 c10=0.393 c16=0.472 map10=0.539 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_k4 100/318
+  hydra_mspaths_prior_k4 200/318
+  hydra_mspaths_prior_k4 300/318
+seed 42 [grouped_main] traces 939 hydra_mspaths_prior_k4 c10=0.409 c16=0.484 map10=0.553 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_trace_only 100/318
+  hydra_mspaths_trace_only 200/318
+  hydra_mspaths_trace_only 300/318
+seed 42 [grouped_main] traces 939 hydra_mspaths_trace_only c10=0.440 c16=0.619 map10=0.574 comp_n=0 comp_mains=0 comp16=0.0
+  hydra_mspaths_prior_only 100/318
+  hydra_mspaths_prior_only 200/318
+  hydra_mspaths_prior_only 300/318
+seed 42 [grouped_main] traces 939 hydra_mspaths_prior_only c10=0.047 c16=0.050 map10=0.223 comp_n=0 comp_mains=0 comp16=0.0
+  oracle 100/318
+  oracle 200/318
+  oracle 300/318
+seed 42 [grouped_main] traces 939 oracle c10=0.670 c16=0.962 map10=0.794 comp_n=0 comp_mains=0 comp16=0.0
+{
+  "gate": {
+    "passed": true,
+    "rises": true,
+    "beats_flat": true,
+    "beats_metadata": false,
+    "hydra_vs_cte": [
+      {
+        "traces": 0.0,
+        "hydra_c16": 0.03249475890985325,
+        "cte_c16": 0.03249475890985325,
+        "diff": 0.0,
+        "within_spread": true
+      },
+      {
+        "traces": 10.0,
+        "hydra_c16": 0.053459119496855355,
+        "cte_c16": 0.053459119496855355,
+        "diff": 0.0,
+        "within_spread": true
+      },
+      {
+        "traces": 30.0,
+        "hydra_c16": 0.08909853249475891,
+        "cte_c16": 0.08909853249475891,
+        "diff": 0.0,
+        "within_spread": true
+      },
+      {
+        "traces": 100.0,
+        "hydra_c16": 0.22746331236897274,
+        "cte_c16": 0.22746331236897274,
+        "diff": 0.0,
+        "within_spread": true
+      },
+      {
+        "traces": 300.0,
+        "hydra_c16": 0.45178197064989517,
+        "cte_c16": 0.45178197064989517,
+        "diff": 0.0,
+        "within_spread": true
+      },
+      {
+        "traces": 939.0,
+        "hydra_c16": 0.6561844863731656,
+        "cte_c16": 0.6488469601677149,
+        "diff": 0.007337526205450695,
+        "within_spread": true
+      }
+    ],
+    "hydra_vs_metadata": [
+      {
+        "traces": 0.0,
+        "hydra_c16": 0.03249475890985325,
+        "metadata_c16": 0.03249475890985325,
+        "hydra_map10": 0.21056321399784386,
+        "metadata_map10": 0.2106068897490668,
+        "diff": 0.0,
+        "beats_beyond_spread": false
+      },
+      {
+        "traces": 10.0,
+        "hydra_c16": 0.053459119496855355,
+        "metadata_c16": 0.053459119496855355,
+        "hydra_map10": 0.22123811643222394,
+        "metadata_map10": 0.22128179218344687,
+        "diff": 0.0,
+        "beats_beyond_spread": false
+      },
+      {
+        "traces": 30.0,
+        "hydra_c16": 0.08909853249475891,
+        "metadata_c16": 0.08909853249475891,
+        "hydra_map10": 0.2375645458606612,
+        "metadata_map10": 0.2376082216118841,
+        "diff": 0.0,
+        "beats_beyond_spread": false
+      },
+      {
+        "traces": 100.0,
+        "hydra_c16": 0.22746331236897274,
+        "metadata_c16": 0.22746331236897274,
+        "hydra_map10": 0.29363940494281415,
+        "metadata_map10": 0.290531077987527,
+        "diff": 0.0,
+        "beats_beyond_spread": false
+      },
+      {
+        "traces": 300.0,
+        "hydra_c16": 0.45178197064989517,
+        "metadata_c16": 0.45283018867924535,
+        "hydra_map10": 0.4025406661519333,
+        "metadata_map10": 0.39986244135630805,
+        "diff": -0.0010482180293501786,
+        "beats_beyond_spread": false
+      },
+      {
+        "traces": 939.0,
+        "hydra_c16": 0.6561844863731656,
+        "metadata_c16": 0.6488469601677149,
+        "hydra_map10": 0.5708724769413162,
+        "metadata_map10": 0.5594025340452976,
+        "diff": 0.007337526205450695,
+        "beats_beyond_spread": false
+      }
+    ],
+    "notes": [
+      "hydra_mspaths_prior: delta_c16=0.6237 spread=0.0597 need>0.1792 rose=True",
+      "hydra_mspaths_trace_only: delta_c16=0.6268 spread=0.0566 need>0.1698 rose=True",
+      "HydraDB tied the recursive-CTE+prior control within seed spread; honest HydraDB value is versioned edits, undo, provenance, weighted multi-hop, as_of",
+      "Matched fan-in=32: HydraDB did not beat metadata also-load beyond seed spread",
+      "fan-in ablation: hydra@32 c16=0.6562 vs hydra@4 c16=0.5325 (delta=0.1237)"
+    ],
+    "rule": "(sealed @16 at all traces \u2212 @16 at 0 traces) > 3.0 \u00d7 seed_spread at the full point",
+    "positioning": "Claim is trace-learned edges. GRTF 2502.07223 mAP@10 0.856 is reference, different protocol (hand-built deps + query-level split). GoS 2604.05333 never revises from traces.",
+    "claims_hygiene": {
+      "trace_only_endpoint": "hydra_mspaths_trace_only: report 0-trace and full separately from prior-enabled",
+      "prior_enabled_starts_nonzero": "hydra_mspaths_prior c16 at 0 traces is prior-only cold start",
+      "grtf_map10": "0.856 reference, different protocol"
+    },
+    "matched_fan_in": [
+      "metadata_vector",
+      "sqlite_one_hop_prior",
+      "sqlite_cte_prior",
+      "hydra_mspaths_prior"
+    ]
+  }
+}

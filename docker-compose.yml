@@ -1,6 +1,9 @@
+# Note: mcp + demo use host networking so they can reach HydraDB on :8443.
+# On some cloud VMs, user-defined bridge TCP between containers to HydraDB times out.
 services:
   hydradb:
     image: ghcr.io/hydra-db/hydradb:latest
+    user: "0:0"
     environment:
       CLOUD_PROVIDER: local
       LOCAL_PATH: /data/store
@@ -8,33 +11,43 @@ services:
       GRAPH_ID: default
       GRAPH_ALLOW_PLAINTEXT: "true"
       GRAPH_USAGE_REPORT_ENABLED: "false"
+      GRAPH_AUTH_TOKEN_FILE: /var/run/secrets/slatedb-graph/auth-token
     volumes:
       - hydradb_data:/data/store
+      - ./deploy/hydra-auth-token:/var/run/secrets/slatedb-graph/auth-token:ro
     ports:
       - "8443:8443"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8443'"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
 
   mcp:
     build: .
+    network_mode: host
     depends_on:
-      - hydradb
+      hydradb:
+        condition: service_healthy
     environment:
-      HYDRA_URL: http://hydradb:8443
+      HYDRA_URL: http://127.0.0.1:8443
       HYDRA_TOKEN: local-development-token-32-bytes
-    ports:
-      - "8080:8080"
     command: ["python", "-m", "toolgraph.mcp_server", "--http", "8080", "--http-only"]
+    restart: on-failure
 
   demo:
     build: .
+    network_mode: host
     depends_on:
-      - hydradb
+      hydradb:
+        condition: service_healthy
     environment:
-      HYDRA_URL: http://hydradb:8443
+      HYDRA_URL: http://127.0.0.1:8443
       HYDRA_TOKEN: local-development-token-32-bytes
       DEMO_PORT: "5000"
-    ports:
-      - "5000:5000"
     command: ["python", "-m", "demo.app"]
+    restart: on-failure
 
 volumes:
   hydradb_data:

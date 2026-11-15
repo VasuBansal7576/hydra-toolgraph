@@ -1,0 +1,32 @@
+test_map10_defined (test_guards.EqualDepthGuardTest.test_map10_defined) ... ok
+test_recursive_cte_reaches_same_depth_as_protocol (test_guards.EqualDepthGuardTest.test_recursive_cte_reaches_same_depth_as_protocol) ... ok
+test_sqlite_cte_and_hydra_arms_share_max_len (test_guards.EqualDepthGuardTest.test_sqlite_cte_and_hydra_arms_share_max_len) ... ok
+test_composition_prior_then_learned (test_guards.GroupedSplitAndCompositionTest.test_composition_prior_then_learned)
+OpenTable-style: main has no learned out-edge; gold via prior→learned. ... ok
+test_grouped_split_keeps_main_siblings_together (test_guards.GroupedSplitAndCompositionTest.test_grouped_split_keeps_main_siblings_together) ... ok
+test_metadata_vector_appends_also_load (test_guards.GroupedSplitAndCompositionTest.test_metadata_vector_appends_also_load) ... ok
+test_toolinkos_every_main_has_three_identical_golds (test_guards.GroupedSplitAndCompositionTest.test_toolinkos_every_main_has_three_identical_golds) ... ok
+test_edge_confidence_formula (test_guards.HiddenEdgeGuardTest.test_edge_confidence_formula) ... ok
+test_io_overlap_threshold_constant (test_guards.HiddenEdgeGuardTest.test_io_overlap_threshold_constant) ... ok
+test_io_prior_is_deterministic_only (test_guards.HiddenEdgeGuardTest.test_io_prior_is_deterministic_only) ... ok
+test_learned_arm_rel_types_never_include_oracle (test_guards.HiddenEdgeGuardTest.test_learned_arm_rel_types_never_include_oracle) ... ok
+test_load_catalog_hides_depends_on_from_learned_rels (test_guards.HiddenEdgeGuardTest.test_load_catalog_hides_depends_on_from_learned_rels) ... ok
+test_no_jev_arm_or_module (test_guards.HiddenEdgeGuardTest.test_no_jev_arm_or_module) ... ok
+test_schema_proposals_ignore_depends_on_field (test_guards.HiddenEdgeGuardTest.test_schema_proposals_ignore_depends_on_field) ... ok
+test_trace_learning_does_not_read_catalog_depends_on (test_guards.HiddenEdgeGuardTest.test_trace_learning_does_not_read_catalog_depends_on) ... ok
+test_closure_uses_prefix_not_path_total (test_guards.MSpathsPrefixCostTest.test_closure_uses_prefix_not_path_total)
+Regression: pathCost total must not be stamped onto every node. ... ok
+test_prefix_costs_s_a_b_unit (test_guards.MSpathsPrefixCostTest.test_prefix_costs_s_a_b_unit) ... ok
+test_eval_curve_imports_without_matplotlib (test_guards.MatplotlibOptionalTest.test_eval_curve_imports_without_matplotlib) ... ok
+test_completeness_requires_every_gold_tool (test_protocol.ProtocolTest.test_completeness_requires_every_gold_tool) ... ok
+test_dataset_gold_stays_inside_the_catalog (test_protocol.ProtocolTest.test_dataset_gold_stays_inside_the_catalog) ... ok
+test_grouped_main_splits_are_disjoint (test_protocol.ProtocolTest.test_grouped_main_splits_are_disjoint) ... ok
+test_query_splits_are_disjoint_appendix_only (test_protocol.ProtocolTest.test_query_splits_are_disjoint_appendix_only) ... ok
+test_rise_gate_requires_three_times_spread (test_protocol.ProtocolTest.test_rise_gate_requires_three_times_spread) ... ok
+test_schema_candidates_do_not_use_catalog_depends_on (test_protocol.ProtocolTest.test_schema_candidates_do_not_use_catalog_depends_on) ... ok
+test_trace_budgets_include_all_and_rise_multiplier (test_protocol.ProtocolTest.test_trace_budgets_include_all_and_rise_multiplier) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 19.102s
+
+OK

@@ -61,7 +61,8 @@ class GraphStore:
         self.edges: dict[tuple[int, int, str], Edge] = {}
         self.n_seen_src: dict[str, int] = {}
         self.tau: float = 0.0
-        self.sqlite = sqlite3.connect(":memory:")
+        # check_same_thread=False: demo/MCP serve requests on worker threads.
+        self.sqlite = sqlite3.connect(":memory:", check_same_thread=False)
         self.sqlite.execute(
             "CREATE TABLE edges (src INTEGER, dst INTEGER, rel TEXT, cost REAL, support INTEGER, "
             "n_obs INTEGER, n_seen_src INTEGER, p REAL, "

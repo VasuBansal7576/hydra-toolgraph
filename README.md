@@ -8,55 +8,57 @@ A context layer that learns which tools to load from agent traces, with versione
 
 ```bash
 git clone https://github.com/VasuBansal7576/hydra-toolgraph.git && cd hydra-toolgraph
-# data/ ships with the repo; otherwise see docs/DATA.md
 pip install -r requirements.txt
 docker compose up --build
 # demo → http://localhost:5000
 # mcp  → POST http://localhost:8080/tools/{load_tools,record_trace,undo_edit,as_of,explain}
 ```
 
-Stdio MCP (no Docker for the server process; still needs HydraDB on `:8443`):
+Stdio MCP: `PYTHONPATH=. python3 -m toolgraph.mcp_server`  
+Smoke (fake Hydra ok): `PYTHONPATH=. python3 scripts/smoke_demo.py`  
+Data fetch: `docs/DATA.md`.
 
-```bash
-export PYTHONPATH=.
-python3 -m toolgraph.mcp_server
-```
+## Results (grouped-by-main, matched fan-in=32)
 
-Smoke without Hydra (fake client): `PYTHONPATH=. python3 scripts/smoke_demo.py`
+Headline split is by **main** (seeds 7/21/42). Measured leak: every ToolLinkOS main has exactly 3 queries with an identical gold set (`1569/1569`). A query-level split leaks siblings and inflates c16 from ~**0.53** (grouped, k4 ablation) to ~**0.91** (query-level appendix).
 
-## Honest results (grouped-by-main, matched fan-in=32)
+**Matched fan-in:** metadata also-load, one-hop+prior, CTE+prior, and Hydra+prior all seed from the same **32** fused hits (`toolgraph/arms.py` `ARM_KNOBS`). The 4-seed graph variants are labelled ablations only.
 
-Headline protocol: split by **main** (seeds 7/21/42). Every ToolLinkOS main has exactly 3 queries with an identical gold set (`1569/1569`); a query-level split leaks siblings and inflates c16 from ~**0.53** (grouped) to ~**0.91** (query-level). That leak finding is a contribution.
+Main-macro completeness@16 (mean of 3 seeds). Source: `results/curve.json` v2.3-matched-fanin.
 
-**Matched fan-in:** metadata also-load, one-hop+prior, CTE+prior, and Hydra+prior all seed from the same **32** fused hits (`ARM_KNOBS` in `toolgraph/arms.py`). The old 4-seed graph variants are labelled ablations.
+| Traces | Flat | Metadata | 1-hop (32) | CTE (32) | Hydra (32) | Hydra k4 | Trace-only (32) | Oracle |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0 | 0.030 | 0.033 | 0.033 | 0.033 | 0.033 | 0.030 | 0.030 | 0.955 |
+| 100 | 0.030 | 0.227 | 0.227 | 0.227 | 0.227 | 0.117 | 0.224 | 0.955 |
+| 300 | 0.030 | 0.453 | 0.453 | 0.452 | 0.452 | 0.247 | 0.454 | 0.955 |
+| 939 | 0.030 | **0.649** | **0.649** | **0.649** | **0.656** | 0.532 | 0.657 | 0.955 |
 
-| Traces | Flat | Metadata | 1-hop+prior (32) | CTE+prior (32) | Hydra+prior (32) | Hydra k4 ablation | Oracle |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| *(filled from `results/curve.json` v2.3-matched-fanin after rerun)* | | | | | | | |
+Full-trace mAP@10: Hydra 0.571, metadata 0.559, CTE 0.561, flat 0.208. GRTF **0.856** = reference, different protocol.
 
-See `results/curve.json` gate notes for the blunt call on whether Hydra beats metadata after matching fan-in. GRTF mAP@10 **0.856** is **reference, different protocol**.
+**Blunt call:** after matching fan-in, Hydra **ties** metadata and the equal-depth CTE within seed spread (Hydra 0.656 vs metadata 0.649; Δ=0.007, not beyond spread). It does **not** win a completeness contest against the vector-store also-load control. The earlier metadata lead (0.657 vs 0.532) was largely the fan-in confound (32 vs 4); the k4 ablation recovers that gap (0.532). Honest HydraDB value here: versioned edits, undo, provenance, as_of.
 
-## Product surface
+Composition slice: mean ~2 queries / ≤1 main; when non-empty, matched arms score 1.0 @16.
+
+## Product
 
 | Tool | Role |
 | --- | --- |
-| `load_tools(query, k)` | BM25+dense fusion + Hydra learned/prior walk; returns tools with provenance edges |
-| `record_trace(query, tools_used)` | Learn edges with do/undo Cypher pairs + versioning |
-| `undo_edit(edit_id)` | Roll back a recorded edit |
-| `as_of(date)` | Replay the edit log up to a timestamp |
-| `explain(tool)` | In/out edges + lesson for one tool |
+| `load_tools(query, k)` | fusion + Hydra learned/prior walk; provenance edges per tool |
+| `record_trace(query, tools_used)` | learn edges with do/undo + versioning |
+| `undo_edit(edit_id)` | roll back a recorded edit |
+| `as_of(date)` | replay edit log up to a timestamp |
+| `explain(tool)` | in/out edges + lesson |
 
-Demo UI: query → loaded tools with why-edges → record trace → undo → as_of.
+Demo: query → loaded tools with why-edges → record trace → undo → as_of.
 
 ## Limits
 
-- ToolLinkOS gold sets are synthetic (gpt-4o generated instances); transfer to live MCP catalogs is unproven.
-- On the previous unmatched-fan-in run, metadata also-load beat Hydra; matched-fan-in results are in `results/curve.json`.
-- HydraDB advantage on this dataset is versioning / undo / provenance / as_of, not a large completeness gap vs an equal-depth SQLite CTE once fan-in matches.
+- ToolLinkOS instances are synthetic; transfer to live MCP catalogs is unproven.
+- Completeness@16 does not separate Hydra from matched CTE/metadata on this dataset.
+- `as_of` is edit-log replay, not native HydraDB path time-travel.
 - No Jev / no paid LLM judge. I/O prior is deterministic overlap ≥ 0.6 only.
-- `as_of` is edit-log replay, not a native HydraDB time-travel API for path topology.
 
-## Reproduce the curve
+## Reproduce curve + tests
 
 ```bash
 export PYTHONPATH=.
@@ -64,4 +66,4 @@ python3 -m unittest discover -s tests -v
 python3 -m toolgraph.eval_curve
 ```
 
-Data: `docs/DATA.md`. Decisions: `docs/DECISIONS.md`. Loom / GTM drafts (do not post): `docs/LOOM_SCRIPT.md`, `docs/GTM_POST.md`.
+Decisions: `docs/DECISIONS.md`. Drafts (do not post): `docs/LOOM_SCRIPT.md`, `docs/GTM_POST.md`.

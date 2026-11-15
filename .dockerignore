@@ -1,0 +1,9 @@
+.git
+results
+**/__pycache__
+*.pyc
+.cursor
+uploads
+*.png
+*.log
+.env

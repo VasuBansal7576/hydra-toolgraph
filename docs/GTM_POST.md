@@ -1,55 +1,41 @@
 # gtm drafts — do not post from this file
 
-factual only. adjust handles/links before publishing.
+factual only. lowercase-friendly. no hype.
 
 ---
 
 ## x thread (draft)
 
-**1/** we shipped a small product layer on top of the hydra-toolgraph research repo: mcp server, http tools api, and a one-page demo.
+**1/** hydra-toolgraph is a small context layer: learn which tools to load from agent traces, store the edges in hydradb with versioning, undo, and provenance.
 
-learn `DEPENDS_ON` edges from agent traces (not from hidden catalog deps). deterministic schema prior at overlap ≥ 0.6. versioned edits + undo.
-
-**2/** try it:
+**2/** quickstart:
 
 ```bash
-docker compose up
+docker compose up --build
 # demo http://localhost:5000
-# mcp http://localhost:8080/tools/load_tools
+# mcp  http://localhost:8080/tools/load_tools
 ```
 
-stdio mcp: `python -m toolgraph.mcp_server`
+**3/** mcp tools: `load_tools`, `record_trace`, `undo_edit`, `as_of`, `explain`. no jev, no paid llm judge. i/o prior is deterministic schema overlap ≥ 0.6.
 
-**3/** what you see in the demo:
+**4/** eval (toollinkos, grouped-by-main, matched fan-in=32): hydra mspaths+prior c16 **0.656**, metadata also-load **0.649**, sqlite cte **0.649**. tie within seed spread. hydra does not beat the vector-store control once fan-in matches. the old 4-seed gap was a confound (k4 ablation lands at 0.532).
 
-- `load_tools` — bm25+dense fusion, then multi-hop over learned edges with provenance on each hit
-- `record_trace` — strengthen edges from observed tool use
-- `undo_edit` — truncate edit log and rebuild
-- `as_of` — replay edits with timestamps ≤ date
-- `explain` — in/out edges for one tool
+**5/** leak finding: every main has 3 identical-gold queries (1569/1569). a query-level split inflates c16 from ~0.53 to ~0.91. grouped-by-main is the headline.
 
-**4/** honest eval context (ToolLinkOS, grouped-by-main split, seeds 7/21/42): hydra mspaths+prior ties the sqlite recursive cte control; it does not beat the metadata-vector also-load control at full traces on this dataset. details in `results/curve.json`.
+refs: grtf arxiv:2502.07223 (reference, different protocol), graph-of-skills arxiv:2604.05333 (graph never revised from traces).
 
-refs: GRTF arxiv:2502.07223 (hand-built deps), graph-of-skills arxiv:2604.05333 (graph not revised from traces).
-
-**5/** code: github.com/…/hydra-toolgraph — mcp + demo are new; eval script unchanged. no jev, no paid llm judge in the loop.
+**6/** code: github.com/VasuBansal7576/hydra-toolgraph — drafts only here; not posting from the agent.
 
 ---
 
 ## linkedin post (draft)
 
-**title idea:** tool traces → versioned tool graph → mcp loader (hydra hackathon track 2)
+we open-sourced a small tool-loading layer on hydradb: learn prerequisite edges from agent traces, load a complete tool set with provenance, and undo edits.
 
-we added a product-facing layer to our hydra-toolgraph experiment: an mcp server, http json endpoints, docker compose, and a minimal web demo.
+honest numbers on toollinkos (grouped-by-main split, matched fan-in of 32 fused seeds): hydra multi-hop **0.656** c16, metadata also-load **0.649**, recursive cte **0.649**. after matching controls, hydra ties — it does not win completeness against a flat also-load list. what hydradb adds on this dataset is versioned, undoable, provenance-tagged edges (and as-of replay).
 
-the flow: rank tools for a task query, show *why* each tool appeared (learned or schema prior edges with provenance), record new traces to strengthen dependencies, undo mistakes, and reconstruct the graph as-of a past timestamp from the edit log.
+also documented: a query-level split on this dataset leaks sibling answer sets (3 identical golds per main) and inflates scores from ~0.53 to ~0.91.
 
-under the hood: ToolLinkOS catalog, local HydraDB for multi-hop `algo.MSpaths`, sqlite as an equal-depth control, and a deterministic I/O prior (no external llm apis).
+mcp + one-page demo via `docker compose up`. no paid edge judge.
 
-on the grouped-by-main evaluation we reported in the readme, hydra matches the sqlite cte arm within seed spread; the metadata-vector control remains stronger at full trace budget on this dataset. we're sharing the demo so others can inspect edits and provenance—not to oversell benchmark lifts.
-
-`docker compose up` → demo on port 5000, mcp http on 8080.
-
-repo link: [add URL]
-
-hashtags (optional, low-key): #mcp #agents #tooluse #graphdatabase
+#agents #tooluse #graphrag
