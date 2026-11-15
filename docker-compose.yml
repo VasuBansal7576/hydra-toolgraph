@@ -1,5 +1,13 @@
-# Note: mcp + demo use host networking so they can reach HydraDB on :8443.
-# On some cloud VMs, user-defined bridge TCP between containers to HydraDB times out.
+# All services share one user-defined bridge network. MCP/demo reach HydraDB
+# by service name (http://hydradb:8443). Do not use network_mode: host — that
+# breaks Docker Desktop for Mac/Windows (where judges run).
+#
+# Note for some Linux hosts: if peer TCP to hydradb:8443 times out while
+# host→published :8443 works, the Docker FORWARD policy may only ACCEPT
+# docker0 and drop compose-bridge hairpin. Fix (root cause, not a host-mode
+# fallback):
+#   sudo iptables -I DOCKER-USER -i br-+ -o br-+ -j ACCEPT
+# Docker Desktop Mac/Windows already allows compose-bridge traffic.
 services:
   hydradb:
     image: ghcr.io/hydra-db/hydradb:latest
@@ -17,37 +25,50 @@ services:
       - ./deploy/hydra-auth-token:/var/run/secrets/slatedb-graph/auth-token:ro
     ports:
       - "8443:8443"
+    networks: [toolgraph]
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/8443'"]
       interval: 5s
       timeout: 3s
       retries: 30
-      start_period: 15s
+      start_period: 20s
 
   mcp:
     build: .
-    network_mode: host
     depends_on:
       hydradb:
         condition: service_healthy
     environment:
-      HYDRA_URL: http://127.0.0.1:8443
+      HYDRA_URL: http://hydradb:8443
       HYDRA_TOKEN: local-development-token-32-bytes
+      DEMO_SEED_LEARN: "1"
+      DEMO_SEED: "7"
+    ports:
+      - "8080:8080"
+    networks: [toolgraph]
     command: ["python", "-m", "toolgraph.mcp_server", "--http", "8080", "--http-only"]
     restart: on-failure
 
   demo:
     build: .
-    network_mode: host
     depends_on:
       hydradb:
         condition: service_healthy
     environment:
-      HYDRA_URL: http://127.0.0.1:8443
+      HYDRA_URL: http://hydradb:8443
       HYDRA_TOKEN: local-development-token-32-bytes
       DEMO_PORT: "5000"
+      DEMO_SEED_LEARN: "1"
+      DEMO_SEED: "7"
+    ports:
+      - "5000:5000"
+    networks: [toolgraph]
     command: ["python", "-m", "demo.app"]
     restart: on-failure
+
+networks:
+  toolgraph:
+    driver: bridge
 
 volumes:
   hydradb_data:

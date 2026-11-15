@@ -7,11 +7,11 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from toolgraph.data import Tool, load_dataset, tokenize
+from toolgraph.data import Tool, load_dataset, split_by_main, tokenize
 from toolgraph.graph import Edge, GraphStore, rank_costs
 from toolgraph.hydra import HydraClient, HydraError
-from toolgraph.learn import apply_io_prior, propose_schema_candidates
-from toolgraph.protocol import FUSION_POOL, MAX_LEN
+from toolgraph.learn import apply_io_prior, ingest_trace_edges, propose_schema_candidates
+from toolgraph.protocol import FUSION_POOL, MAX_LEN, SEEDS
 from toolgraph.retrieve import Bm25Index, dense_top, embed_texts, rrf
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +20,12 @@ DEFAULT_EDIT = ROOT / "results" / "service_edits.jsonl"
 HYDRA_URL = os.environ.get("HYDRA_URL", "http://127.0.0.1:8443")
 HYDRA_TOKEN = os.environ.get("HYDRA_TOKEN", "local-development-token-32-bytes")
 REL_TYPES = ["DEPENDS_ON", "SCHEMA_DEP"]
+# Demo default query: sealed OpenTable reserve with prior→learned multi-hop
+# (opentable_reserve -SCHEMA_DEP→ resy_reserve -DEPENDS_ON→ weather/holiday).
+DEFAULT_DEMO_QUERY = (
+    "I'd like to book a table for dinner at The Italian Bistro at 7 PM. "
+    "Can you handle an OpenTable reservation?"
+)
 
 
 class ServiceGraphStore(GraphStore):
@@ -62,11 +68,13 @@ class ToolgraphService:
         self.data_dir = data_dir
         self.edit_log = edit_log or DEFAULT_EDIT
         self.edit_log.parent.mkdir(parents=True, exist_ok=True)
-        tools, _instances = load_dataset(data_dir)
+        tools, instances = load_dataset(data_dir)
         self.tools_list = tools
         self.tools = {tool.name: tool for tool in tools}
+        self.instances = instances
         self.store = ServiceGraphStore(hydra, self.edit_log)
         self._as_of_snapshot: dict | None = None
+        self._seed_stats: dict = {}
         if self.edit_log.exists() and self.edit_log.read_text().strip():
             self._replay_edits(
                 [line for line in self.edit_log.read_text().splitlines() if line.strip()],
@@ -77,13 +85,33 @@ class ToolgraphService:
             self.store.load_catalog(tools, include_oracle=False)
             if apply_prior:
                 self._prior_stats = apply_io_prior(self.store, propose_schema_candidates(tools))
-                try:
-                    self.store.sync_learned_to_hydra()
-                except HydraError:
-                    pass
             else:
                 self._prior_stats = {}
+            if _env_truthy("DEMO_SEED_LEARN", default=True):
+                self._seed_stats = self._seed_learn_split()
+            try:
+                self.store.sync_learned_to_hydra()
+            except HydraError:
+                pass
         self.fusion = FusionIndex(tools)
+
+    def _seed_learn_split(self) -> dict:
+        """Ingest grouped-main learn-split traces so cold demo shows learned edges."""
+        seed = int(os.environ.get("DEMO_SEED", str(SEEDS[0])))
+        learn, _dev, _sealed, _assignment = split_by_main(self.instances, seed)
+        touched = 0
+        for query in learn:
+            touched += ingest_trace_edges(self.store, query)
+        # Match the lowest τ grid point used in eval; full calibrate needs fusion
+        # embeddings and is too heavy for container boot.
+        self.store.tau = float(os.environ.get("DEMO_TAU", "0.15"))
+        return {
+            "seed": seed,
+            "learn_queries": len(learn),
+            "edges_touched": touched,
+            "tau": self.store.tau,
+            "total_edges": len(self.store.edges),
+        }
 
     def _rebuild_from_disk(self) -> None:
         if not self.edit_log.exists():
@@ -184,8 +212,20 @@ class ToolgraphService:
         for name in fused:
             if name not in costs:
                 ranked.append(name)
-        paths = store.reason_paths(seeds, ranked[:k], REL_TYPES)
-        return ranked[:k], paths
+        top = ranked[:k]
+        # Prefer why-paths rooted at the top-ranked tool so multi-hop composition
+        # (e.g. OpenTable -SCHEMA_DEP→ Resy -DEPENDS_ON→ weather/holiday) is visible
+        # instead of a shorter sibling-seed shortcut.
+        primary = store.reason_paths([top[0]], top, REL_TYPES) if top else {}
+        fallback = store.reason_paths(seeds, top, REL_TYPES)
+        paths: dict[str, list[str]] = {}
+        for name in top:
+            chain = primary.get(name) or []
+            if len(chain) > 1:
+                paths[name] = chain
+            else:
+                paths[name] = fallback.get(name) or [name]
+        return top, paths
 
     def _provenance_for(self, tool: str, paths: dict[str, list[str]]) -> list[dict]:
         chain = paths.get(tool) or [tool]
@@ -345,6 +385,13 @@ class ToolgraphService:
             "in_edges": in_edges,
             "lesson": store.lessons.get(tool, ""),
         }
+
+
+def _env_truthy(name: str, *, default: bool = False) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in {"0", "false", "no", "off", ""}
 
 
 def default_service(*, data_dir: Path = DATA, edit_log: Path | None = None) -> ToolgraphService:

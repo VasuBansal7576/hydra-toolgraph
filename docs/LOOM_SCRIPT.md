@@ -9,9 +9,9 @@ factual shot list for the toolgraph demo. no audio hype; show the product.
 
 ## 0:15 — load tools
 
-- browser: demo query box, example query from ToolLinkOS (e.g. currency conversion)
+- browser: demo query box prefilled with OpenTable reserve (Italian Bistro)
 - click **load tools**
-- zoom: ranked list + provenance rows (`src -[DEPENDS_ON]-> dst`, `p`, `prov`)
+- zoom: ranked list + provenance rows — OpenTable→Resy `SCHEMA_DEP`, then Resy→weather/holiday `DEPENDS_ON` with `prov` / `p`
 
 ## 0:45 — record trace
 

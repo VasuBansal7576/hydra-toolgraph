@@ -54,6 +54,7 @@ Demo: query → loaded tools with why-edges → record trace → undo → as_of.
 ## Limits
 
 - ToolLinkOS instances are synthetic; transfer to live MCP catalogs is unproven.
+- On ToolLinkOS the completeness tie means the value is learning plus versioning, not recall.
 - Completeness@16 does not separate Hydra from matched CTE/metadata on this dataset.
 - `as_of` is edit-log replay, not native HydraDB path time-travel.
 - No Jev / no paid LLM judge. I/O prior is deterministic overlap ≥ 0.6 only.
