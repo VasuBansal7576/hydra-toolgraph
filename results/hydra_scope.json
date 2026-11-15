@@ -1,0 +1,20 @@
+{
+  "label": "measured",
+  "checks": [
+    {
+      "name": "default graph",
+      "http_status": 200,
+      "body": "{\"query_id\":\"http-query-9154\",\"columns\":[\"tool_id\"],\"rows\":[[{\"type\":\"string\",\"value\":\"add_apple_calendar_reminder\"}]],\"read_epoch\":814,\"next_cursor\":null,\"bookmark\":\"sgk:1:6465666"
+    },
+    {
+      "name": "other graph id",
+      "http_status": 403,
+      "body": "{\"error\":{\"code\":\"permission_denied\",\"message\":\"principal bearer principal is not authorized to read graph scope default/graphs/iter1\"}}"
+    },
+    {
+      "name": "other namespace",
+      "http_status": 403,
+      "body": "{\"error\":{\"code\":\"permission_denied\",\"message\":\"principal bearer principal is not authorized to read graph scope iter0/graphs/default\"}}"
+    }
+  ]
+}

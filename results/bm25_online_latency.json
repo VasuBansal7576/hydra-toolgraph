@@ -1,0 +1,8 @@
+{
+  "label": "measured",
+  "what": "BM25 top-64 over 573 ToolLinkOS cards, per query, after the index is built",
+  "n": 1569,
+  "p50_ms": 0.34353499995631864,
+  "p95_ms": 0.4953150000801543,
+  "note": "Dense query encoding is not in this number. curve.json p95 values are the stage after the fused pool already exists."
+}

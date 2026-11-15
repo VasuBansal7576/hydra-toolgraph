@@ -1,0 +1,10 @@
+{
+  "label": "measured",
+  "store": "KuzuStore",
+  "current_context": "Ann -[WORKS_AT]-> Globex\nAnn -[WORKS_AT]-> Acme\nAnn [Person]\nAcme [Company]\nGlobex [Company]",
+  "as_of_2021_06_01_context": "Ann -[WORKS_AT]-> Acme\nAnn [Person]\nAcme [Company]",
+  "as_of_hides_globex": true,
+  "as_of_shows_acme": true,
+  "current_shows_both": true,
+  "note": "as_of hid the relation whose event_time was after 2021-06-01. A current read still showed both relations: SelfGraph did not retire the 2020 fact without a contradiction rule. as_of filters this SDK's own relations. It does not freeze HydraDB algo.MSpaths topology. Iteration rollback for the tool graph is the do/undo Cypher pair."
+}

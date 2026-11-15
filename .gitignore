@@ -1,0 +1,9 @@
+.env
+*.env
+.hydradb/
+__pycache__/
+*.pyc
+.venv/
+data/embeddings.npz
+results/jev_cache.json
+*.kuzu

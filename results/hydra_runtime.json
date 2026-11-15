@@ -1,0 +1,13 @@
+{
+  "label": "measured",
+  "image": "ghcr.io/hydra-db/hydradb:latest",
+  "image_id": "sha256:ab71d651fefee13ebb23eb56d72316065bdca563ff7587442e07be663f2bf880",
+  "env": {
+    "CLOUD_PROVIDER": "local",
+    "LOCAL_PATH": "/data/store",
+    "GRAPH_NAMESPACE": "default",
+    "GRAPH_ID": "default",
+    "GRAPH_ALLOW_PLAINTEXT": "true",
+    "GRAPH_USAGE_REPORT_ENABLED": "false"
+  }
+}
