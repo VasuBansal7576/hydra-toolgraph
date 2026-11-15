@@ -2,12 +2,16 @@
 # by service name (http://hydradb:8443). Do not use network_mode: host — that
 # breaks Docker Desktop for Mac/Windows (where judges run).
 #
-# Note for some Linux hosts: if peer TCP to hydradb:8443 times out while
-# host→published :8443 works, the Docker FORWARD policy may only ACCEPT
-# docker0 and drop compose-bridge hairpin. Fix (root cause, not a host-mode
-# fallback):
+# Note for some Linux hosts with incomplete Docker iptables (not Docker Desktop):
+# if peer TCP to hydradb:8443 times out, or containers cannot reach the internet
+# for the embed model, Docker may only wire docker0. Fix the root cause — do not
+# fall back to network_mode: host:
 #   sudo iptables -I DOCKER-USER -i br-+ -o br-+ -j ACCEPT
-# Docker Desktop Mac/Windows already allows compose-bridge traffic.
+#   sudo iptables -I DOCKER-USER -i br-+ ! -o br-+ -j ACCEPT
+#   sudo iptables -I DOCKER-USER -o br-+ -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+#   # MASQUERADE compose subnet (inspect network for the actual CIDR):
+#   sudo iptables -t nat -A POSTROUTING -s 172.18.0.0/16 ! -o docker0 -j MASQUERADE
+# Docker Desktop Mac/Windows already wires user-defined bridges correctly.
 services:
   hydradb:
     image: ghcr.io/hydra-db/hydradb:latest
@@ -43,6 +47,7 @@ services:
       HYDRA_TOKEN: local-development-token-32-bytes
       DEMO_SEED_LEARN: "1"
       DEMO_SEED: "7"
+      FASTEMBED_CACHE_PATH: /app/fastembed_cache
     ports:
       - "8080:8080"
     networks: [toolgraph]
@@ -60,6 +65,7 @@ services:
       DEMO_PORT: "5000"
       DEMO_SEED_LEARN: "1"
       DEMO_SEED: "7"
+      FASTEMBED_CACHE_PATH: /app/fastembed_cache
     ports:
       - "5000:5000"
     networks: [toolgraph]
