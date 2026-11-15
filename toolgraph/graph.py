@@ -450,19 +450,18 @@ class GraphStore:
             nodes = self._path_tool_ids(path)
             if not nodes:
                 continue
-            # Walk from seed; stop at first resolved producer (that node + suffix skipped).
+            # Walk from seed; at the first resolved producer stop this path.
+            # Only that resolved node is recorded as skipped (already resolved by
+            # session). Downstream tools may still be reached via other paths —
+            # do not put the path suffix into the global skipped set.
             keep: list[str] = []
             stop_at: str | None = None
-            stop_index = len(nodes)
-            for index, node in enumerate(nodes):
+            for node in nodes:
                 if node in resolved:
                     stop_at = node
-                    stop_index = index
+                    skipped.setdefault(node, stop_at)
                     break
                 keep.append(node)
-            if stop_at is not None:
-                for node in nodes[stop_index:]:
-                    skipped.setdefault(node, stop_at)
             if not keep:
                 continue
             penalty = seed_index.get(keep[0], 0) * SEED_PENALTY

@@ -120,9 +120,11 @@ class V3StoreTest(unittest.TestCase):
             result = store.load_tools(["seed"], session_id="s1", k=10)
             self.assertIn("seed", result.tools)
             self.assertNotIn("bridge", result.tools)
+            # helper is not reached via this path (stopped at bridge) and is not
+            # globally marked skipped — only the resolved node is.
             self.assertNotIn("helper", result.tools)
             self.assertEqual(result.skipped.get("bridge"), "bridge")
-            self.assertEqual(result.skipped.get("helper"), "bridge")
+            self.assertNotIn("helper", result.skipped)
 
     def test_undo_edit_restores_live_and_hist(self) -> None:
         tools = [_tool("a"), _tool("b")]

@@ -626,13 +626,17 @@ def run_b2(
                     bm25=bm25,
                 )
                 metrics = score_task(result, turn.gold)
-                # Tokens saved = schema tokens of correctly skipped tools.
+                # Tokens saved = schema tokens of correctly skipped tools
+                # (resolved and not needed in turn gold). Wrong-skip = skipped a
+                # tool whose result had been invalidated (still in turn.gold).
                 saved = 0
+                wrong = False
                 for name, _via in result.skipped.items():
-                    if name not in turn.gold:
-                        saved += int(store.schema_tokens.get(name, 0))
+                    if name in turn.gold:
+                        wrong = True
                     else:
-                        metrics.wrong_skip = True
+                        saved += int(store.schema_tokens.get(name, 0))
+                metrics.wrong_skip = wrong
                 metrics.tokens_saved = saved
                 rows.append(metrics)
                 # Advance session: resolve read-only gold tools that were loaded.
