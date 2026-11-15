@@ -81,16 +81,13 @@ class ProtocolTest(unittest.TestCase):
             ]
 
         averaged = {
-            "bm25_dense": arm_series(0.03, 0.03),
-            "metadata_vector": arm_series(0.04, 0.20),
-            "sqlite_one_hop_prior": arm_series(0.03, 0.2),
-            "sqlite_cte_prior": arm_series(0.03, 0.25),
-            "hydra_mspaths_prior": arm_series(0.04, 0.26),
-            "sqlite_one_hop_prior_k4": arm_series(0.03, 0.18),
-            "sqlite_cte_prior_k4": arm_series(0.03, 0.22),
-            "hydra_mspaths_prior_k4": arm_series(0.03, 0.22),
-            "hydra_mspaths_trace_only": arm_series(0.03, 0.25),
-            "hydra_mspaths_prior_only": arm_series(0.04, 0.04),
+            "preload_all": arm_series(1.0, 1.0),
+            "flat_topk": arm_series(0.03, 0.03),
+            "iterative_search": arm_series(0.04, 0.20),
+            "kv_hop": arm_series(0.04, 0.25),
+            "kv_hop_session": arm_series(0.04, 0.25),
+            "kv_closure": arm_series(0.04, 0.25),
+            "hydra_graph": arm_series(0.04, 0.26),
             "oracle": arm_series(0.9, 0.95),
         }
         gate = rise_gate(averaged)

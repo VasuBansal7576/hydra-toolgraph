@@ -28,6 +28,19 @@ RESULT_LIMIT = 500
 SEED_PENALTY = 2.0
 LEARNED_BASE_COST = 1.0
 
+# v3 plain-store materialised closure: rebuild after this many edits (pre-registered).
+CLOSURE_REBUILD_INTERVAL = 50
+
+# iterative_search simulator (catalog depends_on for producer-needed params only).
+ITERATIVE_INITIAL_LOAD = 8
+ITERATIVE_SEARCH_TOP = 3
+ITERATIVE_MAX_ROUNDS = 6
+
+# B2 session constructor (label constructed).
+B2_SESSIONS_PER_SEED = 200
+B2_TURNS = 8
+B2_JACCARD_POOL = 20
+
 # Edge confidence: p = (n_obs + 1) / (n_seen_src + 2). τ on dev only.
 TAU_GRID = (0.15, 0.25, 0.35, 0.45, 0.55)
 

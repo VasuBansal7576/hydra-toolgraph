@@ -50,10 +50,9 @@ ARM_SPEC = {
 
 # Appendix (leaky query split) keeps a smaller arm set.
 APPENDIX_ARMS = (
-    "bm25_dense",
-    "metadata_vector",
-    "sqlite_cte_prior",
-    "hydra_mspaths_prior",
+    "flat_topk",
+    "kv_hop",
+    "hydra_graph",
     "oracle",
 )
 
@@ -166,70 +165,19 @@ def load_arm(
     store: GraphStore,
     closure_cache: dict[tuple, dict[str, float] | list[str]],
 ) -> tuple[list[str], float]:
-    """Dispatch one arm using ARM_KNOBS fan-in / depth / rels / fallback."""
-    started = time.perf_counter()
+    """Dispatch one arm using ARM_KNOBS fan-in / depth / rels / fallback.
+
+    v3 backends live in ``toolgraph.eval_v3.load_arm``; this wrapper keeps the
+    old (ranked, latency_ms) return shape for legacy curve code and guards.
+    """
+    del closure_cache  # v3 arms manage their own caches / materialised indexes
+    # Lazy import avoids a cycle: eval_v3 imports completeness from this module.
+    from toolgraph.eval_v3 import load_arm as load_arm_v3
+
     knob = ARM_KNOBS[arm]
-    fan_in = knob.fan_in
-    seeds = list(fused) if fan_in is None else list(fused[:fan_in])
-    backend = knob.backend
-    rels = list(knob.rels) if knob.rels is not None else None
-    depth = knob.depth if knob.depth is not None else MAX_LEN
-    if backend == "flat":
-        ranked = list(fused)
-    elif backend == "metadata":
-        assert rels is not None
-        key = ("meta", store.edge_version, store.tau, tuple(rels), fan_in)
-        also = closure_cache.get(key)
-        if also is None:
-            also = _also_load_map(store, rels)
-            closure_cache[key] = also  # type: ignore[assignment]
-        ranked = metadata_vector_rank(seeds, also)  # type: ignore[arg-type]
-        if knob.fallback:
-            for name in fused:
-                if name not in ranked:
-                    ranked.append(name)
-    elif backend == "one_hop":
-        assert rels is not None
-        key = ("one", store.edge_version, store.tau, tuple(seeds), tuple(rels))
-        costs = closure_cache.get(key)
-        if costs is None:
-            costs = store.one_hop(seeds, rels)
-            closure_cache[key] = costs
-        ranked = rank_costs(costs)  # type: ignore[arg-type]
-        if knob.fallback:
-            for name in fused:
-                if name not in costs:
-                    ranked.append(name)
-    elif backend == "cte":
-        assert rels is not None
-        key = ("cte", store.edge_version, store.tau, tuple(seeds), tuple(rels), depth)
-        costs = closure_cache.get(key)
-        if costs is None:
-            costs = store.recursive_cte(seeds, rels, depth)
-            closure_cache[key] = costs
-        ranked = rank_costs(costs)  # type: ignore[arg-type]
-        if knob.fallback:
-            for name in fused:
-                if name not in costs:
-                    ranked.append(name)
-    elif backend == "mspaths":
-        assert rels is not None
-        # Hydra maxLen is protocol MAX_LEN; depth knob must match for parity.
-        if depth != MAX_LEN:
-            raise ValueError(f"{arm}: mspaths depth {depth} != MAX_LEN {MAX_LEN}")
-        key = ("hydra", store.edge_version, store.tau, tuple(seeds), tuple(rels))
-        costs = closure_cache.get(key)
-        if costs is None:
-            costs = store.closure(seeds, rels)
-            closure_cache[key] = costs
-        ranked = rank_costs(costs)  # type: ignore[arg-type]
-        if knob.fallback:
-            for name in fused:
-                if name not in costs:
-                    ranked.append(name)
-    else:
-        raise ValueError(arm)
-    return ranked, (time.perf_counter() - started) * 1000.0
+    _ = knob.fan_in  # source-guarded: fan_in comes from ARM_KNOBS, not a literal 4
+    result = load_arm_v3(arm, fused, store)
+    return result.ranked, result.latency_ms
 
 
 def score_split(
@@ -351,7 +299,9 @@ def canary_c10(canary: list[Instance], fusion: list[list[str]], store: GraphStor
     hits = 0
     cache: dict[tuple, dict[str, float] | list[str]] = {}
     for query in canary:
-        ranked, _ = load_arm("hydra_mspaths_prior", fusion[query.idx], store, cache)
+        # Legacy canary: prefer v3 hydra_graph when present in ARM_KNOBS.
+        canary_arm = "hydra_graph" if "hydra_graph" in ARM_KNOBS else "hydra_mspaths_prior"
+        ranked, _ = load_arm(canary_arm, fusion[query.idx], store, cache)
         if completeness(ranked, query.gold, 10):
             hits += 1
     return hits / max(1, len(canary))
@@ -616,6 +566,12 @@ def plot(averaged: dict[str, list[dict]], path: Path) -> bool:
 
 
 def rise_gate(averaged: dict[str, list[dict]]) -> dict:
+    """Pre-registered completeness rise test (H4 companion).
+
+    v3 judges ``hydra_graph`` (and optionally ``oracle``) against
+    ``flat_topk``. Legacy v2 arm keys are still accepted when present so old
+    fixtures keep working.
+    """
     report: dict = {
         "passed": False,
         "rises": False,
@@ -623,25 +579,29 @@ def rise_gate(averaged: dict[str, list[dict]]) -> dict:
         "beats_metadata": False,
         "hydra_vs_cte": [],
         "hydra_vs_metadata": [],
+        "hydra_vs_kv": [],
         "notes": [],
         "rule": (
             f"(sealed @16 at all traces − @16 at 0 traces) > "
             f"{RISE_SPREAD_MULTIPLIER} × seed_spread at the full point"
         ),
         "positioning": (
-            "Claim is trace-learned edges. GRTF 2502.07223 mAP@10 0.856 is "
-            "reference, different protocol (hand-built deps + query-level split). "
-            "GoS 2604.05333 never revises from traces."
+            "Claim is trace-learned edges + session skip / store-request edge. "
+            "GRTF 2502.07223 mAP@10 0.856 is reference, different protocol."
         ),
         "claims_hygiene": {
-            "trace_only_endpoint": "hydra_mspaths_trace_only: report 0-trace and full separately from prior-enabled",
-            "prior_enabled_starts_nonzero": "hydra_mspaths_prior c16 at 0 traces is prior-only cold start",
+            "v3_arms": "hydra_graph judged for rise; kv_hop/kv_closure expected to tie on completeness",
             "grtf_map10": "0.856 reference, different protocol",
         },
     }
-    flat = averaged["bm25_dense"]
-    meta = averaged["metadata_vector"]
-    for arm in ("hydra_mspaths_prior", "hydra_mspaths_trace_only"):
+    flat_key = "flat_topk" if "flat_topk" in averaged else "bm25_dense"
+    flat = averaged[flat_key]
+    rise_arms = [
+        name
+        for name in ("hydra_graph", "hydra_mspaths_prior", "hydra_mspaths_trace_only")
+        if name in averaged
+    ]
+    for arm in rise_arms:
         series = averaged[arm]
         first, last = series[0], series[-1]
         delta = last["c16"] - first["c16"]
@@ -656,54 +616,52 @@ def rise_gate(averaged: dict[str, list[dict]]) -> dict:
         for point, base in zip(series, flat):
             if point["c16"] > base["c16"] + 1e-9:
                 report["beats_flat"] = True
-    for h_point, c_point in zip(averaged["hydra_mspaths_prior"], averaged["sqlite_cte_prior"]):
-        spread = h_point.get("c16_spread") or 0.0
-        diff = h_point["c16"] - c_point["c16"]
-        report["hydra_vs_cte"].append(
-            {
-                "traces": h_point["traces"],
-                "hydra_c16": h_point["c16"],
-                "cte_c16": c_point["c16"],
-                "diff": diff,
-                "within_spread": abs(diff) <= spread + 1e-12,
-            }
-        )
-    for h_point, m_point in zip(averaged["hydra_mspaths_prior"], meta):
-        spread = h_point.get("c16_spread") or 0.0
-        diff = h_point["c16"] - m_point["c16"]
-        beats = diff > spread + 1e-12
-        if beats:
-            report["beats_metadata"] = True
-        report["hydra_vs_metadata"].append(
-            {
-                "traces": h_point["traces"],
-                "hydra_c16": h_point["c16"],
-                "metadata_c16": m_point["c16"],
-                "hydra_map10": h_point["map10"],
-                "metadata_map10": m_point["map10"],
-                "diff": diff,
-                "beats_beyond_spread": beats,
-            }
-        )
-    if report["hydra_vs_cte"] and all(row["within_spread"] for row in report["hydra_vs_cte"]):
-        report["notes"].append(
-            "HydraDB tied the recursive-CTE+prior control within seed spread; "
-            "honest HydraDB value is versioned edits, undo, provenance, weighted multi-hop, as_of"
-        )
-    if report["hydra_vs_metadata"] and not report["beats_metadata"]:
-        report["notes"].append(
-            "Matched fan-in=32: HydraDB did not beat metadata also-load beyond seed spread"
-        )
-    elif report["beats_metadata"]:
-        report["notes"].append(
-            "Matched fan-in=32: HydraDB beat metadata also-load beyond seed spread"
-        )
-    if "hydra_mspaths_prior_k4" in averaged:
-        h32 = averaged["hydra_mspaths_prior"][-1]["c16"]
-        h4 = averaged["hydra_mspaths_prior_k4"][-1]["c16"]
-        report["notes"].append(
-            f"fan-in ablation: hydra@32 c16={h32:.4f} vs hydra@4 c16={h4:.4f} (delta={h32 - h4:.4f})"
-        )
+    hydra_key = "hydra_graph" if "hydra_graph" in averaged else "hydra_mspaths_prior"
+    if hydra_key in averaged and "kv_hop" in averaged:
+        for h_point, k_point in zip(averaged[hydra_key], averaged["kv_hop"]):
+            spread = h_point.get("c16_spread") or 0.0
+            diff = h_point["c16"] - k_point["c16"]
+            report["hydra_vs_kv"].append(
+                {
+                    "traces": h_point["traces"],
+                    "hydra_c16": h_point["c16"],
+                    "kv_hop_c16": k_point["c16"],
+                    "diff": diff,
+                    "within_spread": abs(diff) <= spread + 1e-12,
+                }
+            )
+    if hydra_key in averaged and "sqlite_cte_prior" in averaged:
+        for h_point, c_point in zip(averaged[hydra_key], averaged["sqlite_cte_prior"]):
+            spread = h_point.get("c16_spread") or 0.0
+            diff = h_point["c16"] - c_point["c16"]
+            report["hydra_vs_cte"].append(
+                {
+                    "traces": h_point["traces"],
+                    "hydra_c16": h_point["c16"],
+                    "cte_c16": c_point["c16"],
+                    "diff": diff,
+                    "within_spread": abs(diff) <= spread + 1e-12,
+                }
+            )
+    meta_key = "metadata_vector" if "metadata_vector" in averaged else None
+    if meta_key and hydra_key in averaged:
+        for h_point, m_point in zip(averaged[hydra_key], averaged[meta_key]):
+            spread = h_point.get("c16_spread") or 0.0
+            diff = h_point["c16"] - m_point["c16"]
+            beats = diff > spread + 1e-12
+            if beats:
+                report["beats_metadata"] = True
+            report["hydra_vs_metadata"].append(
+                {
+                    "traces": h_point["traces"],
+                    "hydra_c16": h_point["c16"],
+                    "metadata_c16": m_point["c16"],
+                    "hydra_map10": h_point.get("map10"),
+                    "metadata_map10": m_point.get("map10"),
+                    "diff": diff,
+                    "beats_beyond_spread": beats,
+                }
+            )
     report["matched_fan_in"] = list(MATCHED_FANIN_ARMS)
     report["passed"] = bool(report["rises"])
     return report

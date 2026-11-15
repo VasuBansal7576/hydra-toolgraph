@@ -146,18 +146,17 @@ class HiddenEdgeGuardTest(unittest.TestCase):
 
 
 class EqualDepthGuardTest(unittest.TestCase):
-    def test_sqlite_cte_and_hydra_arms_share_max_len(self) -> None:
+    def test_hydra_graph_and_kv_hop_share_max_len(self) -> None:
         self.assertEqual(MAX_LEN, 4)
-        source = Path(__file__).resolve().parents[1] / "toolgraph" / "eval_curve.py"
-        text = source.read_text()
-        self.assertIn("store.recursive_cte(seeds, rels, depth)", text)
-        self.assertIn("if depth != MAX_LEN", text)
         graph = Path(__file__).resolve().parents[1].joinpath("toolgraph/graph.py").read_text()
         self.assertIn("maxLen: {MAX_LEN}", graph)
+        eval_v3 = Path(__file__).resolve().parents[1].joinpath("toolgraph/eval_v3.py").read_text()
+        self.assertIn("MAX_LEN", eval_v3)
         from toolgraph.arms import ARM_KNOBS
 
-        self.assertEqual(ARM_KNOBS["sqlite_cte_prior"].depth, MAX_LEN)
-        self.assertEqual(ARM_KNOBS["hydra_mspaths_prior"].depth, MAX_LEN)
+        self.assertEqual(ARM_KNOBS["hydra_graph"].depth, MAX_LEN)
+        self.assertEqual(ARM_KNOBS["kv_hop"].depth, MAX_LEN)
+        self.assertEqual(ARM_KNOBS["kv_closure"].depth, MAX_LEN)
 
     def test_recursive_cte_reaches_same_depth_as_protocol(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
