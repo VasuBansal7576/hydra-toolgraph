@@ -1,17 +1,19 @@
-"""Shared service layer for MCP server and web demo."""
+"""Shared service layer for MCP server and web demo (v3 REQUIRES / sessions)."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 from toolgraph.data import Tool, load_dataset, split_by_main, tokenize
-from toolgraph.graph import Edge, GraphStore, rank_costs
+from toolgraph.graph import GraphStore
 from toolgraph.hydra import HydraClient, HydraError
 from toolgraph.learn import apply_io_prior, ingest_trace_edges, propose_schema_candidates
-from toolgraph.protocol import FUSION_POOL, MAX_LEN, SEEDS
+from toolgraph.protocol import FUSION_POOL, SEEDS
 from toolgraph.retrieve import Bm25Index, dense_top, embed_texts, rrf
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,24 +21,13 @@ DATA = ROOT / "data"
 DEFAULT_EDIT = ROOT / "results" / "service_edits.jsonl"
 HYDRA_URL = os.environ.get("HYDRA_URL", "http://127.0.0.1:8443")
 HYDRA_TOKEN = os.environ.get("HYDRA_TOKEN", "local-development-token-32-bytes")
-REL_TYPES = ["DEPENDS_ON", "SCHEMA_DEP"]
-# Demo default query: sealed OpenTable reserve with prior→learned multi-hop
-# (opentable_reserve -SCHEMA_DEP→ resy_reserve -DEPENDS_ON→ weather/holiday).
+# Demo default query: sealed OpenTable reserve with multi-hop helpers.
 DEFAULT_DEMO_QUERY = (
     "I'd like to book a table for dinner at The Italian Bistro at 7 PM. "
     "Can you handle an OpenTable reservation?"
 )
-
-
-class ServiceGraphStore(GraphStore):
-    """GraphStore that timestamps every edit for as-of reconstruction."""
-
-    def _write_record(self, rec: dict) -> None:
-        stamped = dict(rec)
-        stamped.setdefault("ts", datetime.now(timezone.utc).isoformat())
-        with self.edit_log.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(stamped) + "\n")
-        self.applied += 1
+# Rough preload-all token estimate when tiktoken is unavailable (chars/4).
+_CHARS_PER_TOKEN = 4
 
 
 class FusionIndex:
@@ -56,6 +47,25 @@ class FusionIndex:
         return rrf([lexical, dense], FUSION_POOL)
 
 
+def _schema_tokens(tools: list[Tool], names: list[str]) -> int:
+    try:
+        import tiktoken
+
+        enc = tiktoken.get_encoding("cl100k_base")
+        total = 0
+        by_name = {tool.name: tool for tool in tools}
+        for name in names:
+            tool = by_name.get(name)
+            if tool is None:
+                continue
+            total += len(enc.encode(tool.base_text()))
+        return total
+    except Exception:
+        by_name = {tool.name: tool for tool in tools}
+        chars = sum(len(by_name[n].base_text()) for n in names if n in by_name)
+        return max(1, chars // _CHARS_PER_TOKEN)
+
+
 class ToolgraphService:
     def __init__(
         self,
@@ -64,23 +74,23 @@ class ToolgraphService:
         data_dir: Path = DATA,
         edit_log: Path | None = None,
         apply_prior: bool = True,
+        read_only_mode: bool = False,
     ) -> None:
         self.data_dir = data_dir
         self.edit_log = edit_log or DEFAULT_EDIT
         self.edit_log.parent.mkdir(parents=True, exist_ok=True)
+        self.read_only_mode = read_only_mode or _env_truthy("DEMO_READ_ONLY", default=False)
         tools, instances = load_dataset(data_dir)
         self.tools_list = tools
         self.tools = {tool.name: tool for tool in tools}
         self.instances = instances
-        self.store = ServiceGraphStore(hydra, self.edit_log)
-        self._as_of_snapshot: dict | None = None
+        self.store = GraphStore(hydra, self.edit_log)
         self._seed_stats: dict = {}
-        if self.edit_log.exists() and self.edit_log.read_text().strip():
-            self._replay_edits(
-                [line for line in self.edit_log.read_text().splitlines() if line.strip()],
-                sync_hydra=True,
-            )
-            self._prior_stats = {"replayed_from_log": True}
+        self._committed_results: dict | None = None
+        if self.read_only_mode:
+            self._load_committed_results()
+            self.store.load_catalog(tools, include_oracle=False)
+            self._prior_stats = {"read_only": True}
         else:
             self.store.load_catalog(tools, include_oracle=False)
             if apply_prior:
@@ -90,10 +100,19 @@ class ToolgraphService:
             if _env_truthy("DEMO_SEED_LEARN", default=True):
                 self._seed_stats = self._seed_learn_split()
             try:
-                self.store.sync_learned_to_hydra()
+                self.store.ensure_hydra_synced()
             except HydraError:
                 pass
         self.fusion = FusionIndex(tools)
+        self._last_loaded: dict[str, list[str]] = {}
+        self._edit_timeline: list[dict] = []
+
+    def _load_committed_results(self) -> None:
+        path = ROOT / "results" / "v3_report.json"
+        if path.exists():
+            self._committed_results = json.loads(path.read_text())
+        else:
+            self._committed_results = {"label": "missing", "note": "no committed results"}
 
     def _seed_learn_split(self) -> dict:
         """Ingest grouped-main learn-split traces so cold demo shows learned edges."""
@@ -102,8 +121,6 @@ class ToolgraphService:
         touched = 0
         for query in learn:
             touched += ingest_trace_edges(self.store, query)
-        # Match the lowest τ grid point used in eval; full calibrate needs fusion
-        # embeddings and is too heavy for container boot.
         self.store.tau = float(os.environ.get("DEMO_TAU", "0.15"))
         return {
             "seed": seed,
@@ -113,264 +130,215 @@ class ToolgraphService:
             "total_edges": len(self.store.edges),
         }
 
-    def _rebuild_from_disk(self) -> None:
-        if not self.edit_log.exists():
-            return
-        lines = [line for line in self.edit_log.read_text().splitlines() if line.strip()]
-        if not lines:
-            return
-        self._replay_edits(lines, sync_hydra=True)
-
-    def _replay_edits(self, lines: list[str], *, sync_hydra: bool) -> None:
-        self.store.edges.clear()
-        self.store.lessons.clear()
-        self.store.n_seen_src.clear()
-        self.store.applied = 0
-        self.store.load_catalog(self.tools_list, include_oracle=False)
-        for line in lines:
-            rec = json.loads(line)
-            self._apply_forward(rec)
-        if sync_hydra:
-            try:
-                self.store.sync_learned_to_hydra()
-            except HydraError:
-                pass
-
-    def _apply_forward_to(self, rec: dict, store: GraphStore) -> None:
-        kind = rec.get("kind")
-        if kind == "lesson":
-            tool = rec["tool"]
-            params = rec.get("do_parameters") or {}
-            lesson = str(params.get("lesson") or "")
-            store.lessons[tool] = lesson[:180]
-            return
-        if kind != "edge":
-            return
-        src = int(rec["src"])
-        dst = int(rec["dst"])
-        rel = str(rec["rel"])
-        prov = str(rec.get("provenance") or "")
-        source = str(rec.get("source") or "trace")
-        params = rec.get("do_parameters") or {}
-        if isinstance(params, dict) and "rows" in params:
-            n_obs = 1 if source == "trace" else 0
-            support = 1
-            src_name = store.by_id[src]
-            seen = store.n_seen_src.get(src_name, 0)
-            cost = float(params.get("cost") or (1.0 / (1.0 + n_obs)))
-            p = float(params.get("p") or ((n_obs + 1) / (seen + 2)))
-        else:
-            n_obs = int(params.get("n_obs") or 0)
-            support = int(params.get("support") or 1)
-            seen = int(params.get("n_seen_src") or 0)
-            cost = float(params.get("cost") or 1.0)
-            p = float(params.get("p") or 0.5)
-        edge = Edge(
-            src=src,
-            dst=dst,
-            rel=rel,
-            cost=cost,
-            support=support,
-            edit_id=str(rec.get("edit_id") or ""),
-            prov=prov,
-            n_obs=n_obs,
-            n_seen_src=seen,
-            p=p,
-            source=source,
-        )
-        store.edges[(src, dst, rel)] = edge
-        store.sqlite.execute(
-            "INSERT OR REPLACE INTO edges (src, dst, rel, cost, support, n_obs, n_seen_src, p) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (src, dst, rel, cost, support, n_obs, seen, p),
-        )
-        store.sqlite.commit()
-
-    def _apply_forward(self, rec: dict) -> None:
-        self._apply_forward_to(rec, self.store)
-        self.store.applied += 1
-
-    def _active_store(self) -> GraphStore:
-        if self._as_of_snapshot:
-            return self._as_of_snapshot["store"]
-        return self.store
-
-    def _rank_tools(self, query: str, k: int) -> tuple[list[str], dict[str, list[str]]]:
-        store = self._active_store()
+    def load_tools(self, query: str, session_id: str | None = None, k: int = 16) -> dict:
         fused = self.fusion.fuse(query)
         seeds = fused[:FUSION_POOL]
-        costs: dict[str, float]
-        if store is self.store:
-            try:
+        try:
+            if not self.read_only_mode:
                 self.store.ensure_hydra_synced()
-                costs = self.store.closure(seeds, REL_TYPES)
-            except HydraError:
-                costs = self.store.recursive_cte(seeds, REL_TYPES, MAX_LEN)
-        else:
-            costs = store.recursive_cte(seeds, REL_TYPES, MAX_LEN)
-        ranked = rank_costs(costs)
-        for name in fused:
-            if name not in costs:
-                ranked.append(name)
-        top = ranked[:k]
-        # Prefer why-paths rooted at the top-ranked tool so multi-hop composition
-        # (e.g. OpenTable -SCHEMA_DEP→ Resy -DEPENDS_ON→ weather/holiday) is visible
-        # instead of a shorter sibling-seed shortcut.
-        primary = store.reason_paths([top[0]], top, REL_TYPES) if top else {}
-        fallback = store.reason_paths(seeds, top, REL_TYPES)
-        paths: dict[str, list[str]] = {}
-        for name in top:
-            chain = primary.get(name) or []
-            if len(chain) > 1:
-                paths[name] = chain
-            else:
-                paths[name] = fallback.get(name) or [name]
-        return top, paths
+            result = self.store.load_tools(seeds, session_id, k)
+        except HydraError as exc:
+            # Offline / FakeHydra fallback: memory CTE over REQUIRES.
+            costs = self.store.recursive_cte(seeds, ["REQUIRES"], 4)
+            ranked = sorted(costs, key=costs.get)[:k]
+            return {
+                "query": query,
+                "session_id": session_id,
+                "tools": [
+                    {
+                        "name": name,
+                        "description": self.tools[name].description if name in self.tools else "",
+                        "provenance": [],
+                        "why_path": [name],
+                    }
+                    for name in ranked
+                    if name in self.tools
+                ],
+                "ranked": ranked,
+                "skipped": {},
+                "context_meter": self._context_meter(ranked),
+                "error": f"hydra unavailable: {exc.message}",
+            }
 
-    def _provenance_for(self, tool: str, paths: dict[str, list[str]]) -> list[dict]:
-        chain = paths.get(tool) or [tool]
-        out: list[dict] = []
-        for index in range(len(chain) - 1):
-            src_name = chain[index]
-            dst_name = chain[index + 1]
-            store = self._active_store()
-            src_id = store.names.get(src_name)
-            dst_id = store.names.get(dst_name)
-            if src_id is None or dst_id is None:
-                continue
-            edge = None
-            for rel in REL_TYPES:
-                edge = store.edges.get((src_id, dst_id, rel))
-                if edge is not None:
-                    break
-            if edge is None:
-                continue
-            out.append(
-                {
-                    "src": src_name,
-                    "dst": dst_name,
-                    "rel": edge.rel,
-                    "prov": edge.prov,
-                    "n_obs": edge.n_obs,
-                    "n_seen_src": edge.n_seen_src,
-                    "p": edge.p,
-                }
-            )
-        return out
-
-    def load_tools(self, query: str, k: int = 16) -> dict:
-        ranked, paths = self._rank_tools(query, k)
+        ranked = list(result.tools)
+        sid_key = session_id or "_anon"
+        self._last_loaded[sid_key] = ranked
         tools_out = []
         for name in ranked:
             tool = self.tools.get(name)
             if tool is None:
                 continue
+            why = result.why.get(name)
+            path = list(why.path) if why else [name]
+            provenance = []
+            if why:
+                for index in range(len(path) - 1):
+                    src_name, dst_name = path[index], path[index + 1]
+                    src_id = self.store.names.get(src_name)
+                    dst_id = self.store.names.get(dst_name)
+                    edge = None
+                    if src_id is not None and dst_id is not None:
+                        edge = self.store.edges.get((src_id, dst_id, "REQUIRES"))
+                    provenance.append(
+                        {
+                            "src": src_name,
+                            "dst": dst_name,
+                            "rel": "REQUIRES",
+                            "prov": edge.prov if edge else (why.sources[index] if index < len(why.sources) else ""),
+                            "p": edge.p if edge else None,
+                            "n_obs": edge.n_obs if edge else None,
+                            "edge_id": why.edge_ids[index] if index < len(why.edge_ids) else None,
+                        }
+                    )
             tools_out.append(
                 {
                     "name": name,
                     "description": tool.description,
-                    "provenance": self._provenance_for(name, paths),
+                    "provenance": provenance,
+                    "why_path": path,
                 }
             )
-        return {"query": query, "tools": tools_out, "ranked": ranked}
-
-    def record_trace(self, query: str, tools_used: list[str]) -> dict:
-        if not tools_used:
-            return {"query": query, "edit_ids": [], "edges_added": 0}
-        main = tools_used[0]
-        if main not in self.tools:
-            return {"query": query, "edit_ids": [], "edges_added": 0, "error": f"unknown main tool {main!r}"}
-        prov = f"trace_query={query[:120]};main={main}"
-        self.store.note_src_seen(main)
-        edges_added = 0
-        edit_ids: list[str] = []
-        for helper in tools_used[1:]:
-            if helper == main or helper not in self.tools:
-                continue
-            if self.store.learn_depends(main, helper, prov):
-                edges_added += 1
-                key = (self.store.names[main], self.store.names[helper], "DEPENDS_ON")
-                edit_ids.append(self.store.edges[key].edit_id)
-        try:
-            self.store.sync_learned_to_hydra()
-        except HydraError:
-            pass
-        self.clear_as_of()
-        return {"query": query, "edit_ids": edit_ids, "edges_added": edges_added}
-
-    def undo_edit(self, edit_id: str) -> dict:
-        if not self.edit_log.exists():
-            return {"ok": False, "undone": edit_id, "reason": "no edit log"}
-        lines = [line for line in self.edit_log.read_text().splitlines() if line.strip()]
-        index = None
-        for idx, line in enumerate(lines):
-            rec = json.loads(line)
-            if rec.get("edit_id") == edit_id:
-                index = idx
-        if index is None:
-            return {"ok": False, "undone": edit_id, "reason": "edit_id not found"}
-        kept = lines[:index]
-        self.edit_log.write_text("".join(line + "\n" for line in kept))
-        self._replay_edits(kept, sync_hydra=True)
-        return {"ok": True, "undone": edit_id}
-
-    def as_of(self, date_iso: str) -> dict:
-        cutoff = datetime.fromisoformat(date_iso.replace("Z", "+00:00"))
-        if cutoff.tzinfo is None:
-            cutoff = cutoff.replace(tzinfo=timezone.utc)
-        lines: list[str] = []
-        if self.edit_log.exists():
-            for line in self.edit_log.read_text().splitlines():
-                if not line.strip():
-                    continue
-                rec = json.loads(line)
-                ts_raw = rec.get("ts")
-                if not ts_raw:
-                    continue
-                ts = datetime.fromisoformat(str(ts_raw).replace("Z", "+00:00"))
-                if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=timezone.utc)
-                if ts <= cutoff:
-                    lines.append(line)
-        snapshot = ServiceGraphStore(self.store.hydra, self.edit_log)
-        snapshot.load_catalog(self.tools_list, include_oracle=False)
-        for line in lines:
-            self._apply_forward_to(json.loads(line), snapshot)
-        self._as_of_snapshot = {
-            "date_iso": date_iso,
-            "edges": len(snapshot.edges),
-            "edits_replayed": len(lines),
-            "store": snapshot,
+        skipped_out = {
+            name: f"skipped, already resolved by {producer}"
+            for name, producer in (result.skipped or {}).items()
         }
         return {
-            "date_iso": date_iso,
-            "edges_active": len(snapshot.edges),
-            "edits_replayed": len(lines),
-            "note": "subsequent load_tools uses this snapshot until cleared",
+            "query": query,
+            "session_id": session_id,
+            "tools": tools_out,
+            "ranked": ranked,
+            "skipped": skipped_out,
+            "context_meter": self._context_meter(ranked),
+            "store_requests": 2 if session_id else 1,
+            "read_only": self.read_only_mode,
         }
 
-    def clear_as_of(self) -> None:
-        self._as_of_snapshot = None
+    def _context_meter(self, ranked: list[str]) -> dict:
+        preload = _schema_tokens(self.tools_list, list(self.tools))
+        bundle = _schema_tokens(self.tools_list, ranked)
+        return {
+            "preload_all_tokens": preload,
+            "bundle_tokens": bundle,
+            "tokens_saved": max(0, preload - bundle),
+            "bundle_size": len(ranked),
+            "catalog_size": len(self.tools),
+        }
+
+    def record_trace(
+        self,
+        query: str,
+        tools_used: list[str],
+        tools_loaded: list[str] | None = None,
+        session_id: str | None = None,
+    ) -> dict:
+        if self.read_only_mode:
+            return {
+                "query": query,
+                "session_id": session_id,
+                "edges_touched": 0,
+                "error": "read-only demo; learning disabled",
+            }
+        sid_key = session_id or "_anon"
+        loaded = tools_loaded if tools_loaded is not None else list(self._last_loaded.get(sid_key) or [])
+        before = len(self.store.edges)
+        touched = self.store.record_trace(session_id, query, tools_used, loaded)
+        try:
+            self.store.ensure_hydra_synced()
+        except HydraError:
+            pass
+        edit_ids = [
+            edge.edit_id
+            for edge in self.store.edges.values()
+            if edge.rel == "REQUIRES" and edge.source == "trace" and edge.edit_id
+        ][-max(1, touched) :]
+        self._edit_timeline.append(
+            {
+                "op": "record_trace",
+                "ts": time.time(),
+                "session_id": session_id,
+                "tools_used": tools_used,
+                "tools_loaded": loaded,
+                "edges_touched": touched,
+            }
+        )
+        return {
+            "query": query,
+            "session_id": session_id,
+            "edit_ids": edit_ids,
+            "edges_touched": touched,
+            "edges_now": len(self.store.edges),
+            "edges_before": before,
+        }
+
+    def record_result(self, session_id: str, tool: str, args_hash: str | None = None) -> dict:
+        if self.read_only_mode:
+            return {"session_id": session_id, "tool": tool, "error": "read-only demo"}
+        digest = args_hash or hashlib.sha1(f"{session_id}:{tool}".encode()).hexdigest()[:16]
+        self.store.record_result(session_id, tool, digest)
+        self._edit_timeline.append(
+            {
+                "op": "record_result",
+                "ts": time.time(),
+                "session_id": session_id,
+                "tool": tool,
+                "args_hash": digest,
+            }
+        )
+        return {
+            "session_id": session_id,
+            "tool": tool,
+            "args_hash": digest,
+            "resolved": dict(self.store.resolved.get(session_id, {})),
+        }
+
+    def undo_edit(self, edit_id: str) -> dict:
+        if self.read_only_mode:
+            return {"ok": False, "undone": edit_id, "reason": "read-only demo"}
+        ok = self.store.undo_edit(edit_id)
+        try:
+            self.store.ensure_hydra_synced()
+        except HydraError:
+            pass
+        self._edit_timeline.append({"op": "undo_edit", "ts": time.time(), "edit_id": edit_id, "ok": ok})
+        return {"ok": ok, "undone": edit_id}
+
+    def as_of(self, date_iso: str | None = None, ts: float | None = None) -> dict:
+        if ts is None:
+            if not date_iso:
+                ts = time.time()
+            else:
+                cutoff = datetime.fromisoformat(date_iso.replace("Z", "+00:00"))
+                if cutoff.tzinfo is None:
+                    cutoff = cutoff.replace(tzinfo=timezone.utc)
+                ts = cutoff.timestamp()
+        try:
+            payload = self.store.as_of(float(ts))
+        except HydraError as exc:
+            return {"ts": ts, "error": exc.message, "edges": [], "diff": {}}
+        payload["date_iso"] = datetime.fromtimestamp(float(ts), tz=timezone.utc).isoformat()
+        payload["note"] = "REQUIRES_HIST snapshot + diff vs live now"
+        return payload
 
     def explain(self, tool: str) -> dict:
         if tool not in self.tools:
             return {"tool": tool, "error": "unknown tool", "out_edges": [], "in_edges": [], "lesson": ""}
-        store = self._as_of_snapshot["store"] if self._as_of_snapshot else self.store
-        tool_id = store.names[tool]
+        tool_id = self.store.names[tool]
         out_edges = []
         in_edges = []
-        for (src, dst, rel), edge in store.edges.items():
-            if rel not in REL_TYPES:
+        for (src, dst, rel), edge in self.store.edges.items():
+            if rel != "REQUIRES":
                 continue
             row = {
-                "src": store.by_id[src],
-                "dst": store.by_id[dst],
+                "src": self.store.by_id[src],
+                "dst": self.store.by_id[dst],
                 "rel": rel,
                 "prov": edge.prov,
                 "n_obs": edge.n_obs,
                 "n_seen_src": edge.n_seen_src,
                 "p": edge.p,
+                "cost": edge.cost,
                 "edit_id": edge.edit_id,
+                "source": edge.source,
             }
             if src == tool_id:
                 out_edges.append(row)
@@ -383,7 +351,21 @@ class ToolgraphService:
             "description": self.tools[tool].description,
             "out_edges": out_edges,
             "in_edges": in_edges,
-            "lesson": store.lessons.get(tool, ""),
+            "lesson": self.store.lessons.get(tool, ""),
+        }
+
+    def timeline(self) -> dict:
+        return {"events": list(self._edit_timeline), "read_only": self.read_only_mode}
+
+    def status(self) -> dict:
+        return {
+            "ok": True,
+            "read_only": self.read_only_mode,
+            "tau": self.store.tau,
+            "edges": len(self.store.edges),
+            "seed": self._seed_stats,
+            "prior": self._prior_stats,
+            "committed_results": self._committed_results is not None,
         }
 
 
@@ -394,6 +376,16 @@ def _env_truthy(name: str, *, default: bool = False) -> bool:
     return raw.strip().lower() not in {"0", "false", "no", "off", ""}
 
 
+class _NullHydra:
+    """Offline stand-in when DEMO_READ_ONLY (no live HydraDB process)."""
+
+    def query(self, statement: str, parameters: dict | None = None) -> dict:
+        return {"columns": [], "rows": [], "bookmark": None}
+
+
 def default_service(*, data_dir: Path = DATA, edit_log: Path | None = None) -> ToolgraphService:
-    hydra = HydraClient(HYDRA_URL, HYDRA_TOKEN)
-    return ToolgraphService(hydra, data_dir=data_dir, edit_log=edit_log)
+    if _env_truthy("DEMO_READ_ONLY", default=False):
+        hydra: HydraClient | _NullHydra = _NullHydra()
+    else:
+        hydra = HydraClient(HYDRA_URL, HYDRA_TOKEN)
+    return ToolgraphService(hydra, data_dir=data_dir, edit_log=edit_log)  # type: ignore[arg-type]

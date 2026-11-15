@@ -3,73 +3,124 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>toolgraph demo</title>
+  <title>toolgraph v3 demo</title>
   <style>
-    :root { font-family: system-ui, sans-serif; color: #111; background: #f6f7f9; }
-    body { max-width: 960px; margin: 1.5rem auto; padding: 0 1rem; }
-    h1 { font-size: 1.25rem; font-weight: 600; }
-    section { background: #fff; border: 1px solid #dde1e8; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-    label { display: block; font-size: 0.85rem; color: #444; margin-top: 0.5rem; }
-    input, textarea, button { font: inherit; margin-top: 0.25rem; }
-    input, textarea { width: 100%; box-sizing: border-box; padding: 0.4rem 0.5rem; border: 1px solid #ccd; border-radius: 4px; }
-    button { margin-top: 0.75rem; padding: 0.45rem 0.9rem; border: 0; border-radius: 4px; background: #1a5fb4; color: #fff; cursor: pointer; }
-    button.secondary { background: #5e5c64; }
-    pre { background: #f0f2f5; padding: 0.75rem; overflow: auto; font-size: 0.78rem; border-radius: 4px; max-height: 320px; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media (max-width: 700px) { .row { grid-template-columns: 1fr; } }
-    .tool { border-top: 1px solid #eee; padding-top: 0.5rem; margin-top: 0.5rem; }
-    .prov { font-size: 0.75rem; color: #555; }
+    :root {
+      --bg: #0f1419;
+      --panel: #1a222c;
+      --ink: #e8eef4;
+      --muted: #8b9aab;
+      --accent: #3d9bfd;
+      --ok: #3ecf8e;
+      --warn: #f0b429;
+      --line: #2a3542;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(1200px 600px at 10% -10%, #1b2a3a 0%, var(--bg) 55%);
+    }
+    body { max-width: 1100px; margin: 1.25rem auto; padding: 0 1rem 2rem; }
+    h1 { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 0.25rem; }
+    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+    .grid { display: grid; grid-template-columns: 1.1fr 1fr 0.9fr; gap: 0.85rem; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    section {
+      background: color-mix(in srgb, var(--panel) 92%, #000);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+    }
+    section h2 { font-size: 0.95rem; margin: 0 0 0.6rem; font-weight: 600; }
+    label { display: block; font-size: 0.78rem; color: var(--muted); margin-top: 0.45rem; }
+    input, textarea, button { font: inherit; margin-top: 0.2rem; }
+    input, textarea {
+      width: 100%; box-sizing: border-box; padding: 0.4rem 0.5rem;
+      border: 1px solid var(--line); border-radius: 6px; background: #121820; color: var(--ink);
+    }
+    button {
+      margin-top: 0.55rem; margin-right: 0.35rem; padding: 0.4rem 0.75rem; border: 0;
+      border-radius: 6px; background: var(--accent); color: #041018; font-weight: 600; cursor: pointer;
+    }
+    button.secondary { background: #3a4654; color: var(--ink); font-weight: 500; }
+    .meter { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .meter .box {
+      background: #121820; border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem;
+    }
+    .meter .n { font-size: 1.35rem; font-weight: 650; }
+    .meter .l { font-size: 0.72rem; color: var(--muted); }
+    .tool { border-top: 1px solid var(--line); padding-top: 0.45rem; margin-top: 0.45rem; }
+    .prov { font-size: 0.72rem; color: var(--muted); font-family: ui-monospace, monospace; }
+    .skip { color: var(--warn); font-size: 0.8rem; }
+    .timeline { list-style: none; padding: 0; margin: 0; max-height: 360px; overflow: auto; }
+    .timeline li {
+      font-size: 0.78rem; border-left: 2px solid var(--ok); padding: 0.35rem 0.55rem; margin-bottom: 0.35rem;
+      background: #121820; border-radius: 0 6px 6px 0;
+    }
+    pre { background: #121820; padding: 0.65rem; overflow: auto; font-size: 0.72rem; border-radius: 6px; max-height: 220px; border: 1px solid var(--line); }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
   </style>
 </head>
 <body>
-  <h1>toolgraph — load, trace, undo, as-of</h1>
-  <p style="color:#555;font-size:0.9rem;">local demo against <code>/api/*</code> (no paid APIs).</p>
+  <h1>toolgraph v3 — context meter · bundle · edit timeline</h1>
+  <p class="sub">Learned <code>REQUIRES</code> edges in HydraDB. Session skips via <code>RESOLVED</code>. No paid APIs.</p>
 
-  <section>
-    <label for="query">task query</label>
-    <textarea id="query" rows="3">I'd like to book a table for dinner at The Italian Bistro at 7 PM. Can you handle an OpenTable reservation?</textarea>
-    <div class="row">
+  <section style="margin-bottom:0.85rem;">
+    <div class="row2">
+      <div>
+        <label for="session">session_id</label>
+        <input id="session" value="demo-session-1" />
+      </div>
       <div>
         <label for="k">top k</label>
         <input id="k" type="number" value="12" min="1" max="32" />
       </div>
-      <div>
-        <label for="tools_used">trace tools (comma-separated, main first)</label>
-        <input id="tools_used" placeholder="main_tool, helper_a, helper_b" />
+    </div>
+    <label for="query">task query</label>
+    <textarea id="query" rows="2">I'd like to book a table for dinner at The Italian Bistro at 7 PM. Can you handle an OpenTable reservation?</textarea>
+    <label for="tools_used">trace tools_used (comma-separated)</label>
+    <input id="tools_used" placeholder="main_tool, helper_a" />
+    <button id="loadBtn">1. load tools</button>
+    <button id="resolveBtn" class="secondary">2. record_result (first tool)</button>
+    <button id="load2Btn" class="secondary">3. load again (same session)</button>
+    <button id="traceBtn" class="secondary">4. record_trace</button>
+  </section>
+
+  <div class="grid">
+    <section>
+      <h2>1 · context meter</h2>
+      <div class="meter">
+        <div class="box"><div class="n" id="preloadTok">—</div><div class="l">preload-all tokens</div></div>
+        <div class="box"><div class="n" id="bundleTok">—</div><div class="l">bundle tokens</div></div>
+        <div class="box"><div class="n" id="savedTok">—</div><div class="l">tokens saved</div></div>
+        <div class="box"><div class="n" id="bundleSize">—</div><div class="l">bundle size / catalog</div></div>
       </div>
-    </div>
-    <button id="loadBtn">load tools</button>
-    <button id="traceBtn" class="secondary">record trace</button>
-  </section>
+    </section>
 
-  <section class="row">
-    <div>
-      <label for="edit_id">undo edit id</label>
-      <input id="edit_id" placeholder="e1000001" />
+    <section>
+      <h2>2 · bundle (why-path + skips)</h2>
+      <div id="toolsOut"></div>
+      <div id="skippedOut"></div>
+    </section>
+
+    <section>
+      <h2>3 · edit timeline</h2>
+      <label for="edit_id">undo edit_id</label>
+      <input id="edit_id" placeholder="e…" />
       <button id="undoBtn" class="secondary">undo</button>
-    </div>
-    <div>
-      <label for="as_of">as_of (ISO date)</label>
+      <label for="as_of">as_of (ISO / datetime-local)</label>
       <input id="as_of" type="datetime-local" />
-      <button id="asOfBtn" class="secondary">rebuild as_of</button>
-    </div>
-  </section>
+      <button id="asOfBtn" class="secondary">as_of snapshot</button>
+      <ul class="timeline" id="timeline"></ul>
+    </section>
+  </div>
 
-  <section>
-    <label for="explain_tool">explain tool</label>
-    <input id="explain_tool" placeholder="tool name" />
-    <button id="explainBtn" class="secondary">explain</button>
-  </section>
-
-  <section>
-    <h2 style="font-size:1rem;margin:0 0 0.5rem;">response</h2>
-    <div id="toolsOut"></div>
+  <section style="margin-top:0.85rem;">
+    <h2 style="font-size:0.95rem;margin:0 0 0.5rem;">raw</h2>
     <pre id="raw"></pre>
   </section>
 
   <script>
     const raw = document.getElementById("raw");
-    const toolsOut = document.getElementById("toolsOut");
+    let lastRanked = [];
 
     async function post(path, body) {
       const res = await fetch(path, {
@@ -80,27 +131,86 @@
       return res.json();
     }
 
+    function sessionId() {
+      return document.getElementById("session").value.trim() || null;
+    }
+
+    function renderMeter(meter) {
+      if (!meter) return;
+      document.getElementById("preloadTok").textContent = meter.preload_all_tokens;
+      document.getElementById("bundleTok").textContent = meter.bundle_tokens;
+      document.getElementById("savedTok").textContent = meter.tokens_saved;
+      document.getElementById("bundleSize").textContent =
+        `${meter.bundle_size} / ${meter.catalog_size}`;
+    }
+
     function renderLoad(data) {
+      lastRanked = data.ranked || [];
+      const toolsOut = document.getElementById("toolsOut");
+      const skippedOut = document.getElementById("skippedOut");
       toolsOut.innerHTML = "";
+      skippedOut.innerHTML = "";
       (data.tools || []).forEach((t) => {
         const div = document.createElement("div");
         div.className = "tool";
+        const path = (t.why_path || []).join(" → ");
         const edges = (t.provenance || [])
-          .map((e) => `${e.src} -[${e.rel} p=${e.p?.toFixed?.(2)}]-> ${e.dst} (${e.prov})`)
-          .join("<br/>");
-        div.innerHTML = `<strong>${t.name}</strong><div>${t.description || ""}</div>` +
+          .map((e) => `${e.src}-[REQUIRES p=${e.p?.toFixed?.(2) ?? "?"}]→${e.dst}`)
+          .join(" · ");
+        div.innerHTML =
+          `<strong>${t.name}</strong>` +
+          (path ? `<div class="prov">why: ${path}</div>` : "") +
           (edges ? `<div class="prov">${edges}</div>` : "");
         toolsOut.appendChild(div);
       });
+      const skipped = data.skipped || {};
+      Object.entries(skipped).forEach(([name, reason]) => {
+        const div = document.createElement("div");
+        div.className = "skip";
+        div.textContent = `${name}: ${reason}`;
+        skippedOut.appendChild(div);
+      });
+      renderMeter(data.context_meter);
       raw.textContent = JSON.stringify(data, null, 2);
+      refreshTimeline();
+    }
+
+    async function refreshTimeline() {
+      const data = await fetch("/api/timeline").then((r) => r.json());
+      const ul = document.getElementById("timeline");
+      ul.innerHTML = "";
+      (data.events || []).slice().reverse().forEach((ev) => {
+        const li = document.createElement("li");
+        li.textContent = `${ev.op} · ${JSON.stringify(ev).slice(0, 140)}`;
+        ul.appendChild(li);
+      });
     }
 
     document.getElementById("loadBtn").onclick = async () => {
-      const data = await post("/api/load_tools", {
+      renderLoad(await post("/api/load_tools", {
         query: document.getElementById("query").value,
+        session_id: sessionId(),
         k: Number(document.getElementById("k").value || 16),
+      }));
+    };
+
+    document.getElementById("load2Btn").onclick = async () => {
+      renderLoad(await post("/api/load_tools", {
+        query: document.getElementById("query").value,
+        session_id: sessionId(),
+        k: Number(document.getElementById("k").value || 16),
+      }));
+    };
+
+    document.getElementById("resolveBtn").onclick = async () => {
+      const tool = lastRanked[0];
+      if (!tool) { raw.textContent = "load tools first"; return; }
+      const data = await post("/api/record_result", {
+        session_id: sessionId(),
+        tool,
       });
-      renderLoad(data);
+      raw.textContent = JSON.stringify(data, null, 2);
+      refreshTimeline();
     };
 
     document.getElementById("traceBtn").onclick = async () => {
@@ -108,17 +218,21 @@
         .split(",").map((s) => s.trim()).filter(Boolean);
       const data = await post("/api/record_trace", {
         query: document.getElementById("query").value,
+        session_id: sessionId(),
         tools_used,
+        tools_loaded: lastRanked,
       });
       raw.textContent = JSON.stringify(data, null, 2);
       if (data.edit_ids?.length) {
         document.getElementById("edit_id").value = data.edit_ids[data.edit_ids.length - 1];
       }
+      refreshTimeline();
     };
 
     document.getElementById("undoBtn").onclick = async () => {
       const data = await post("/api/undo_edit", { edit_id: document.getElementById("edit_id").value });
       raw.textContent = JSON.stringify(data, null, 2);
+      refreshTimeline();
     };
 
     document.getElementById("asOfBtn").onclick = async () => {
@@ -126,12 +240,10 @@
       const date_iso = v ? new Date(v).toISOString() : new Date().toISOString();
       const data = await post("/api/as_of", { date_iso });
       raw.textContent = JSON.stringify(data, null, 2);
+      refreshTimeline();
     };
 
-    document.getElementById("explainBtn").onclick = async () => {
-      const data = await post("/api/explain", { tool: document.getElementById("explain_tool").value });
-      raw.textContent = JSON.stringify(data, null, 2);
-    };
+    refreshTimeline();
   </script>
 </body>
 </html>

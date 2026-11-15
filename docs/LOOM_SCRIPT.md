@@ -1,47 +1,47 @@
-# loom script (~2–3 min)
+# loom script (~2–3 min) — v3
 
 factual shot list for the toolgraph demo. no audio hype; show the product.
 
 ## 0:00 — title card
 
-- text: `hydra-toolgraph` + one line: learn tool edges from traces, load with provenance
-- terminal visible: `docker compose up` (hydradb + demo on :5000)
+- text: `hydra-toolgraph` + one line: learn `REQUIRES` from traces; load with provenance + session skips
+- terminal: `docker compose up` (or HF single-container on :7860)
 
-## 0:15 — load tools
+## 0:15 — context meter + bundle
 
-- browser: demo query box prefilled with OpenTable reserve (Italian Bistro)
-- click **load tools**
-- zoom: ranked list + provenance rows — OpenTable→Resy `SCHEMA_DEP`, then Resy→weather/holiday `DEPENDS_ON` with `prov` / `p`
+- browser: demo with `session_id=demo-session-1`, OpenTable reserve query
+- click **1. load tools**
+- zoom panel 1: preload-all tokens vs bundle tokens
+- zoom panel 2: ranked tools + why-path (`REQUIRES` chain) + provenance `p`
 
-## 0:45 — record trace
+## 0:45 — session skip
 
-- fill **trace tools** (main first, helpers after)
-- click **record trace**
-- show JSON: `edit_ids`, `edges_added`
-- optional: explain one helper — in/out edges + lesson field
+- click **2. record_result (first tool)** then **3. load again**
+- show skipped line: `skipped, already resolved by …`
+- optional: curl MCP `record_result` / `load_tools` with same `session_id`
 
-## 1:10 — undo
+## 1:10 — record trace (weaken unused)
 
-- paste last `edit_id`, click **undo**
-- reload tools: ranking/provenance should reflect removed edge
+- fill **tools_used** (subset of loaded)
+- click **4. record_trace** — unused loaded tools get β penalty
+- panel 3 timeline shows the edit; optional **explain** on a weakened edge
 
-## 1:35 — as_of
+## 1:35 — undo + as_of
 
-- pick a datetime in the past (before traces were recorded)
-- click **rebuild as_of**, then **load tools** again
-- note fewer replayed edits / edges in JSON (`edits_replayed`, `edges_active`)
+- paste `edit_id`, **undo**
+- set datetime-local, **as_of snapshot** — edges + diff vs now from `REQUIRES_HIST`
 
-## 2:00 — mcp / compose (optional b-roll)
+## 2:00 — honest results card
 
-- cutaway: `curl -X POST localhost:8080/tools/load_tools -d '{"query":"..."}'`
-- or editor showing `toolgraph/mcp_server.py` stdio + `--http` flag
+- flash `docs/RESULTS_V3.md` headline: H1/H2/H4 pass, **H3 fail** (wrong-skip 25%)
+- do not claim hydra beats kv on completeness; claim store-request + staleness + learning curve
 
 ## 2:20 — close
 
-- one line on measured eval (checkpoint 2): grouped-main split, no jev, hydra ties sqlite cte on this dataset
-- link: repo readme + `results/curve.json` (do not claim hydra beats metadata control)
+- link: repo README + HF Space deploy notes (`deploy/hf-space/README.md`)
+- remind: no paid judge; ToolLinkOS synthetic; B2 constructed
 
 ## capture notes
 
-- use local docker only; no api keys on screen
-- if embed download is slow on first run, pre-warm with `scripts/smoke_demo.py` before recording
+- local docker only; no api keys on screen
+- pre-warm embeds with `scripts/smoke_demo.py` before recording

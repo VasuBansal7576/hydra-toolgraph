@@ -1,5 +1,4 @@
 .git
-results
 **/__pycache__
 *.pyc
 .cursor
@@ -7,3 +6,7 @@ uploads
 *.png
 *.log
 .env
+# Keep results/*.json for HF read-only fallback; drop bulky runtime logs.
+results/*.jsonl
+results/*edits*
+results/*.log

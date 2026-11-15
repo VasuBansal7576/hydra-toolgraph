@@ -1,12 +1,12 @@
 # gtm drafts — do not post from this file
 
-factual only. lowercase-friendly. no hype.
+factual only. lowercase-friendly. no hype. v3 numbers from `docs/RESULTS_V3.md` (pre-reg `6264be76…`).
 
 ---
 
 ## x thread (draft)
 
-**1/** hydra-toolgraph is a small context layer: learn which tools to load from agent traces, store the edges in hydradb with versioning, undo, and provenance.
+**1/** hydra-toolgraph learns which tools to load from agent traces, stores `REQUIRES` edges in hydradb with versioning, undo, provenance, and session `RESOLVED` skips.
 
 **2/** quickstart:
 
@@ -16,26 +16,24 @@ docker compose up --build
 # mcp  http://localhost:8080/tools/load_tools
 ```
 
-**3/** mcp tools: `load_tools`, `record_trace`, `undo_edit`, `as_of`, `explain`. no jev, no paid llm judge. i/o prior is deterministic schema overlap ≥ 0.6.
+single-container hf space notes: `deploy/hf-space/README.md` (sdk docker, port 7860).
 
-**4/** eval (toollinkos, grouped-by-main, matched fan-in=32): hydra mspaths+prior c16 **0.656**, metadata also-load **0.649**, sqlite cte **0.649**. tie within seed spread. hydra does not beat the vector-store control once fan-in matches. the old 4-seed gap was a confound (k4 ablation lands at 0.532).
+**3/** mcp: `load_tools(query, session_id, k)`, `record_trace`, `record_result`, `undo_edit`, `as_of`, `explain`. no jev, no paid llm judge.
 
-**5/** leak finding: every main has 3 identical-gold queries (1569/1569). a query-level split inflates c16 from ~0.53 to ~0.91. grouped-by-main is the headline.
+**4/** sealed v3 (toollinkos, grouped-by-main): hydra c16 **0.475** vs kv_hop **0.545** (tie within hydra seed spread), store reqs **2 vs 5.7**, staleness kv **0.03** / hydra phantoms **0**. H1/H2/H4 pass. **H3 fail**: wrong-skip **25%**, tokens not below kv_hop.
 
-refs: grtf arxiv:2502.07223 (reference, different protocol), graph-of-skills arxiv:2604.05333 (graph never revised from traces).
+**5/** learning curve (seed 7): c16 0.013 → 0.472 over traces; tokens/complete 1277 → 1148.
 
-**6/** code: github.com/VasuBansal7576/hydra-toolgraph — drafts only here; not posting from the agent.
+**6/** code: github.com/VasuBansal7576/hydra-toolgraph — drafts only; not posting from the agent.
 
 ---
 
 ## linkedin post (draft)
 
-we open-sourced a small tool-loading layer on hydradb: learn prerequisite edges from agent traces, load a complete tool set with provenance, and undo edits.
+we open-sourced a tool-loading layer on hydradb: learn `REQUIRES` from traces, load a bundle with why-paths, skip already-resolved tools in a session, undo edits, and as-of via `REQUIRES_HIST`.
 
-honest numbers on toollinkos (grouped-by-main split, matched fan-in of 32 fused seeds): hydra multi-hop **0.656** c16, metadata also-load **0.649**, recursive cte **0.649**. after matching controls, hydra ties — it does not win completeness against a flat also-load list. what hydradb adds on this dataset is versioned, undoable, provenance-tagged edges (and as-of replay).
+honest v3 numbers on toollinkos (grouped-by-main): hydra completeness@16 **0.475** ties kv within seed spread; the clear edges are constant **2** store requests and live graph freshness under edits. session skipping is not ready (wrong-skip 25% — H3 failed). learning curve on seed 7 rises 0.013 → 0.472 while tokens/complete fall.
 
-also documented: a query-level split on this dataset leaks sibling answer sets (3 identical golds per main) and inflates scores from ~0.53 to ~0.91.
-
-mcp + one-page demo via `docker compose up`. no paid edge judge.
+mcp + demo via `docker compose up`; hf spaces single-container recipe in-repo (not auto-deployed).
 
 #agents #tooluse #graphrag

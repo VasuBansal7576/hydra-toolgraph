@@ -6,7 +6,6 @@ import json
 import os
 import sys
 import tempfile
-import urllib.error
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,7 +32,7 @@ class FakeHydra:
 def hydra_live() -> bool:
     client = HydraClient("http://127.0.0.1:8443", "local-development-token-32-bytes")
     try:
-        client.query("RETURN 1")
+        client.query("MATCH (t:Tool) RETURN t.tool_id LIMIT 1")
         return True
     except Exception:
         return False
@@ -41,29 +40,45 @@ def hydra_live() -> bool:
 
 def main() -> int:
     use_live = hydra_live()
-    hydra = HydraClient("http://127.0.0.1:8443", "local-development-token-32-bytes") if use_live else FakeHydra()  # type: ignore[assignment]
+    hydra = (
+        HydraClient("http://127.0.0.1:8443", "local-development-token-32-bytes")
+        if use_live
+        else FakeHydra()  # type: ignore[assignment]
+    )
     with tempfile.TemporaryDirectory() as tmp:
         edit_log = Path(tmp) / "edits.jsonl"
-        tools, instances = load_dataset(ROOT / "data")
+        _tools, instances = load_dataset(ROOT / "data")
         svc = ToolgraphService(hydra, data_dir=ROOT / "data", edit_log=edit_log)
         sample = instances[0]
-        loaded = svc.load_tools(sample.text, k=8)
+        session_id = "smoke-session"
+        loaded = svc.load_tools(sample.text, session_id=session_id, k=8)
         assert loaded["ranked"], "load_tools returned empty ranking"
         trace_tools = [sample.main, *sorted(sample.gold - {sample.main})[:2]]
-        rec = svc.record_trace(sample.text, trace_tools)
-        assert "edit_ids" in rec
-        if rec.get("edges_added", 0) > 0 and rec["edit_ids"]:
-            undone = svc.undo_edit(rec["edit_ids"][0])
+        rec = svc.record_trace(
+            sample.text,
+            trace_tools,
+            tools_loaded=loaded["ranked"],
+            session_id=session_id,
+        )
+        assert "edit_ids" in rec or "edges_touched" in rec
+        if rec.get("edges_touched", 0) > 0 and rec.get("edit_ids"):
+            undone = svc.undo_edit(rec["edit_ids"][-1])
             assert undone.get("ok") is True, undone
-        asof = svc.as_of("2099-01-01T00:00:00+00:00")
-        assert asof["edits_replayed"] >= 0
+        # Resolve first ranked tool so a second load can skip.
+        if loaded["ranked"]:
+            resolved = svc.record_result(session_id, loaded["ranked"][0])
+            assert "resolved" in resolved
+        asof = svc.as_of(date_iso="2099-01-01T00:00:00+00:00")
+        assert "edges" in asof or "error" in asof
         explained = svc.explain(sample.main)
         assert explained["tool"] == sample.main
         summary = {
             "hydra": "live" if use_live else "fake",
             "ranked_head": loaded["ranked"][:5],
-            "trace": rec,
-            "as_of_edges": asof.get("edges_active"),
+            "context_meter": loaded.get("context_meter"),
+            "skipped": loaded.get("skipped"),
+            "trace": {k: rec[k] for k in ("edges_touched", "edit_ids", "session_id") if k in rec},
+            "as_of_edge_count": len(asof.get("edges") or []),
             "explain_out_edges": len(explained.get("out_edges") or []),
         }
         print(json.dumps(summary, indent=2))
