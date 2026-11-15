@@ -1,0 +1,207 @@
+{
+  "gold_hop_histogram": {
+    "by_hop": {
+      "1": 4104,
+      "2": 3252,
+      "3": 477,
+      "4": 45
+    },
+    "core_helper_fraction": 0.9086062452399086,
+    "core_helper_loads": 7158,
+    "deep_ge_2": 3774,
+    "deep_ge_2_fraction": 0.47905559786747903,
+    "helper_loads": 7878,
+    "label": "measured",
+    "n_core_tools": 50,
+    "n_instances": 1569,
+    "n_tools": 573
+  },
+  "inferred": {
+    "completeness_cannot_separate_graph_from_kv": "KV holding the same implication lists recovers ~the same deep-helper recall in one lookup because ToolLinkOS gold sets are full closures",
+    "learned_graph_is_stars": "ingest_trace_edges writes main\u2192every helper; a walk over a star is one dictionary lookup, so Hydra ties metadata also-load by construction"
+  },
+  "label": "measured",
+  "per_seed": [
+    {
+      "held_out_main_fraction": 0.20267686424474188,
+      "implication_deep_recovery": {
+        "deep_helper_macro_recall": 0.9929078014184397,
+        "deep_helper_micro_recall": 0.9916666666666667,
+        "label": "measured",
+        "mean_extra_tools_per_query": 0.5425531914893617,
+        "n_queries_with_deep": 282
+      },
+      "implication_extra_gold_vs_star": {
+        "label": "measured",
+        "mean_extra_gold_tools_per_query": 2.330188679245283
+      },
+      "kv_implication_one_lookup": {
+        "deep_helper_macro_recall": 0.9929078014184397,
+        "label": "measured",
+        "n_queries_with_deep": 282,
+        "note": "same implication lists as a plain dict; one lookup; completeness cannot separate graph from KV"
+      },
+      "n_implication_edges": 1826,
+      "n_learn": 939,
+      "n_mains": 523,
+      "n_sealed": 318,
+      "n_sealed_mains": 106,
+      "seed": 7,
+      "star_deep_recovery": {
+        "deep_helper_macro_recall": 0.25443262411347517,
+        "deep_helper_micro_recall": 0.4,
+        "label": "measured",
+        "mean_extra_tools_per_query": 0.0,
+        "n_queries_with_deep": 282
+      },
+      "star_out_degree": {
+        "label": "measured",
+        "max_out_degree": 11,
+        "mean_out_degree": 5.019169329073482,
+        "min_out_degree": 1,
+        "n_star_sources": 313,
+        "note": "ingest_trace_edges writes main\u2192every helper; walk over a star is one dict lookup"
+      }
+    },
+    {
+      "held_out_main_fraction": 0.20267686424474188,
+      "implication_deep_recovery": {
+        "deep_helper_macro_recall": 0.9696180555555556,
+        "deep_helper_micro_recall": 0.9554655870445344,
+        "label": "measured",
+        "mean_extra_tools_per_query": 0.4375,
+        "n_queries_with_deep": 288
+      },
+      "implication_extra_gold_vs_star": {
+        "label": "measured",
+        "mean_extra_gold_tools_per_query": 2.4150943396226414
+      },
+      "kv_implication_one_lookup": {
+        "deep_helper_macro_recall": 0.9696180555555556,
+        "label": "measured",
+        "n_queries_with_deep": 288,
+        "note": "same implication lists as a plain dict; one lookup; completeness cannot separate graph from KV"
+      },
+      "n_implication_edges": 1845,
+      "n_learn": 939,
+      "n_mains": 523,
+      "n_sealed": 318,
+      "n_sealed_mains": 106,
+      "seed": 21,
+      "star_deep_recovery": {
+        "deep_helper_macro_recall": 0.21770833333333334,
+        "deep_helper_micro_recall": 0.29554655870445345,
+        "label": "measured",
+        "mean_extra_tools_per_query": 0.0,
+        "n_queries_with_deep": 288
+      },
+      "star_out_degree": {
+        "label": "measured",
+        "max_out_degree": 10,
+        "mean_out_degree": 5.10223642172524,
+        "min_out_degree": 1,
+        "n_star_sources": 313,
+        "note": "ingest_trace_edges writes main\u2192every helper; walk over a star is one dict lookup"
+      }
+    },
+    {
+      "held_out_main_fraction": 0.20267686424474188,
+      "implication_deep_recovery": {
+        "deep_helper_macro_recall": 1.0,
+        "deep_helper_micro_recall": 1.0,
+        "label": "measured",
+        "mean_extra_tools_per_query": 0.18478260869565216,
+        "n_queries_with_deep": 276
+      },
+      "implication_extra_gold_vs_star": {
+        "label": "measured",
+        "mean_extra_gold_tools_per_query": 2.1320754716981134
+      },
+      "kv_implication_one_lookup": {
+        "deep_helper_macro_recall": 1.0,
+        "label": "measured",
+        "n_queries_with_deep": 276,
+        "note": "same implication lists as a plain dict; one lookup; completeness cannot separate graph from KV"
+      },
+      "n_implication_edges": 1794,
+      "n_learn": 939,
+      "n_mains": 523,
+      "n_sealed": 318,
+      "n_sealed_mains": 106,
+      "seed": 42,
+      "star_deep_recovery": {
+        "deep_helper_macro_recall": 0.34257246376811595,
+        "deep_helper_micro_recall": 0.4618320610687023,
+        "label": "measured",
+        "mean_extra_tools_per_query": 0.0,
+        "n_queries_with_deep": 276
+      },
+      "star_out_degree": {
+        "label": "measured",
+        "max_out_degree": 10,
+        "mean_out_degree": 5.060702875399361,
+        "min_out_degree": 1,
+        "n_star_sources": 313,
+        "note": "ingest_trace_edges writes main\u2192every helper; walk over a star is one dict lookup"
+      }
+    }
+  ],
+  "protocol": {
+    "extra_tools_definition": "mean |implication_found \u2212 gold| per sealed query that has \u22651 deep helper (non-gold tools the implication expansion adds)",
+    "held_out_is_remainder_after_learn_dev": true,
+    "held_out_note": "measured sealed-main fraction is ~20% under LEARN=0.60/DEV=0.20; brief prose said ~30% held out \u2014 recorded as a wording difference, not a protocol change",
+    "implication_rule": "A\u2192B if count(A)\u22652 and P(B|A)\u22650.9 over learn traces",
+    "learn_fraction": 0.6,
+    "oracle_first_hop_seeding": true,
+    "seeds": [
+      7,
+      21,
+      42
+    ],
+    "split": "grouped_by_main"
+  },
+  "summary": {
+    "extra_tools_range": [
+      0.18478260869565216,
+      0.5425531914893617
+    ],
+    "held_out_main_fraction_by_seed": [
+      0.20267686424474188,
+      0.20267686424474188,
+      0.20267686424474188
+    ],
+    "implication_deep_macro_recall_by_seed": [
+      0.9929078014184397,
+      0.9696180555555556,
+      1.0
+    ],
+    "implication_extra_tools_by_seed": [
+      0.5425531914893617,
+      0.4375,
+      0.18478260869565216
+    ],
+    "implication_recall_range": [
+      0.9696180555555556,
+      1.0
+    ],
+    "kv_deep_macro_recall_by_seed": [
+      0.9929078014184397,
+      0.9696180555555556,
+      1.0
+    ],
+    "kv_recall_range": [
+      0.9696180555555556,
+      1.0
+    ],
+    "label": "measured",
+    "star_deep_macro_recall_by_seed": [
+      0.25443262411347517,
+      0.21770833333333334,
+      0.34257246376811595
+    ],
+    "star_recall_range": [
+      0.21770833333333334,
+      0.34257246376811595
+    ]
+  }
+}
