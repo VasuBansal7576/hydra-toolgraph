@@ -212,6 +212,47 @@ class JevClient:
             return None
         return scores
 
+    def edge_need(
+        self,
+        consumer: str,
+        consumer_desc: str,
+        producers: list[tuple[str, str, str]],
+    ) -> dict[str, float] | None:
+        """Noul: does consumer need each producer first? producers are (name, desc, param)."""
+        if not self.enabled or not producers:
+            return None
+        state = (
+            f"Tool {consumer} may need a helper first.\n"
+            f"Consumer description: {consumer_desc[:180]}\n"
+            "Answer whether each candidate helper must run before this tool."
+        )
+        scores: dict[str, float] = {}
+        failed = False
+        for start in range(0, len(producers), 12):
+            chunk = producers[start : start + 12]
+            questions = {
+                name: {
+                    "type": "noul",
+                    "instructions": (
+                        f"Tool {consumer} needs tool {name} to run first because "
+                        f"{name} supplies '{param}' (or an equivalent input) that "
+                        f"{consumer} requires. Helper description: {desc[:160]}"
+                    ),
+                }
+                for name, desc, param in chunk
+            }
+            answers = self._call(state=state, questions=questions)
+            if not answers:
+                failed = True
+                continue
+            for name, _desc, _param in chunk:
+                answer = answers.get(name)
+                if answer and "noul" in answer:
+                    scores[name] = float(answer["noul"])
+        if not scores and failed:
+            return None
+        return scores
+
     def score_miss(self, task: str, loaded: list[str], missing: list[str]) -> float | None:
         if not self.enabled:
             return None

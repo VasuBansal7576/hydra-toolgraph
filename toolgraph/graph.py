@@ -1,7 +1,8 @@
-"""Catalog graph, MSpaths closure, SQLite one-hop, and do/undo edits.
+"""Catalog nodes, learned edges, oracle edges, MSpaths, and recursive CTE.
 
-SQLite holds the same edges as HydraDB and reads only one hop. HydraDB walks
-DEPENDS_ON and FOLLOWED_BY with algo.MSpaths and the cost property.
+v2 rule: catalog depends_on edges never enter a learned arm. They are loaded
+only as ORACLE_DEP for the ceiling arm. Learned DEPENDS_ON and SCHEMA_DEP
+come from traces and Jev-verified schema proposals.
 """
 
 from __future__ import annotations
@@ -14,8 +15,7 @@ from pathlib import Path
 from toolgraph.data import Tool
 from toolgraph.hydra import HydraClient, as_float, as_str, unwrap
 from toolgraph.protocol import (
-    DIRECT_COST,
-    INDIRECT_COST,
+    LEARNED_BASE_COST,
     MAX_LEN,
     PATH_COUNT,
     RESULT_LIMIT,
@@ -23,10 +23,10 @@ from toolgraph.protocol import (
 )
 
 
-def edge_cost(dependence_type: str) -> float:
+def edge_cost_from_dependence(dependence_type: str) -> float:
     if "INDIRECT" in dependence_type:
-        return INDIRECT_COST
-    return DIRECT_COST
+        return 1.6
+    return 1.0
 
 
 @dataclass
@@ -58,16 +58,30 @@ class GraphStore:
         self._edit_seq = 1_000_000
         self.applied = 0
         self.undone = 0
+        self.edge_version = 0
+        self._hydra_synced_version = 0
+        self._node_ids: list[int] = []
 
     def wipe(self) -> None:
-        for label in ("Tool", "Param", "Skill", "Server", "Edit"):
-            self.hydra.query(f"MATCH (n:{label}) DETACH DELETE n")
+        # Label-wide DETACH DELETE can stack-overflow the local graph-node.
+        # Delete only ids we previously created, in small batches.
+        ids = list(dict.fromkeys(self._node_ids))
+        for start in range(0, len(ids), 50):
+            chunk = ids[start : start + 50]
+            self.hydra.query(
+                "UNWIND $rows AS row MATCH (n {id: row.id}) DETACH DELETE n",
+                {"rows": [{"id": node_id} for node_id in chunk]},
+            )
+        self._node_ids = []
         self.edges.clear()
         self.lessons.clear()
         self.sqlite.execute("DELETE FROM edges")
         self.sqlite.commit()
+        self.edge_version += 1
+        self._hydra_synced_version = self.edge_version
 
-    def load_catalog(self, tools: list[Tool]) -> None:
+    def load_catalog(self, tools: list[Tool], *, include_oracle: bool = True) -> None:
+        """Load tool nodes and param structure. Never loads catalog DEPENDS_ON into learned rels."""
         self.wipe()
         self.tools = {tool.name: tool for tool in tools}
         self.names = {tool.name: idx + 1 for idx, tool in enumerate(tools)}
@@ -83,16 +97,18 @@ class GraphStore:
             for tool in tools
         ]
         self._unwind_nodes("Tool", node_rows)
+        self._node_ids.extend(row["id"] for row in node_rows)
         param_rows = []
         param_edges = []
         param_id = 10_000
         for tool in tools:
             for param in tool.params:
                 param_id += 1
+                pname = str(param.get("name") or "param")
                 param_rows.append(
                     {
                         "id": param_id,
-                        "tool_id": f"{tool.name}.{param.get('name', 'param')}",
+                        "tool_id": f"{tool.name}.{pname}",
                         "description": str(param.get("description") or "")[:240],
                         "kind": "param",
                         "lesson": "",
@@ -102,25 +118,24 @@ class GraphStore:
         if param_rows:
             self._unwind_nodes("Param", param_rows)
             self._unwind_bare_edges("REQUIRES_PARAM", param_edges)
-        self._unwind_nodes(
-            "Skill",
-            [
-                {"id": 20_001, "tool_id": "core", "description": "Core helper", "kind": "skill", "lesson": ""},
-                {"id": 20_002, "tool_id": "regular", "description": "Regular tool", "kind": "skill", "lesson": ""},
-            ],
-        )
-        self._unwind_nodes(
-            "Server",
-            [
-                {
-                    "id": 20_000,
-                    "tool_id": "toollinkos",
-                    "description": "ToolLinkOS catalog",
-                    "kind": "server",
-                    "lesson": "",
-                }
-            ],
-        )
+            self._node_ids.extend(row["id"] for row in param_rows)
+        skill_rows = [
+            {"id": 20_001, "tool_id": "core", "description": "Core helper", "kind": "skill", "lesson": ""},
+            {"id": 20_002, "tool_id": "regular", "description": "Regular tool", "kind": "skill", "lesson": ""},
+        ]
+        server_rows = [
+            {
+                "id": 20_000,
+                "tool_id": "toollinkos",
+                "description": "ToolLinkOS catalog",
+                "kind": "server",
+                "lesson": "",
+            }
+        ]
+        self._unwind_nodes("Skill", skill_rows)
+        self._unwind_nodes("Server", server_rows)
+        self._node_ids.extend(row["id"] for row in skill_rows)
+        self._node_ids.extend(row["id"] for row in server_rows)
         skill_edges = []
         host_edges = []
         for tool in tools:
@@ -129,40 +144,47 @@ class GraphStore:
             host_edges.append((self.names[tool.name], 20_000))
         self._unwind_bare_edges("OF_SKILL", skill_edges)
         self._unwind_bare_edges("HOSTED_BY", host_edges)
-        dep_edges: list[Edge] = []
-        seen_deps: set[tuple[int, int]] = set()
+        if include_oracle:
+            self.load_oracle_edges(tools)
+
+    def load_oracle_edges(self, tools: list[Tool]) -> None:
+        """Ceiling arm only. Uses ORACLE_DEP so learned arms never see these edges."""
+        oracle: list[Edge] = []
+        seen: set[tuple[int, int]] = set()
         for tool in tools:
             for dep in tool.depends_on:
                 if dep["name"] not in self.names:
                     continue
                 pair = (self.names[tool.name], self.names[dep["name"]])
-                if pair in seen_deps or pair[0] == pair[1]:
+                if pair in seen or pair[0] == pair[1]:
                     continue
-                seen_deps.add(pair)
-                dep_edges.append(
+                seen.add(pair)
+                oracle.append(
                     Edge(
-                        src=self.names[tool.name],
-                        dst=self.names[dep["name"]],
-                        rel="DEPENDS_ON",
-                        cost=edge_cost(str(dep.get("dependence_type") or "")),
+                        src=pair[0],
+                        dst=pair[1],
+                        rel="ORACLE_DEP",
+                        cost=edge_cost_from_dependence(str(dep.get("dependence_type") or "")),
                         support=0,
-                        edit_id="catalog",
-                        prov="catalog",
+                        edit_id="oracle",
+                        prov="catalog_oracle",
                     )
                 )
-        self._insert_edges(dep_edges, record=False)
+        self._insert_edges(oracle, record=False)
 
-    def closure(self, seeds: list[str]) -> dict[str, float]:
-        """Min path cost per reached tool, including the seed penalty."""
+    def closure(self, seeds: list[str], rel_types: list[str]) -> dict[str, float]:
+        """Min path cost via HydraDB algo.MSpaths over the given relationship types."""
+        self.ensure_hydra_synced()
         costs = {name: index * SEED_PENALTY for index, name in enumerate(seeds)}
         if not seeds:
             return costs
         values = ", ".join(f"'{name}'" for name in seeds)
+        rels = ", ".join(f"'{rel}'" for rel in rel_types)
         statement = (
             "CALL algo.MSpaths({"
             "sourceLabel: 'Tool', sourceProperty: 'tool_id', "
             f"sourceValues: [{values}], "
-            "relTypes: ['DEPENDS_ON', 'FOLLOWED_BY'], relDirection: 'outgoing', "
+            f"relTypes: [{rels}], relDirection: 'outgoing', "
             f"maxLen: {MAX_LEN}, costProp: 'cost', pathCount: {PATH_COUNT}, "
             f"resultLimit: {RESULT_LIMIT}"
             "}) YIELD path, pathCost RETURN path, pathCost"
@@ -190,155 +212,91 @@ class GraphStore:
                 costs[name] = min(costs.get(name, total), total)
         return costs
 
-    def one_hop(self, seeds: list[str]) -> dict[str, float]:
+    def recursive_cte(self, seeds: list[str], rel_types: list[str], max_len: int = MAX_LEN) -> dict[str, float]:
+        """Same-depth plain-store control: recursive CTE over SQLite edges."""
         costs = {name: index * SEED_PENALTY for index, name in enumerate(seeds)}
+        if not seeds:
+            return costs
+        placeholders = ",".join("?" for _ in rel_types)
         for index, name in enumerate(seeds):
             src = self.names[name]
             rows = self.sqlite.execute(
-                "SELECT dst, cost FROM edges WHERE src = ? AND rel IN ('DEPENDS_ON', 'FOLLOWED_BY')",
-                (src,),
+                f"""
+                WITH RECURSIVE walk(node, depth, cost) AS (
+                  SELECT ?, 0, ?
+                  UNION ALL
+                  SELECT e.dst, walk.depth + 1, walk.cost + e.cost
+                  FROM walk
+                  JOIN edges e ON e.src = walk.node
+                  WHERE walk.depth < ? AND e.rel IN ({placeholders})
+                )
+                SELECT node, MIN(cost) AS cost FROM walk GROUP BY node
+                """,
+                (src, index * SEED_PENALTY, max_len, *rel_types),
             )
-            for dst, cost in rows:
-                tool = self.by_id.get(int(dst))
+            for node_id, cost in rows:
+                tool = self.by_id.get(int(node_id))
                 if tool is None:
                     continue
-                total = index * SEED_PENALTY + float(cost)
-                costs[tool] = min(costs.get(tool, total), total)
+                costs[tool] = min(costs.get(tool, float(cost)), float(cost))
         return costs
 
-    def neighbors(self, name: str) -> set[str]:
-        src = self.names[name]
-        rows = self.sqlite.execute(
-            "SELECT dst FROM edges WHERE src = ? AND rel IN ('DEPENDS_ON', 'FOLLOWED_BY')",
-            (src,),
-        )
-        return {self.by_id[int(dst)] for (dst,) in rows if int(dst) in self.by_id}
+    def learn_depends(self, src_name: str, dst_name: str, prov: str) -> bool:
+        """Add or strengthen DEPENDS_ON(main -> helper) from an observed trace.
 
-    def reachable_from(self, seeds: list[str]) -> set[str]:
-        # Used only to decide edit shape. Retrieval itself goes through Hydra or SQLite.
-        seen = set(seeds)
-        stack = list(seeds)
-        while stack:
-            name = stack.pop()
-            for nxt in self.neighbors(name):
-                if nxt not in seen:
-                    seen.add(nxt)
-                    stack.append(nxt)
-        return seen
-
-    def strengthen(self, src_name: str, dst_name: str, prov: str) -> bool:
-        src = self.names[src_name]
-        dst = self.names[dst_name]
-        current = self.edges.get((src, dst, "DEPENDS_ON"))
-        if current is None:
+        Writes a do/undo record and updates SQLite immediately. HydraDB is
+        refreshed in bulk via sync_learned_to_hydra() before MSpaths (the local
+        graph-node stack-overflows on many per-edge MATCH/SET mutations).
+        """
+        if src_name not in self.names or dst_name not in self.names or src_name == dst_name:
             return False
-        new_support = current.support + 1
-        new_cost = 1.0 / (1.0 + new_support)
-        edit_id = self._next_edit()
-        do = (
-            "MATCH (a {id: $src})-[r:DEPENDS_ON]->(b {id: $dst}) "
-            "SET r.cost = $cost, r.support = $support, r.edit_id = $edit_id, r.prov = $prov"
-        )
-        undo = (
-            "MATCH (a {id: $src})-[r:DEPENDS_ON]->(b {id: $dst}) "
-            "SET r.cost = $cost, r.support = $support, r.edit_id = $edit_id, r.prov = $prov"
-        )
-        do_params = {
-            "src": src,
-            "dst": dst,
-            "cost": new_cost,
-            "support": new_support,
-            "edit_id": edit_id,
-            "prov": prov,
-        }
-        undo_params = {
-            "src": src,
-            "dst": dst,
-            "cost": current.cost,
-            "support": current.support,
-            "edit_id": current.edit_id,
-            "prov": current.prov,
-        }
-        self._apply(do, do_params, undo, undo_params, prov, edit_id)
-        updated = Edge(src, dst, "DEPENDS_ON", new_cost, new_support, edit_id, prov)
-        self.edges[(src, dst, "DEPENDS_ON")] = updated
-        self.sqlite.execute(
-            "UPDATE edges SET cost = ?, support = ? WHERE src = ? AND dst = ? AND rel = 'DEPENDS_ON'",
-            (new_cost, new_support, src, dst),
-        )
-        return True
-
-    def link_followed(self, src_name: str, dst_name: str, prov: str) -> bool:
         src = self.names[src_name]
         dst = self.names[dst_name]
-        key = (src, dst, "FOLLOWED_BY")
-        current = self.edges.get(key)
-        if current is not None:
-            new_support = current.support + 1
-            new_cost = 1.0 / (1.0 + new_support)
-            edit_id = self._next_edit()
-            do = (
-                "MATCH (a {id: $src})-[r:FOLLOWED_BY]->(b {id: $dst}) "
-                "SET r.cost = $cost, r.support = $support, r.edit_id = $edit_id, r.prov = $prov"
-            )
-            undo = (
-                "MATCH (a {id: $src})-[r:FOLLOWED_BY]->(b {id: $dst}) "
-                "SET r.cost = $cost, r.support = $support, r.edit_id = $edit_id, r.prov = $prov"
-            )
-            self._apply(
-                do,
-                {"src": src, "dst": dst, "cost": new_cost, "support": new_support, "edit_id": edit_id, "prov": prov},
-                undo,
-                {
-                    "src": src,
-                    "dst": dst,
-                    "cost": current.cost,
-                    "support": current.support,
-                    "edit_id": current.edit_id,
-                    "prov": current.prov,
-                },
-                prov,
-                edit_id,
-            )
-            self.edges[key] = Edge(src, dst, "FOLLOWED_BY", new_cost, new_support, edit_id, prov)
-            self.sqlite.execute(
-                "UPDATE edges SET cost = ?, support = ? WHERE src = ? AND dst = ? AND rel = 'FOLLOWED_BY'",
-                (new_cost, new_support, src, dst),
-            )
-        else:
-            edit_id = self._next_edit()
-            create = "UNWIND $rows AS row CREATE (a {id: row.src})-[:FOLLOWED_BY]->(b {id: row.dst})"
-            unset = "MATCH (a {id: $src})-[r:FOLLOWED_BY]->(b {id: $dst}) DELETE r"
-            self._apply(
-                create,
-                {"rows": [{"src": src, "dst": dst}]},
-                unset,
-                {"src": src, "dst": dst},
-                prov,
-                edit_id,
-            )
-            set_cost = (
-                "MATCH (a {id: $src})-[r:FOLLOWED_BY]->(b {id: $dst}) "
-                "SET r.cost = $cost, r.support = $support, r.edit_id = $edit_id, r.prov = $prov"
-            )
-            clear_cost = (
-                "MATCH (a {id: $src})-[r:FOLLOWED_BY]->(b {id: $dst}) "
-                "SET r.cost = 0.0, r.support = 0, r.edit_id = '', r.prov = ''"
-            )
-            self._apply(
-                set_cost,
-                {"src": src, "dst": dst, "cost": 1.0, "support": 1, "edit_id": edit_id, "prov": prov},
-                clear_cost,
-                {"src": src, "dst": dst},
-                prov,
-                edit_id,
-            )
-            self.edges[key] = Edge(src, dst, "FOLLOWED_BY", 1.0, 1, edit_id, prov)
-            self.sqlite.execute(
-                "INSERT INTO edges (src, dst, rel, cost, support) VALUES (?, ?, 'FOLLOWED_BY', 1.0, 1)",
-                (src, dst),
-            )
-        return True
+        return self._memory_upsert_edge(src, dst, "DEPENDS_ON", LEARNED_BASE_COST, prov)
+
+    def add_schema_edge(self, src_name: str, dst_name: str, prov: str, cost: float = LEARNED_BASE_COST) -> bool:
+        if src_name not in self.names or dst_name not in self.names or src_name == dst_name:
+            return False
+        src = self.names[src_name]
+        dst = self.names[dst_name]
+        key = (src, dst, "SCHEMA_DEP")
+        if key in self.edges:
+            return False
+        return self._memory_upsert_edge(src, dst, "SCHEMA_DEP", cost, prov, strengthen=False)
+
+    def sync_learned_to_hydra(self) -> None:
+        """Replace DEPENDS_ON and SCHEMA_DEP in HydraDB from the SQLite truth."""
+        for rel in ("DEPENDS_ON", "SCHEMA_DEP"):
+            existing = [
+                (src, dst)
+                for (src, dst, edge_rel), _edge in list(self.edges.items())
+                if edge_rel == rel
+            ]
+            # Delete prior Hydra copies of these ids (may include stale rows).
+            # We track learned keys in memory; delete by current+previous via sqlite.
+            rows = self.sqlite.execute("SELECT src, dst FROM edges WHERE rel = ?", (rel,)).fetchall()
+            pairs = list({(int(src), int(dst)) for src, dst in rows} | set(existing))
+            for start in range(0, len(pairs), 50):
+                chunk = pairs[start : start + 50]
+                if not chunk:
+                    continue
+                self.hydra.query(
+                    f"UNWIND $rows AS row MATCH (a {{id: row.src}})-[r:{rel}]->(b {{id: row.dst}}) DELETE r",
+                    {"rows": [{"src": src, "dst": dst} for src, dst in chunk]},
+                )
+            fresh = [
+                edge
+                for (src, dst, edge_rel), edge in self.edges.items()
+                if edge_rel == rel
+            ]
+            if fresh:
+                self._insert_edges(fresh, record=False)
+        self.edge_version += 1
+        self._hydra_synced_version = self.edge_version
+
+    def ensure_hydra_synced(self) -> None:
+        if getattr(self, "_hydra_synced_version", None) != self.edge_version:
+            self.sync_learned_to_hydra()
 
     def note(self, tool: str, text: str, prov: str) -> None:
         self._lesson(tool, text, prov)
@@ -351,11 +309,140 @@ class GraphStore:
         undone = lines[-count:]
         for line in reversed(undone):
             rec = json.loads(line)
-            self.hydra.query(rec["undo_query"], rec["undo_parameters"])
+            # Logical undo only; HydraDB is bulk-synced after the batch.
             self.undone += 1
             self._revert_memory(rec)
         self.edit_log.write_text("".join(line + "\n" for line in kept))
         self.sqlite.commit()
+        self.edge_version += 1
+        self.sync_learned_to_hydra()
+
+    def undo_last_batch(self, n: int = 1) -> int:
+        """Public undo used by the demo / MCP."""
+        before = self.applied
+        self.rollback(n)
+        return max(0, before - self.applied)
+
+    def reason_paths(self, seeds: list[str], ranked: list[str], rel_types: list[str]) -> dict[str, list[str]]:
+        """Cheap BFS parent pointers over SQLite for demo reason paths."""
+        parents: dict[str, str | None] = {name: None for name in seeds}
+        queue = list(seeds)
+        seen = set(seeds)
+        placeholders = ",".join("?" for _ in rel_types)
+        while queue:
+            name = queue.pop(0)
+            src = self.names[name]
+            rows = self.sqlite.execute(
+                f"SELECT dst FROM edges WHERE src = ? AND rel IN ({placeholders})",
+                (src, *rel_types),
+            )
+            for (dst,) in rows:
+                child = self.by_id.get(int(dst))
+                if child is None or child in seen:
+                    continue
+                seen.add(child)
+                parents[child] = name
+                queue.append(child)
+        paths: dict[str, list[str]] = {}
+        for tool in ranked:
+            if tool not in parents and tool not in seeds:
+                paths[tool] = [tool]
+                continue
+            chain = [tool]
+            cur = tool
+            guard = 0
+            while parents.get(cur) is not None and guard < MAX_LEN + 2:
+                cur = parents[cur]  # type: ignore[assignment]
+                chain.append(cur)
+                guard += 1
+            chain.reverse()
+            paths[tool] = chain
+        return paths
+
+    def _memory_upsert_edge(
+        self,
+        src: int,
+        dst: int,
+        rel: str,
+        base_cost: float,
+        prov: str,
+        *,
+        strengthen: bool = True,
+    ) -> bool:
+        key = (src, dst, rel)
+        current = self.edges.get(key)
+        edit_id = self._next_edit()
+        if current is None:
+            cost = base_cost
+            support = 1
+            existed = False
+            prev = None
+            do_query = (
+                f"UNWIND $rows AS row CREATE (a {{id: row.src}})-[:{rel}]->(b {{id: row.dst}}) "
+                f"/* then SET cost/support via bulk sync */"
+            )
+            undo_query = f"MATCH (a {{id: $src}})-[r:{rel}]->(b {{id: $dst}}) DELETE r"
+            do_parameters = {"rows": [{"src": src, "dst": dst}], "cost": cost, "support": support}
+            undo_parameters = {"src": src, "dst": dst}
+        else:
+            if not strengthen:
+                return False
+            support = current.support + 1
+            cost = 1.0 / (1.0 + support)
+            existed = True
+            prev = current
+            do_query = (
+                f"MATCH (a {{id: $src}})-[r:{rel}]->(b {{id: $dst}}) "
+                "SET r.cost = $cost, r.support = $support, r.edit_id = $edit_id, r.prov = $prov"
+            )
+            undo_query = (
+                f"MATCH (a {{id: $src}})-[r:{rel}]->(b {{id: $dst}}) "
+                "SET r.cost = $cost, r.support = $support, r.edit_id = $edit_id, r.prov = $prov"
+            )
+            do_parameters = {
+                "src": src,
+                "dst": dst,
+                "cost": cost,
+                "support": support,
+                "edit_id": edit_id,
+                "prov": prov,
+            }
+            undo_parameters = {
+                "src": src,
+                "dst": dst,
+                "cost": current.cost,
+                "support": current.support,
+                "edit_id": current.edit_id,
+                "prov": current.prov,
+            }
+        rec = {
+            "kind": "edge",
+            "edit_id": edit_id,
+            "provenance": prov,
+            "src": src,
+            "dst": dst,
+            "rel": rel,
+            "existed": existed,
+            "prev_cost": None if prev is None else prev.cost,
+            "prev_support": None if prev is None else prev.support,
+            "prev_edit_id": None if prev is None else prev.edit_id,
+            "prev_prov": None if prev is None else prev.prov,
+            "do_query": do_query,
+            "do_parameters": do_parameters,
+            "undo_query": undo_query,
+            "undo_parameters": undo_parameters,
+            "hydra_mode": "bulk_sync",
+        }
+        self._write_record(rec)
+        edge = Edge(src, dst, rel, cost, support, edit_id, prov)
+        self.edges[key] = edge
+        self.sqlite.execute(
+            "INSERT OR REPLACE INTO edges (src, dst, rel, cost, support) VALUES (?, ?, ?, ?, ?)",
+            (src, dst, rel, cost, support),
+        )
+        self.sqlite.commit()
+        self.edge_version += 1
+        return True
 
     def _revert_memory(self, rec: dict) -> None:
         kind = rec.get("kind")
@@ -396,87 +483,24 @@ class GraphStore:
         if previous == lesson:
             return
         edit_id = self._next_edit()
-        do = "MATCH (a:Tool {id: $id}) SET a.lesson = $lesson"
-        undo = "MATCH (a:Tool {id: $id}) SET a.lesson = $lesson"
-        self.hydra.query(do, {"id": self.names[tool], "lesson": lesson})
         rec = {
             "kind": "lesson",
             "edit_id": edit_id,
             "provenance": prov,
             "tool": tool,
             "previous_lesson": previous,
-            "do_query": do,
+            "do_query": "SET lesson (memory)",
             "do_parameters": {"id": self.names[tool], "lesson": lesson},
-            "undo_query": undo,
+            "undo_query": "SET lesson (memory)",
             "undo_parameters": {"id": self.names[tool], "lesson": previous},
         }
         self._write_record(rec)
         self.lessons[tool] = lesson
 
-    def _apply(
-        self,
-        do_query: str,
-        do_parameters: dict,
-        undo_query: str,
-        undo_parameters: dict,
-        prov: str,
-        edit_id: str,
-    ) -> None:
-        self.hydra.query(do_query, do_parameters)
-        src = do_parameters.get("src", (do_parameters.get("rows") or [{}])[0].get("src"))
-        dst = do_parameters.get("dst", (do_parameters.get("rows") or [{}])[0].get("dst"))
-        rel = "FOLLOWED_BY" if "FOLLOWED_BY" in do_query else "DEPENDS_ON"
-        key = (src, dst, rel)
-        current = self.edges.get(key)
-        rec = {
-            "kind": "edge",
-            "edit_id": edit_id,
-            "provenance": prov,
-            "src": src,
-            "dst": dst,
-            "rel": rel,
-            "existed": current is not None,
-            "prev_cost": None if current is None else current.cost,
-            "prev_support": None if current is None else current.support,
-            "prev_edit_id": None if current is None else current.edit_id,
-            "prev_prov": None if current is None else current.prov,
-            "do_query": do_query,
-            "do_parameters": do_parameters,
-            "undo_query": undo_query,
-            "undo_parameters": undo_parameters,
-        }
-        self._write_record(rec)
-        try:
-            self._write_edit_node(edit_id, do_query, undo_query, prov)
-        except Exception as exc:
-            print(f"edit_node_skipped {edit_id} {exc}", flush=True)
-
     def _write_record(self, rec: dict) -> None:
         with self.edit_log.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(rec) + "\n")
         self.applied += 1
-
-    def _write_edit_node(self, edit_id: str, do_query: str, undo_query: str, prov: str) -> None:
-        try:
-            numeric = int(edit_id[1:])
-        except ValueError:
-            return
-        self.hydra.query(
-            "UNWIND $rows AS row MERGE (e {id: row.id}) "
-            "SET e:Edit, e.edit_id = row.edit_id, e.do_cypher = row.do_cypher, "
-            "e.undo_cypher = row.undo_cypher, e.provenance = row.provenance",
-            {
-                "rows": [
-                    {
-                        "id": numeric,
-                        "edit_id": edit_id,
-                        "do_cypher": do_query[:500],
-                        "undo_cypher": undo_query[:500],
-                        "provenance": prov[:300],
-                    }
-                ]
-            },
-        )
 
     def _insert_edges(self, edges: list[Edge], record: bool) -> None:
         by_rel: dict[str, list[Edge]] = {}
@@ -513,6 +537,7 @@ class GraphStore:
         self.sqlite.commit()
         for edge in edges:
             self.edges[(edge.src, edge.dst, edge.rel)] = edge
+        self.edge_version += 1
         if record:
             return
 
