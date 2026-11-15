@@ -1,8 +1,8 @@
 """Catalog nodes, learned edges, oracle edges, MSpaths, and recursive CTE.
 
 v2 rule: catalog depends_on edges never enter a learned arm. They are loaded
-only as ORACLE_DEP for the ceiling arm. Learned DEPENDS_ON and SCHEMA_DEP
-come from traces and Jev-verified schema proposals.
+only as ORACLE_DEP for the ceiling arm. Learned DEPENDS_ON come from traces;
+SCHEMA_DEP come from the deterministic I/O prior (overlap ≥ 0.6).
 """
 
 from __future__ import annotations
@@ -197,7 +197,13 @@ class GraphStore:
         self._insert_edges(oracle, record=False)
 
     def closure(self, seeds: list[str], rel_types: list[str]) -> dict[str, float]:
-        """Min path cost via HydraDB algo.MSpaths over the given relationship types."""
+        """Min path cost via HydraDB algo.MSpaths over the given relationship types.
+
+        HydraDB yields (path, pathCost) where pathCost is the *total* path cost.
+        Assigning that total to every node on the path breaks cost parity with the
+        SQLite CTE (s→a→b would become {s:0,a:2,b:2} instead of {s:0,a:1,b:2}).
+        We therefore use the minimum *prefix* cost per node.
+        """
         self.ensure_hydra_synced()
         costs = {name: index * SEED_PENALTY for index, name in enumerate(seeds)}
         if not seeds:
@@ -217,7 +223,6 @@ class GraphStore:
         seed_index = {name: index for index, name in enumerate(seeds)}
         for row in result["rows"]:
             path = unwrap(row[0])
-            path_cost = as_float(row[1])
             if not isinstance(path, dict):
                 continue
             nodes = []
@@ -231,10 +236,37 @@ class GraphStore:
             if not nodes:
                 continue
             penalty = seed_index.get(nodes[0], 0) * SEED_PENALTY
-            total = penalty + path_cost
-            for name in nodes:
-                costs[name] = min(costs.get(name, total), total)
+            edge_costs = self._path_edge_costs(path, nodes, rel_types)
+            apply_prefix_costs(costs, nodes, edge_costs, penalty)
         return costs
+
+    def _path_edge_costs(
+        self,
+        path: dict,
+        nodes: list[str],
+        rel_types: list[str],
+    ) -> list[float]:
+        """Per-hop costs along nodes. Prefer relationship properties, else local store."""
+        rels = path.get("relationships") or path.get("edges") or []
+        out: list[float] = []
+        for index in range(len(nodes) - 1):
+            step: float | None = None
+            if index < len(rels) and isinstance(rels[index], dict):
+                props = rels[index].get("properties") or {}
+                if "cost" in props:
+                    step = as_float(props["cost"])
+            if step is None:
+                src_id = self.names.get(nodes[index])
+                dst_id = self.names.get(nodes[index + 1])
+                step = 1.0
+                if src_id is not None and dst_id is not None:
+                    for rel in rel_types:
+                        edge = self.edges.get((src_id, dst_id, rel))
+                        if edge is not None:
+                            step = float(edge.cost)
+                            break
+            out.append(float(step))
+        return out
 
     def recursive_cte(
         self,
@@ -707,6 +739,28 @@ class GraphStore:
     def _next_edit(self) -> str:
         self._edit_seq += 1
         return f"e{self._edit_seq}"
+
+
+def apply_prefix_costs(
+    costs: dict[str, float],
+    nodes: list[str],
+    edge_costs: list[float],
+    penalty: float,
+) -> None:
+    """Write minimum prefix costs for nodes along a path into ``costs``.
+
+    For unit-cost s→a→b with penalty 0 this yields {s:0, a:1, b:2}, matching
+    the recursive CTE. Using the path total for every node would wrongly yield
+    {s:0, a:2, b:2}.
+    """
+    if not nodes:
+        return
+    running = penalty
+    costs[nodes[0]] = min(costs.get(nodes[0], running), running)
+    for index, name in enumerate(nodes[1:]):
+        step = edge_costs[index] if index < len(edge_costs) else 1.0
+        running += float(step)
+        costs[name] = min(costs.get(name, running), running)
 
 
 def rank_costs(costs: dict[str, float]) -> list[str]:

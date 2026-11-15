@@ -2,9 +2,8 @@ import os
 import unittest
 from pathlib import Path
 
-from toolgraph.data import load_dataset, split_indices
+from toolgraph.data import load_dataset, split_by_main, split_indices
 from toolgraph.eval_curve import completeness, rise_gate, resolve_budgets
-from toolgraph.jev import redact
 from toolgraph.learn import propose_schema_candidates
 from toolgraph.protocol import RISE_SPREAD_MULTIPLIER, SEEDS, TRACE_BUDGETS
 
@@ -18,7 +17,7 @@ class ProtocolTest(unittest.TestCase):
         self.assertTrue(completeness(["a", "b", "c"], gold, 2))
         self.assertFalse(completeness(["a", "c", "b"], gold, 2))
 
-    def test_splits_are_disjoint_and_sealed_is_hidden_from_learn(self) -> None:
+    def test_query_splits_are_disjoint_appendix_only(self) -> None:
         for seed in SEEDS:
             learn, dev, sealed = split_indices(100, seed)
             self.assertFalse(set(learn) & set(dev))
@@ -26,11 +25,17 @@ class ProtocolTest(unittest.TestCase):
             self.assertFalse(set(dev) & set(sealed))
             self.assertEqual(len(learn) + len(dev) + len(sealed), 100)
 
-    def test_redact_strips_api_keys(self) -> None:
-        secret = "api" + "key_example_secret"
-        text = redact(f"denied {secret} for Authorization: Bearer {secret}")
-        self.assertNotIn("api" + "key_", text)
-        self.assertIn("[REDACTED]", text)
+    def test_grouped_main_splits_are_disjoint(self) -> None:
+        _tools, instances = load_dataset(Path(ROOT_DATA).resolve())
+        for seed in SEEDS:
+            learn, dev, sealed, _assignment = split_by_main(instances, seed)
+            learn_m = {q.main for q in learn}
+            dev_m = {q.main for q in dev}
+            sealed_m = {q.main for q in sealed}
+            self.assertFalse(learn_m & dev_m)
+            self.assertFalse(learn_m & sealed_m)
+            self.assertFalse(dev_m & sealed_m)
+            self.assertEqual(len(learn) + len(dev) + len(sealed), len(instances))
 
     def test_dataset_gold_stays_inside_the_catalog(self) -> None:
         tools, instances = load_dataset(Path(ROOT_DATA).resolve())
@@ -65,16 +70,24 @@ class ProtocolTest(unittest.TestCase):
         def arm_series(start: float, end: float) -> list[dict]:
             return [
                 {"traces": 0, "c10": start, "c16": start, "map10": start, "c16_spread": 0.0},
-                {"traces": 100, "c10": end, "c16": end, "map10": end, "c16_spread": 0.02, "c16_by_seed": [end - 0.01, end, end + 0.01]},
+                {
+                    "traces": 100,
+                    "c10": end,
+                    "c16": end,
+                    "map10": end,
+                    "c16_spread": 0.02,
+                    "c16_by_seed": [end - 0.01, end, end + 0.01],
+                },
             ]
 
         averaged = {
             "bm25_dense": arm_series(0.03, 0.03),
-            "sqlite_one_hop": arm_series(0.03, 0.2),
-            "sqlite_cte": arm_series(0.03, 0.25),
-            "hydra_mspaths": arm_series(0.03, 0.25),
+            "metadata_vector": arm_series(0.04, 0.20),
+            "sqlite_one_hop_prior": arm_series(0.03, 0.2),
+            "sqlite_cte_prior": arm_series(0.03, 0.25),
             "hydra_mspaths_prior": arm_series(0.04, 0.26),
-            "hydra_ppr_prior": arm_series(0.04, 0.27),
+            "hydra_mspaths_trace_only": arm_series(0.03, 0.25),
+            "hydra_mspaths_prior_only": arm_series(0.04, 0.04),
             "oracle": arm_series(0.9, 0.95),
         }
         gate = rise_gate(averaged)

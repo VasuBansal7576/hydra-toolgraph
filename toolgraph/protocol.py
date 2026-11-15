@@ -31,10 +31,8 @@ LEARNED_BASE_COST = 1.0
 # Edge confidence: p = (n_obs + 1) / (n_seen_src + 2). τ on dev only.
 TAU_GRID = (0.15, 0.25, 0.35, 0.45, 0.55)
 
-# Schema I/O prior (Graph-of-Skills ζ = 0.6). Jev only on the borderline band.
+# Schema I/O prior (Graph-of-Skills ζ = 0.6). Deterministic only; no LLM judge.
 IO_OVERLAP_KEEP = 0.6
-IO_BORDER_LOW = 0.4
-IO_BORDER_HIGH = 0.6
 SCHEMA_CANDIDATES_PER_TOOL = 6
 SCHEMA_VERIFY_MAX = 400
 
@@ -43,11 +41,6 @@ PPR_ALPHA = 0.2
 PPR_ITERS = 50
 PPR_WEIGHT_TRACE = 1.0
 PPR_WEIGHT_IO = 0.7
-
-# Jev.
-NOUL_CHUNK = 24
-JEV_MODEL = "jev-latest"
-JEV_URL = "https://api.typesafe.ai/v1/systemone"
 
 # Pre-registered rise test.
 RISE_SPREAD_MULTIPLIER = 3.0

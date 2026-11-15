@@ -1,4 +1,5 @@
 fastembed==0.9.1
 numpy>=1.26
-matplotlib>=3.8
 tiktoken>=0.7
+# matplotlib is optional (curve PNG only). Tests and eval JSON do not need it.
+# matplotlib>=3.8

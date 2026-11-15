@@ -82,6 +82,7 @@ def load_dataset(data_dir: Path) -> tuple[list[Tool], list[Instance]]:
 
 
 def split_indices(n: int, seed: int) -> tuple[list[int], list[int], list[int]]:
+    """Query-level split. Leaks sibling gold sets on ToolLinkOS; appendix only."""
     order = list(range(n))
     random.Random(seed).shuffle(order)
     n_learn = int(n * LEARN_FRACTION)
@@ -94,6 +95,52 @@ def split_indices(n: int, seed: int) -> tuple[list[int], list[int], list[int]]:
     if len(learn) + len(dev) + len(sealed) != n:
         raise RuntimeError("split dropped a query")
     return learn, dev, sealed
+
+
+def split_by_main(
+    instances: list[Instance],
+    seed: int,
+) -> tuple[list[Instance], list[Instance], list[Instance], dict[str, str]]:
+    """Headline split: all queries of a main stay in the same learn/dev/sealed bucket.
+
+    Measured fact on ToolLinkOS: every main has exactly 3 queries with an
+    identical gold set, so a query-level split leaks sibling answers.
+    """
+    by_main: dict[str, list[Instance]] = {}
+    for query in instances:
+        by_main.setdefault(query.main, []).append(query)
+    mains = sorted(by_main)
+    random.Random(seed).shuffle(mains)
+    n_learn = int(len(mains) * LEARN_FRACTION)
+    n_dev = int(len(mains) * DEV_FRACTION)
+    learn_mains = set(mains[:n_learn])
+    dev_mains = set(mains[n_learn : n_learn + n_dev])
+    sealed_mains = set(mains[n_learn + n_dev :])
+    if learn_mains & dev_mains or learn_mains & sealed_mains or dev_mains & sealed_mains:
+        raise RuntimeError("main-split overlap")
+    if len(learn_mains) + len(dev_mains) + len(sealed_mains) != len(mains):
+        raise RuntimeError("main-split dropped a main")
+
+    def ordered(bucket: set[str]) -> list[Instance]:
+        out: list[Instance] = []
+        # Stable within-main order; across mains follow the shuffled main list.
+        for main in mains:
+            if main not in bucket:
+                continue
+            out.extend(sorted(by_main[main], key=lambda row: row.idx))
+        return out
+
+    assignment = {
+        main: (
+            "learn"
+            if main in learn_mains
+            else "dev"
+            if main in dev_mains
+            else "sealed"
+        )
+        for main in mains
+    }
+    return ordered(learn_mains), ordered(dev_mains), ordered(sealed_mains), assignment
 
 
 def tokenize(text: str) -> list[str]:

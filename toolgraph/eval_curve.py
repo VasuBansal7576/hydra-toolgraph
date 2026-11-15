@@ -1,7 +1,9 @@
-"""Checkpoint-1 sealed curve after the toolgraph sweep findings.
+"""Checkpoint-2 (fix-first) grouped-main sealed curve.
 
-Hidden catalog edges. Trace-learned NEEDS with Beta confidence. I/O prior at
-ζ≥0.6. Reverse PPR vs MSpaths. mAP@10, composition split, bootstrap CIs.
+Headline split is by main (all 3 sibling queries stay together). Query-level
+split is appendix-only. No Jev. Deterministic I/O prior at ζ≥0.6. Controls:
+flat, metadata-vector also-load, one-hop+prior, CTE+prior, Hydra+prior,
+oracle, plus trace-removed / prior-removed ablations.
 """
 
 from __future__ import annotations
@@ -10,18 +12,14 @@ import json
 import math
 import random
 import time
+from collections import defaultdict
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import tiktoken
 
-from toolgraph.data import Instance, Tool, load_dataset, split_indices
+from toolgraph.data import Instance, Tool, load_dataset, split_by_main, split_indices
 from toolgraph.graph import GraphStore, rank_costs
 from toolgraph.hydra import HydraClient
-from toolgraph.jev import JevClient
 from toolgraph.learn import (
     apply_io_prior,
     calibrate_tau,
@@ -29,7 +27,6 @@ from toolgraph.learn import (
     ingest_trace_edges,
     propose_schema_candidates,
 )
-from toolgraph.ppr import adjacency_from_store, reverse_ppr
 from toolgraph.protocol import (
     BOOTSTRAP_SAMPLES,
     BOOTSTRAP_SEED,
@@ -48,17 +45,27 @@ DATA = ROOT / "data"
 RESULTS = ROOT / "results"
 
 # Arm -> (backend, rel_types). Flat uses none.
-# prior arms include SCHEMA_DEP; noprior arms use DEPENDS_ON only.
+# Headline graph arms include SCHEMA_DEP when marked *_prior.
 ARM_SPEC: dict[str, tuple[str, list[str] | None]] = {
     "bm25_dense": ("flat", None),
-    "sqlite_one_hop": ("one_hop", ["DEPENDS_ON"]),
-    "sqlite_cte": ("cte", ["DEPENDS_ON"]),
-    "hydra_mspaths": ("mspaths", ["DEPENDS_ON"]),
+    "metadata_vector": ("metadata", ["DEPENDS_ON", "SCHEMA_DEP"]),
+    "sqlite_one_hop_prior": ("one_hop", ["DEPENDS_ON", "SCHEMA_DEP"]),
+    "sqlite_cte_prior": ("cte", ["DEPENDS_ON", "SCHEMA_DEP"]),
     "hydra_mspaths_prior": ("mspaths", ["DEPENDS_ON", "SCHEMA_DEP"]),
-    "hydra_ppr_prior": ("ppr", ["DEPENDS_ON", "SCHEMA_DEP"]),
+    "hydra_mspaths_trace_only": ("mspaths", ["DEPENDS_ON"]),  # prior removed
+    "hydra_mspaths_prior_only": ("mspaths", ["SCHEMA_DEP"]),  # trace removed
     "oracle": ("cte", ["ORACLE_DEP"]),
 }
 ARMS = tuple(ARM_SPEC)
+
+# Appendix (leaky query split) keeps a smaller arm set.
+APPENDIX_ARMS = (
+    "bm25_dense",
+    "metadata_vector",
+    "sqlite_cte_prior",
+    "hydra_mspaths_prior",
+    "oracle",
+)
 
 
 def completeness(ranked: list[str], gold: frozenset[str], k: int) -> bool:
@@ -101,6 +108,29 @@ def bootstrap_ci(values: list[float], samples: int = BOOTSTRAP_SAMPLES, seed: in
     return (sum(values) / n, lo, hi)
 
 
+def bootstrap_ci_clustered(
+    by_main: dict[str, list[float]],
+    samples: int = BOOTSTRAP_SAMPLES,
+    seed: int = BOOTSTRAP_SEED,
+) -> tuple[float, float, float]:
+    """Bootstrap over mains: each main contributes the mean of its query scores."""
+    mains = sorted(by_main)
+    if not mains:
+        return (0.0, 0.0, 0.0)
+    main_scores = [sum(by_main[main]) / max(1, len(by_main[main])) for main in mains]
+    mean = sum(main_scores) / len(main_scores)
+    rng = random.Random(seed)
+    n = len(main_scores)
+    means = []
+    for _ in range(samples):
+        draw = [main_scores[rng.randrange(n)] for _ in range(n)]
+        means.append(sum(draw) / n)
+    means.sort()
+    lo = means[int(0.025 * (samples - 1))]
+    hi = means[int(0.975 * (samples - 1))]
+    return (mean, lo, hi)
+
+
 def token_count(encoder: tiktoken.Encoding, tools: dict[str, Tool], names: list[str], lessons: dict[str, str]) -> int:
     total = 0
     for name in names:
@@ -112,17 +142,53 @@ def token_count(encoder: tiktoken.Encoding, tools: dict[str, Tool], names: list[
     return total
 
 
+def _also_load_map(store: GraphStore, rel_types: list[str]) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = defaultdict(list)
+    for edge in store.active_edges(rel_types):
+        src = store.by_id.get(edge.src)
+        dst = store.by_id.get(edge.dst)
+        if src is None or dst is None:
+            continue
+        out[src].append(dst)
+    for src, rows in out.items():
+        out[src] = sorted(set(rows))
+    return out
+
+
+def metadata_vector_rank(fused: list[str], also_load: dict[str, list[str]]) -> list[str]:
+    """Retrieve fused names, then append each hit's also-load list (one hop only)."""
+    ranked: list[str] = []
+    seen: set[str] = set()
+    for name in fused:
+        if name not in seen:
+            ranked.append(name)
+            seen.add(name)
+        for neigh in also_load.get(name, ()):
+            if neigh not in seen:
+                ranked.append(neigh)
+                seen.add(neigh)
+    return ranked
+
+
 def load_arm(
     arm: str,
     fused: list[str],
     store: GraphStore,
-    closure_cache: dict[tuple, dict[str, float]],
+    closure_cache: dict[tuple, dict[str, float] | list[str]],
 ) -> tuple[list[str], float]:
     started = time.perf_counter()
     seeds = fused[:FUSION_SEEDS]
     backend, rels = ARM_SPEC[arm]
     if backend == "flat":
         ranked = list(fused)
+    elif backend == "metadata":
+        assert rels is not None
+        key = ("meta", store.edge_version, store.tau, tuple(rels))
+        also = closure_cache.get(key)
+        if also is None:
+            also = _also_load_map(store, rels)
+            closure_cache[key] = also  # type: ignore[assignment]
+        ranked = metadata_vector_rank(fused, also)  # type: ignore[arg-type]
     elif backend == "one_hop":
         assert rels is not None
         key = ("one", store.edge_version, store.tau, tuple(seeds), tuple(rels))
@@ -130,7 +196,7 @@ def load_arm(
         if costs is None:
             costs = store.one_hop(seeds, rels)
             closure_cache[key] = costs
-        ranked = rank_costs(costs)
+        ranked = rank_costs(costs)  # type: ignore[arg-type]
         for name in fused:
             if name not in costs:
                 ranked.append(name)
@@ -141,7 +207,7 @@ def load_arm(
         if costs is None:
             costs = store.recursive_cte(seeds, rels, MAX_LEN)
             closure_cache[key] = costs
-        ranked = rank_costs(costs)
+        ranked = rank_costs(costs)  # type: ignore[arg-type]
         for name in fused:
             if name not in costs:
                 ranked.append(name)
@@ -152,19 +218,7 @@ def load_arm(
         if costs is None:
             costs = store.closure(seeds, rels)
             closure_cache[key] = costs
-        ranked = rank_costs(costs)
-        for name in fused:
-            if name not in costs:
-                ranked.append(name)
-    elif backend == "ppr":
-        assert rels is not None
-        key = ("ppr", store.edge_version, store.tau, tuple(seeds), tuple(rels))
-        costs = closure_cache.get(key)
-        if costs is None:
-            adj = adjacency_from_store(store, rels, store.tau)
-            costs = reverse_ppr(seeds, adj)
-            closure_cache[key] = costs
-        ranked = rank_costs(costs)
+        ranked = rank_costs(costs)  # type: ignore[arg-type]
         for name in fused:
             if name not in costs:
                 ranked.append(name)
@@ -180,16 +234,20 @@ def score_split(
     store: GraphStore,
     tools: dict[str, Tool],
     encoder: tiktoken.Encoding,
-    closure_cache: dict[tuple, dict[str, float]],
+    closure_cache: dict[tuple, dict[str, float] | list[str]],
     *,
     seen_mains: set[str] | None = None,
     composition: list[Instance] | None = None,
+    main_macro: bool = True,
 ) -> dict:
     hits = {k: 0 for k in KS}
     hits_seen = {k: 0 for k in KS}
     hits_unseen = {k: 0 for k in KS}
     n_seen = 0
     n_unseen = 0
+    ap_by_main: dict[str, list[float]] = defaultdict(list)
+    c16_by_main: dict[str, list[float]] = defaultdict(list)
+    c10_by_main: dict[str, list[float]] = defaultdict(list)
     ap_values: list[float] = []
     c16_flags: list[float] = []
     latencies: list[float] = []
@@ -197,9 +255,14 @@ def score_split(
     for number, query in enumerate(queries, start=1):
         ranked, latency = load_arm(arm, fusion[query.idx], store, closure_cache)
         latencies.append(latency)
-        ap_values.append(average_precision(ranked, query.gold, 10))
+        ap = average_precision(ranked, query.gold, 10)
+        ap_values.append(ap)
+        ap_by_main[query.main].append(ap)
         ok16 = completeness(ranked, query.gold, 16)
+        ok10 = completeness(ranked, query.gold, 10)
         c16_flags.append(1.0 if ok16 else 0.0)
+        c16_by_main[query.main].append(1.0 if ok16 else 0.0)
+        c10_by_main[query.main].append(1.0 if ok10 else 0.0)
         for k in KS:
             ok = completeness(ranked, query.gold, k)
             if ok:
@@ -219,17 +282,32 @@ def score_split(
         if number % 100 == 0:
             print(f"  {arm} {number}/{len(queries)}", flush=True)
     n = max(1, len(queries))
-    mean_ap, ap_lo, ap_hi = bootstrap_ci(ap_values)
-    mean_c16, c16_lo, c16_hi = bootstrap_ci(c16_flags)
+    if main_macro:
+        mean_ap, ap_lo, ap_hi = bootstrap_ci_clustered(ap_by_main)
+        mean_c16, c16_lo, c16_hi = bootstrap_ci_clustered(c16_by_main)
+        mean_c10, _c10_lo, _c10_hi = bootstrap_ci_clustered(c10_by_main)
+        c10_score = mean_c10
+        c16_score = mean_c16
+        n_mains = len(c16_by_main)
+    else:
+        mean_ap, ap_lo, ap_hi = bootstrap_ci(ap_values)
+        mean_c16, c16_lo, c16_hi = bootstrap_ci(c16_flags)
+        c10_score = hits[10] / n
+        c16_score = hits[16] / n
+        n_mains = len({query.main for query in queries})
     out: dict = {
         "n": len(queries),
-        "c10": hits[10] / n,
-        "c16": hits[16] / n,
+        "n_mains": n_mains,
+        "c10": c10_score,
+        "c16": c16_score,
+        "c10_micro": hits[10] / n,
+        "c16_micro": hits[16] / n,
         "map10": mean_ap,
         "map10_ci95": [ap_lo, ap_hi],
         "c16_ci95": [c16_lo, c16_hi],
         "tokens_at_16": sum(tokens_k16) / n,
         "p95_ms": percentile_95(latencies),
+        "scoring": "main_macro_clustered" if main_macro else "query_micro",
     }
     if seen_mains is not None:
         out["n_seen_main"] = n_seen
@@ -240,23 +318,35 @@ def score_split(
         out["c16_unseen"] = hits_unseen[16] / max(1, n_unseen)
     if composition is not None:
         comp_hits = {k: 0 for k in KS}
+        comp_c16_by_main: dict[str, list[float]] = defaultdict(list)
         for query in composition:
             ranked, _latency = load_arm(arm, fusion[query.idx], store, closure_cache)
-            for k in KS:
-                if completeness(ranked, query.gold, k):
-                    comp_hits[k] += 1
+            ok16 = completeness(ranked, query.gold, 16)
+            ok10 = completeness(ranked, query.gold, 10)
+            comp_c16_by_main[query.main].append(1.0 if ok16 else 0.0)
+            if ok10:
+                comp_hits[10] += 1
+            if ok16:
+                comp_hits[16] += 1
         cn = max(1, len(composition))
+        if main_macro and composition:
+            comp_c16, comp_lo, comp_hi = bootstrap_ci_clustered(comp_c16_by_main)
+            out["composition_c16"] = comp_c16
+            out["composition_c16_ci95"] = [comp_lo, comp_hi]
+            out["composition_c10"] = comp_hits[10] / cn
+        else:
+            out["composition_c10"] = comp_hits[10] / cn
+            out["composition_c16"] = comp_hits[16] / cn
         out["composition_n"] = len(composition)
-        out["composition_c10"] = comp_hits[10] / cn
-        out["composition_c16"] = comp_hits[16] / cn
+        out["composition_n_mains"] = len({query.main for query in composition})
     return out
 
 
 def canary_c10(canary: list[Instance], fusion: list[list[str]], store: GraphStore) -> float:
     hits = 0
-    cache: dict[tuple, dict[str, float]] = {}
+    cache: dict[tuple, dict[str, float] | list[str]] = {}
     for query in canary:
-        ranked, _ = load_arm("hydra_mspaths", fusion[query.idx], store, cache)
+        ranked, _ = load_arm("hydra_mspaths_prior", fusion[query.idx], store, cache)
         if completeness(ranked, query.gold, 10):
             hits += 1
     return hits / max(1, len(canary))
@@ -273,57 +363,43 @@ def resolve_budgets(n_learn: int) -> list[int]:
     return out
 
 
-def pick_operator_on_dev(
-    store: GraphStore,
-    dev: list[Instance],
-    fusion: list[list[str]],
-) -> dict:
-    """Budget-matched MSpaths vs reverse PPR on dev; identical seeds and k."""
-    cache: dict[tuple, dict[str, float]] = {}
-    sample = dev[: min(80, len(dev))]
-    scores = {"hydra_mspaths_prior": 0, "hydra_ppr_prior": 0}
-    for query in sample:
-        for arm in scores:
-            ranked, _ = load_arm(arm, fusion[query.idx], store, cache)
-            if completeness(ranked, query.gold, 16):
-                scores[arm] += 1
-    n = max(1, len(sample))
-    report = {arm: hits / n for arm, hits in scores.items()}
-    winner = max(report, key=report.get)  # type: ignore[arg-type]
-    return {"dev_c16": report, "winner": winner, "n": len(sample)}
-
-
 def run_seed(
     seed: int,
     tools: list[Tool],
     instances: list[Instance],
     fusion: list[list[str]],
     store: GraphStore,
-    jev: JevClient,
     encoder: tiktoken.Encoding,
+    *,
+    split_mode: str = "grouped_main",
+    arms: tuple[str, ...] = ARMS,
 ) -> dict:
-    learn_ids, dev_ids, sealed_ids = split_indices(len(instances), seed)
-    sealed_set = set(sealed_ids)
-    learn = [instances[idx] for idx in learn_ids]
-    dev = [instances[idx] for idx in dev_ids]
-    sealed = [instances[idx] for idx in sealed_ids]
+    if split_mode == "grouped_main":
+        learn, dev, sealed, assignment = split_by_main(instances, seed)
+        main_macro = True
+    elif split_mode == "query_level":
+        learn_ids, dev_ids, sealed_ids = split_indices(len(instances), seed)
+        learn = [instances[idx] for idx in learn_ids]
+        dev = [instances[idx] for idx in dev_ids]
+        sealed = [instances[idx] for idx in sealed_ids]
+        assignment = {}
+        main_macro = False
+    else:
+        raise ValueError(split_mode)
+    sealed_set = {query.idx for query in sealed}
     canary = dev[:CANARY_SIZE]
     by_name = {tool.name: tool for tool in tools}
     budgets = resolve_budgets(len(learn))
-    print(f"seed {seed}: reload catalog (no learned edges yet)", flush=True)
+    print(f"seed {seed} [{split_mode}]: reload catalog (no learned edges yet)", flush=True)
     store.load_catalog(tools, include_oracle=True)
 
     candidates = propose_schema_candidates(tools)
-    io_stats = apply_io_prior(store, candidates, jev, by_name)
+    io_stats = apply_io_prior(store, candidates)
     store.sync_learned_to_hydra()
     print(f"seed {seed}: io prior {io_stats}", flush=True)
 
-    # τ starts at 0 so early edges count; recalibrated after each budget on learn.
     store.tau = 0.0
-    operator = pick_operator_on_dev(store, dev, fusion)
-    print(f"seed {seed}: operator pick {operator}", flush=True)
-
-    points: dict[str, list[dict]] = {arm: [] for arm in ARMS}
+    points: dict[str, list[dict]] = {arm: [] for arm in arms}
     rollbacks: list[dict] = []
     baseline = canary_c10(canary, fusion, store)
     cursor = 0
@@ -336,7 +412,8 @@ def run_seed(
 
     def evaluate_and_record(traces_used: int) -> None:
         if traces_used > 0:
-            tau, grid = calibrate_tau(store, learn[:traces_used], fusion)
+            # τ on dev only (never sealed, never learn-for-selection after the fact).
+            tau, grid = calibrate_tau(store, dev, fusion)
             store.tau = tau
             store.edge_version += 1
             store.sync_learned_to_hydra()
@@ -344,10 +421,10 @@ def run_seed(
         else:
             store.tau = 0.0
             tau_history.append({"traces": 0, "tau": 0.0, "grid": {}})
-        cache: dict[tuple, dict[str, float]] = {}
+        cache: dict[tuple, dict[str, float] | list[str]] = {}
         seen = seen_mains_through(traces_used)
-        comp = composition_queries(sealed, learn, traces_used)
-        for arm in ARMS:
+        comp = composition_queries(sealed, store)
+        for arm in arms:
             measured = score_split(
                 arm,
                 sealed,
@@ -358,16 +435,19 @@ def run_seed(
                 cache,
                 seen_mains=seen,
                 composition=comp,
+                main_macro=main_macro,
             )
             measured["traces"] = traces_used
             measured["budget_target"] = traces_used
             measured["tau"] = store.tau
             points[arm].append(measured)
             print(
-                f"seed {seed} traces {traces_used} {arm} "
+                f"seed {seed} [{split_mode}] traces {traces_used} {arm} "
                 f"c10={measured['c10']:.3f} c16={measured['c16']:.3f} "
                 f"map10={measured['map10']:.3f} "
-                f"comp_n={measured.get('composition_n')} comp16={measured.get('composition_c16')}",
+                f"comp_n={measured.get('composition_n')} "
+                f"comp_mains={measured.get('composition_n_mains')} "
+                f"comp16={measured.get('composition_c16')}",
                 flush=True,
             )
 
@@ -407,22 +487,26 @@ def run_seed(
 
     return {
         "seed": seed,
+        "split_mode": split_mode,
         "n_learn": len(learn),
         "n_dev": len(dev),
         "n_sealed": len(sealed),
+        "n_learn_mains": len({query.main for query in learn}),
+        "n_dev_mains": len({query.main for query in dev}),
+        "n_sealed_mains": len({query.main for query in sealed}),
         "budgets": budgets,
         "io_prior": io_stats,
-        "operator_pick": operator,
         "tau_history": tau_history,
         "edges_from_traces": edges_from_traces,
         "rollbacks": rollbacks,
-        "points": {arm: points[arm] for arm in ARMS},
+        "points": {arm: points[arm] for arm in arms},
+        "main_assignment_size": len(assignment),
     }
 
 
-def mean_points(seed_runs: list[dict]) -> dict[str, list[dict]]:
+def mean_points(seed_runs: list[dict], arms: tuple[str, ...] = ARMS) -> dict[str, list[dict]]:
     averaged: dict[str, list[dict]] = {}
-    for arm in ARMS:
+    for arm in arms:
         rows = []
         series = [run["points"][arm] for run in seed_runs]
         for index in range(len(series[0])):
@@ -453,28 +537,40 @@ def mean_points(seed_runs: list[dict]) -> dict[str, list[dict]]:
                 row["composition_c16"] = sum(point["composition_c16"] for point in group) / len(group)
                 row["composition_c10"] = sum(point["composition_c10"] for point in group) / len(group)
                 row["composition_n"] = sum(point.get("composition_n") or 0 for point in group) / len(group)
+                row["composition_n_mains"] = sum(point.get("composition_n_mains") or 0 for point in group) / len(group)
             rows.append(row)
         averaged[arm] = rows
     return averaged
 
 
-def plot(averaged: dict[str, list[dict]], path: Path) -> None:
+def plot(averaged: dict[str, list[dict]], path: Path) -> bool:
+    """Optional plot. Returns False if matplotlib is unavailable."""
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("matplotlib not installed; skipping plot", flush=True)
+        return False
     colors = {
         "bm25_dense": "#4b5563",
-        "sqlite_one_hop": "#a16207",
-        "sqlite_cte": "#b45309",
-        "hydra_mspaths": "#0f766e",
+        "metadata_vector": "#7c3aed",
+        "sqlite_one_hop_prior": "#a16207",
+        "sqlite_cte_prior": "#b45309",
         "hydra_mspaths_prior": "#115e59",
-        "hydra_ppr_prior": "#1d4ed8",
+        "hydra_mspaths_trace_only": "#0f766e",
+        "hydra_mspaths_prior_only": "#0891b2",
         "oracle": "#6b7280",
     }
     labels = {
         "bm25_dense": "BM25+dense",
-        "sqlite_one_hop": "SQLite one-hop",
-        "sqlite_cte": "SQLite CTE depth=4",
-        "hydra_mspaths": "HydraDB MSpaths",
-        "hydra_mspaths_prior": "MSpaths + I/O prior",
-        "hydra_ppr_prior": "PPR + I/O prior",
+        "metadata_vector": "Metadata also-load",
+        "sqlite_one_hop_prior": "SQLite one-hop + prior",
+        "sqlite_cte_prior": "SQLite CTE + prior",
+        "hydra_mspaths_prior": "Hydra MSpaths + prior",
+        "hydra_mspaths_trace_only": "Hydra trace-only",
+        "hydra_mspaths_prior_only": "Hydra prior-only",
         "oracle": "Oracle catalog",
     }
     fig, axes = plt.subplots(1, 2, figsize=(12.0, 4.8), sharey=True)
@@ -487,13 +583,14 @@ def plot(averaged: dict[str, list[dict]], path: Path) -> None:
         axis.set_xlabel("Learn traces")
         axis.set_ylim(0, 1)
         axis.grid(True, alpha=0.3)
-    axes[0].set_ylabel("Sealed score")
+    axes[0].set_ylabel("Sealed main-macro score")
     axes[1].legend(frameon=False, fontsize=7)
-    fig.suptitle("Checkpoint 1: sealed learning curve (mean of 3 seeds)")
+    fig.suptitle("Checkpoint 2: grouped-main learning curve (mean of 3 seeds)")
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=140)
     plt.close(fig)
+    return True
 
 
 def rise_gate(averaged: dict[str, list[dict]]) -> dict:
@@ -501,20 +598,28 @@ def rise_gate(averaged: dict[str, list[dict]]) -> dict:
         "passed": False,
         "rises": False,
         "beats_flat": False,
+        "beats_metadata": False,
         "hydra_vs_cte": [],
-        "mspaths_vs_ppr": [],
+        "hydra_vs_metadata": [],
         "notes": [],
         "rule": (
             f"(sealed @16 at all traces − @16 at 0 traces) > "
             f"{RISE_SPREAD_MULTIPLIER} × seed_spread at the full point"
         ),
         "positioning": (
-            "Claim is trace-learned edges (GRTF 2502.07223 uses hand-built deps; "
-            "GoS 2604.05333 never revises from traces). Report mAP@10 vs GRTF."
+            "Claim is trace-learned edges. GRTF 2502.07223 mAP@10 0.856 is "
+            "reference, different protocol (hand-built deps + query-level split). "
+            "GoS 2604.05333 never revises from traces."
         ),
+        "claims_hygiene": {
+            "trace_only_endpoint": "hydra_mspaths_trace_only: report 0-trace and full separately from prior-enabled",
+            "prior_enabled_starts_nonzero": "hydra_mspaths_prior c16 at 0 traces is prior-only cold start",
+            "grtf_map10": "0.856 reference, different protocol",
+        },
     }
     flat = averaged["bm25_dense"]
-    for arm in ("hydra_mspaths", "hydra_mspaths_prior", "hydra_ppr_prior"):
+    meta = averaged["metadata_vector"]
+    for arm in ("hydra_mspaths_prior", "hydra_mspaths_trace_only"):
         series = averaged[arm]
         first, last = series[0], series[-1]
         delta = last["c16"] - first["c16"]
@@ -529,7 +634,7 @@ def rise_gate(averaged: dict[str, list[dict]]) -> dict:
         for point, base in zip(series, flat):
             if point["c16"] > base["c16"] + 1e-9:
                 report["beats_flat"] = True
-    for h_point, c_point in zip(averaged["hydra_mspaths"], averaged["sqlite_cte"]):
+    for h_point, c_point in zip(averaged["hydra_mspaths_prior"], averaged["sqlite_cte_prior"]):
         spread = h_point.get("c16_spread") or 0.0
         diff = h_point["c16"] - c_point["c16"]
         report["hydra_vs_cte"].append(
@@ -541,20 +646,31 @@ def rise_gate(averaged: dict[str, list[dict]]) -> dict:
                 "within_spread": abs(diff) <= spread + 1e-12,
             }
         )
-    for m_point, p_point in zip(averaged["hydra_mspaths_prior"], averaged["hydra_ppr_prior"]):
-        report["mspaths_vs_ppr"].append(
+    for h_point, m_point in zip(averaged["hydra_mspaths_prior"], meta):
+        spread = h_point.get("c16_spread") or 0.0
+        diff = h_point["c16"] - m_point["c16"]
+        beats = diff > spread + 1e-12
+        if beats:
+            report["beats_metadata"] = True
+        report["hydra_vs_metadata"].append(
             {
-                "traces": m_point["traces"],
-                "mspaths_c16": m_point["c16"],
-                "ppr_c16": p_point["c16"],
-                "mspaths_map10": m_point["map10"],
-                "ppr_map10": p_point["map10"],
+                "traces": h_point["traces"],
+                "hydra_c16": h_point["c16"],
+                "metadata_c16": m_point["c16"],
+                "hydra_map10": h_point["map10"],
+                "metadata_map10": m_point["map10"],
+                "diff": diff,
+                "beats_beyond_spread": beats,
             }
         )
     if report["hydra_vs_cte"] and all(row["within_spread"] for row in report["hydra_vs_cte"]):
         report["notes"].append(
-            "HydraDB tied the recursive-CTE control within seed spread; "
+            "HydraDB tied the recursive-CTE+prior control within seed spread; "
             "honest HydraDB value is versioned edits, undo, provenance, weighted multi-hop, as_of"
+        )
+    if report["hydra_vs_metadata"] and not report["beats_metadata"]:
+        report["notes"].append(
+            "HydraDB did not beat the metadata-vector also-load control beyond seed spread on this dataset"
         )
     report["passed"] = bool(report["rises"])
     return report
@@ -568,42 +684,61 @@ def main() -> None:
     print(f"embedding {len(tools)} tools and {len(instances)} queries", flush=True)
     fusion = build_fusion(tools, [query.text for query in instances])
     hydra = HydraClient("http://127.0.0.1:8443", "local-development-token-32-bytes")
-    jev = JevClient(RESULTS / "jev_cache.json", RESULTS / "jev_usage.jsonl")
-    print(f"jev {jev.status()}", flush=True)
     edit_log = RESULTS / "edits.jsonl"
     if edit_log.exists():
         edit_log.unlink()
-    if jev.usage_log.exists():
-        jev.usage_log.unlink()
     store = GraphStore(hydra, edit_log)
+
+    print("=== HEADLINE: grouped-by-main split ===", flush=True)
     seed_runs = []
     for seed in SEEDS:
-        seed_runs.append(run_seed(seed, tools, instances, fusion, store, jev, encoder))
+        seed_runs.append(
+            run_seed(seed, tools, instances, fusion, store, encoder, split_mode="grouped_main", arms=ARMS)
+        )
         (RESULTS / f"seed_{seed}.json").write_text(json.dumps(seed_runs[-1], indent=2))
-        jev.flush()
-    averaged = mean_points(seed_runs)
+
+    averaged = mean_points(seed_runs, ARMS)
     decision = rise_gate(averaged)
-    usage_tokens_in = 0
-    usage_tokens_out = 0
-    usage_lines = 0
-    if jev.usage_log.exists():
-        for line in jev.usage_log.read_text().splitlines():
-            if not line.strip():
-                continue
-            row = json.loads(line)
-            usage_tokens_in += int(row["input_tokens"])
-            usage_tokens_out += int(row["output_tokens"])
-            usage_lines += 1
+
+    print("=== APPENDIX: query-level split (leaky; labelled) ===", flush=True)
+    appendix_runs = []
+    for seed in SEEDS:
+        appendix_runs.append(
+            run_seed(
+                seed,
+                tools,
+                instances,
+                fusion,
+                store,
+                encoder,
+                split_mode="query_level",
+                arms=APPENDIX_ARMS,
+            )
+        )
+        (RESULTS / f"seed_{seed}_query_split_appendix.json").write_text(json.dumps(appendix_runs[-1], indent=2))
+    appendix_mean = mean_points(appendix_runs, APPENDIX_ARMS)
+
     payload = {
-        "version": "2.1-sweep",
+        "version": "2.2-fix-first",
         "dataset": "ToolLinkOS",
         "source": "https://github.com/EliasLumer/Graph-RAG-Tool-Fusion-ToolLinkOS",
+        "headline_split": "grouped_main",
+        "leak_fact": (
+            "Every main tool has exactly 3 queries with an identical gold set "
+            "(1569/1569). Query-level split leaks sibling answer sets."
+        ),
         "prior_art": {
             "grtf_arxiv": "2502.07223",
             "grtf_map10_vector": 0.210,
             "grtf_map10_graph": 0.856,
+            "grtf_note": "reference, different protocol (hand-built deps; not grouped-main)",
             "gos_arxiv": "2604.05333",
             "gos_note": "graph never revised from execution traces",
+        },
+        "claims_hygiene": {
+            "trace_only": "hydra_mspaths_trace_only endpoints are not mixed with prior-enabled",
+            "grtf_map10": "0.856 is reference, different protocol",
+            "jev": "removed; I/O prior is deterministic overlap >= 0.6 only",
         },
         "tools": len(tools),
         "queries": len(instances),
@@ -616,29 +751,27 @@ def main() -> None:
         "arms": list(ARMS),
         "design": {
             "catalog_depends_on_in_learned_arms": False,
-            "edge_confidence": "p=(n_obs+1)/(n_seen_src+2); tau on learn/dev",
+            "edge_confidence": "p=(n_obs+1)/(n_seen_src+2); tau on dev only",
             "io_prior_threshold": 0.6,
-            "jev_border_band": [0.4, 0.6],
-            "ppr": {"alpha": 0.2, "iters": 50, "client_side": True},
+            "jev": False,
+            "mspaths_cost": "minimum prefix cost per node",
+            "composition": "sealed mains with no learned out-edges; gold via SCHEMA_DEP then DEPENDS_ON",
+            "scoring": "main-macro with bootstrap CIs clustered by main",
             "rise_test": decision["rule"],
-        },
-        "jev": {
-            "status": jev.status(),
-            "model": "jev-latest",
-            "calls": usage_lines,
-            "cache_hits": jev.cache_hits,
-            "input_tokens": usage_tokens_in,
-            "output_tokens": usage_tokens_out,
-            "errors": jev.errors,
         },
         "mean": averaged,
         "by_seed": seed_runs,
         "gate": decision,
+        "appendix_query_split": {
+            "label": "leaky query-level split; not the headline",
+            "arms": list(APPENDIX_ARMS),
+            "mean": appendix_mean,
+            "by_seed": appendix_runs,
+        },
     }
     (RESULTS / "curve.json").write_text(json.dumps(payload, indent=2))
     plot(averaged, RESULTS / "completeness_curve.png")
-    jev.flush()
-    print(json.dumps({"gate": decision, "jev_tokens_in": usage_tokens_in, "jev_tokens_out": usage_tokens_out}, indent=2))
+    print(json.dumps({"gate": decision}, indent=2))
 
 
 if __name__ == "__main__":

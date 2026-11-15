@@ -1,42 +1,46 @@
-# Decision trail (v2)
+# Decision trail (v2 → fix-first)
 
 One row per step. Hypotheses and gates are written **before** the sealed scores they judge. Numbers that land after a run are labelled **measured**. Interpretations are labelled **inferred**.
 
-## Pre-registered rise test (written before any v2 sealed score)
+## Pre-registered rise test
 
 | Field | Value |
 | --- | --- |
-| Metric | sealed completeness@16 |
-| Arms judged for rise | `hydra_learned`, `hydra_learned_jev` |
+| Metric | sealed main-macro completeness@16 (grouped-by-main split) |
+| Arms judged for rise | `hydra_mspaths_prior`, `hydra_mspaths_trace_only` |
 | Null point | mean @16 at 0 learn traces |
 | Full point | mean @16 after all learn traces |
 | Seed spread | max(seed @16) − min(seed @16) at the full point |
 | Pass rule | `(full − null) > 3 × seed_spread` |
 | Fail rule | otherwise report flat / within noise |
-| HydraDB vs recursive-CTE | if HydraDB ties the same-depth SQLite CTE within the seed spread, say so; honest HydraDB value is then versioned edits, undo, provenance, weighted multi-hop, as_of |
-| Forbidden | tuning thresholds or arms on sealed; feeding catalog `depends_on` into any learned arm |
+| HydraDB vs recursive-CTE+prior | if HydraDB ties within seed spread, say so; honest HydraDB value is then versioned edits, undo, provenance, weighted multi-hop, as_of |
+| HydraDB vs metadata-vector | report honestly; do not claim a graph win if also-load matches |
+| Forbidden | tuning on sealed; feeding catalog `depends_on` into learned arms; mixing trace-only and prior-enabled endpoints |
 
-## Design choices locked before the run
+## Design choices
 
 | ID | Hypothesis / change | Why | Keep / revert rule |
 | --- | --- | --- | --- |
-| D0 | Hide every catalog `depends_on` edge from learned arms. Oracle catalog edges are a ceiling arm only. | v1 closure at 0 traces ≈ 0.95 because labels were loaded up front; that fails the plain-store test. | Keep unless oracle arm itself fails to approach catalog closure (implementation bug). |
-| D1 | Learn `DEPENDS_ON(main → helper)` only from learn-split gold sets treated as observed traces. Each edit is a do/undo Cypher pair with count + provenance. | Matches Warp-style reversible edits and SkillGraph-style trajectory mining. | Keep if edge counts grow with traces; revert batch on canary drop. |
-| D2 | Propose schema candidates from param/name PRODUCES↔REQUIRES signals; verify with Jev Noul ("does A need B first?"); calibrate threshold on **learn** only; never prune the final closure with Jev. | Graph structure should beat a co-use list on unseen tools. v1 Noul-as-closure-pruner deleted gold helpers. | Keep edges above calibrated threshold; if Jev disabled, mark `hydra_learned_jev` skipped. |
-| D3 | Arms share identical fusion seeds, budgets, depth (`MAX_LEN=4`), and scoring: flat BM25+dense; SQLite recursive CTE; HydraDB learned (−Jev); HydraDB learned (+Jev edges); oracle catalog. | Fair ablation: depth must not confound storage (v1 SQLite was 1-hop). | Keep. |
-| D4 | Budgets 0, 10, 30, 100, 300, all; seeds 7, 21, 42; report mean + spread; split sealed into main-seen vs main-unseen in learn. | Learning curve + transfer. | Keep. |
-| D5 | Ship MCP + demo + compose only after the curve artifact is committed. | Product without a measured curve is theatre. | Keep. |
+| D0 | Hide every catalog `depends_on` edge from learned arms. Oracle is ceiling only. | v1 closure at 0 traces ≈ 0.95 because labels were loaded up front. | Keep. |
+| D1 | Learn `DEPENDS_ON(main → helper)` only from learn-split gold sets as traces. Beta confidence; τ on **dev** only. | Trace learning is the claim vs GRTF/GoS. | Keep. |
+| D2 | Deterministic I/O prior at overlap ≥ 0.6. **No Jev.** | Codex review: drop LLM edge judge; GoS uses ζ=0.6 deterministically. | Keep. |
+| D3 | Headline split is **grouped by main** (seeds 7/21/42). Query-level split is appendix-only and labelled leaky. | Measured: every main has exactly 3 queries with identical gold (1569/1569); query split leaks siblings. | Keep. |
+| D4 | Controls share seeds/fusion/top-k/fallback: flat BM25+dense; metadata also-load; one-hop+prior; CTE+prior; Hydra MSpaths+prior; oracle; ablations (trace removed / prior removed). | Fair ablation. | Keep. |
+| D5 | MSpaths assigns **minimum prefix cost** per node (not path total). | Codex: s→a→b was {s:0,a:2,b:2}; CTE gives {s:0,a:1,b:2}. | Keep; guarded by unit test. |
+| D6 | Composition = sealed mains with **no learned out-edges**, gold reachable via `SCHEMA_DEP` then `DEPENDS_ON`. | Old selector was definitionally empty. | Keep. |
+| D7 | Product (MCP/demo/compose) deferred until after fix-first report. | Checkpoint stop rule. | Keep. |
+
+## Claims hygiene
+
+- Trace-only endpoint (`hydra_mspaths_trace_only`): previous query-split micro numbers were c16 **0.0349 → 0.9111**, mAP@10 **0.8484**. Do not mix with prior-enabled.
+- Prior-enabled (`hydra_mspaths_prior`) starts above flat at 0 traces because of the I/O prior (previous query-split cold start c16 **0.0402**).
+- GRTF mAP@10 **0.856** is **reference, different protocol** (hand-built catalog deps; not grouped-main; not our arms).
 
 ## Run log
 
 | Step | Change | Measurement | Decision |
 | --- | --- | --- | --- |
-| R0 | Branch `cursor/toolgraph-v2-learn-edges-1c92` off v1; pre-register D0–D5 and rise test. | n/a (before run) | proceed |
-| R1 | Implement memory-first edge upserts + bulk HydraDB sync. Per-edge MATCH/SET after a full catalog load stack-overflowed graph-node (exit 139). | measured: smoke c16@40 after 50 traces: flat 0.10, CTE=Hydra 0.225, oracle 0.85; CTE set@16 == Hydra set@16 | keep bulk sync; do/undo still logged |
-| R2 | Arms: flat / sqlite_cte / hydra_learned / hydra_learned_jev / oracle; budgets 0,10,30,100,300,all. | pending full curve | — |
-| R3 | Checkpoint 1 = experiment only. MCP / demo / compose / Loom / GTM deferred until after independent review. | process | keep |
-| R4 | Guard tests: learned arms never walk `ORACLE_DEP`; load_catalog writes catalog deps only as `ORACLE_DEP`; trace ingest ignores `Tool.depends_on`; SQLite CTE and HydraDB share `MAX_LEN=4`. | measured: `python3 -m unittest tests.test_guards` OK | keep |
-| R5 | Pre-sweep curve (v2.0) rose: hydra_learned c16 0.035→0.913, tied CTE within spread; rise test passed. Archived as `results/curve_pre_sweep.json`. | measured | keep as baseline |
-| R6 | Fold sweep findings: Beta edge confidence + τ on learn; I/O prior ζ≥0.6 (Jev only on [0.4,0.6)); composition split; reverse PPR vs MSpaths; mAP@10; bootstrap CIs. Positioning vs GRTF 2502.07223 and GoS 2604.05333. | pending re-run | — |
-| R7 | Tool2Vec deferred (optional, time). Checkpoint 1 still excludes MCP/demo/compose. | process | keep |
-| R8 | Sweep curve committed (`results/curve.json`, version `2.1-sweep`). Rise test **passed** for mspaths / mspaths_prior / ppr_prior. HydraDB MSpaths tied SQLite CTE within seed spread. Dev pick: MSpaths+prior over PPR. Composition split size was 0 on every budget (definition too strict for this gold structure, or edges not covering). | measured | keep; flag composition=0 as doubt |
+| R0–R8 | Checkpoint 1 sweep curve on leaky query split; Jev border band; composition size 0. | measured; see archived `results/curve.json` v2.1-sweep | superseded |
+| R9 | Independent Codex gpt-5.1-sol review: fix-first. Leak fact confirmed. | process | proceed |
+| R10 | Drop Jev entirely. Grouped-main headline. Metadata-vector + CTE/one-hop with prior. MSpaths prefix costs. Composition redefined. Tests run without matplotlib. | pending re-run | — |
+| R11 | Checkpoint 2 = fix-first report only. Still no MCP / demo / compose / Loom / GTM. | process | keep |

@@ -1,20 +1,19 @@
 """Trace-edge learning and schema I/O prior (GoS-style overlap ≥ 0.6).
 
-Catalog depends_on is never read as a learning signal. Jev only adjudicates
-borderline I/O pairs in [0.4, 0.6). Trace edges carry Beta confidence.
+Catalog depends_on is never read as a learning signal. The I/O prior is
+deterministic: keep an edge iff schema overlap ≥ 0.6. Trace edges carry Beta
+confidence. Composition uses prior→learned reachability on sealed mains with
+no learned out-edges.
 """
 
 from __future__ import annotations
 
 import re
-from collections import defaultdict
+from collections import defaultdict, deque
 
-from toolgraph.data import Instance, Tool, tokenize
+from toolgraph.data import Instance, Tool
 from toolgraph.graph import GraphStore
-from toolgraph.jev import JevClient
 from toolgraph.protocol import (
-    IO_BORDER_HIGH,
-    IO_BORDER_LOW,
     IO_OVERLAP_KEEP,
     SCHEMA_CANDIDATES_PER_TOOL,
     SCHEMA_VERIFY_MAX,
@@ -65,7 +64,6 @@ def io_overlap(consumer: Tool, producer: Tool, param: dict) -> float:
 
 def propose_schema_candidates(tools: list[Tool]) -> list[tuple[str, str, str, float]]:
     """(consumer, producer, param, overlap) with overlap > 0, capped."""
-    by_name = {tool.name: tool for tool in tools}
     producers = tools
     candidates: list[tuple[str, str, str, float]] = []
     for tool in tools:
@@ -96,60 +94,28 @@ def propose_schema_candidates(tools: list[Tool]) -> list[tuple[str, str, str, fl
 def apply_io_prior(
     store: GraphStore,
     candidates: list[tuple[str, str, str, float]],
-    jev: JevClient,
-    tools: dict[str, Tool],
 ) -> dict:
-    """Keep overlap ≥ 0.6; Jev-judge only the borderline band [0.4, 0.6)."""
+    """Keep overlap ≥ 0.6 only. No LLM / Jev adjudication."""
     auto = [(c, p, param, s) for c, p, param, s in candidates if s >= IO_OVERLAP_KEEP]
-    border = [(c, p, param, s) for c, p, param, s in candidates if IO_BORDER_LOW <= s < IO_BORDER_HIGH]
     kept_auto = 0
     for consumer, producer, param, score in auto:
         prov = f"io_prior;overlap={round(score, 3)};param={param}"
         if store.add_schema_edge(consumer, producer, prov, cost=max(0.2, 1.0 - score)):
             kept_auto += 1
-    kept_border = 0
-    scored_border = 0
-    if jev.enabled and border:
-        by_consumer: dict[str, list[tuple[str, str, float]]] = defaultdict(list)
-        for consumer, producer, param, score in border:
-            by_consumer[consumer].append((producer, param, score))
-        for consumer, rows in by_consumer.items():
-            payload = [
-                (
-                    producer,
-                    tools[producer].description if producer in tools else producer,
-                    param,
-                )
-                for producer, param, _score in rows
-            ]
-            answers = jev.edge_need(
-                consumer,
-                tools[consumer].description if consumer in tools else consumer,
-                payload,
-            )
-            if not answers:
-                continue
-            param_by = {producer: (param, score) for producer, param, score in rows}
-            for producer, noul in answers.items():
-                scored_border += 1
-                if float(noul) < 0.5:
-                    continue
-                param, score = param_by.get(producer, ("", 0.5))
-                prov = f"io_border;overlap={round(score, 3)};noul={round(float(noul), 3)};param={param}"
-                if store.add_schema_edge(consumer, producer, prov, cost=max(0.2, 1.0 - float(noul))):
-                    kept_border += 1
     return {
         "candidates": len(candidates),
         "auto_kept": kept_auto,
-        "border_scored": scored_border,
-        "border_kept": kept_border,
         "overlap_keep": IO_OVERLAP_KEEP,
-        "border_band": [IO_BORDER_LOW, IO_BORDER_HIGH],
+        "border_judged": 0,
     }
 
 
-def calibrate_tau(store: GraphStore, learn: list[Instance], fusion: list[list[str]]) -> tuple[float, dict[str, float]]:
-    """Pick τ on learn: maximize completeness@10 of CTE over confident edges."""
+def calibrate_tau(
+    store: GraphStore,
+    queries: list[Instance],
+    fusion: list[list[str]],
+) -> tuple[float, dict[str, float]]:
+    """Pick τ on the given split (dev only in the headline protocol)."""
     from toolgraph.graph import rank_costs
     from toolgraph.protocol import FUSION_SEEDS
 
@@ -159,13 +125,13 @@ def calibrate_tau(store: GraphStore, learn: list[Instance], fusion: list[list[st
     grid: dict[str, float] = {}
     best_t = TAU_GRID[0]
     best = -1.0
-    sample = learn[: min(120, len(learn))]
+    sample = queries[: min(120, len(queries))]
     for threshold in TAU_GRID:
         hits = 0
         for query in sample:
             costs = store.recursive_cte(
                 fusion[query.idx][:FUSION_SEEDS],
-                ["DEPENDS_ON"],
+                ["DEPENDS_ON", "SCHEMA_DEP"],
                 tau=threshold,
             )
             ranked = rank_costs(costs)
@@ -182,27 +148,47 @@ def calibrate_tau(store: GraphStore, learn: list[Instance], fusion: list[list[st
     return best_t, grid
 
 
-def composition_queries(
-    sealed: list[Instance],
-    learn: list[Instance],
-    learn_limit: int,
-) -> list[Instance]:
-    """Sealed queries where no learn trace had the full gold, but every edge appeared."""
-    used = learn[:learn_limit]
-    full_golds = [query.gold for query in used]
-    edge_seen: set[tuple[str, str]] = set()
-    for query in used:
-        for helper in query.gold:
-            if helper != query.main:
-                edge_seen.add((query.main, helper))
+def composition_queries(sealed: list[Instance], store: GraphStore) -> list[Instance]:
+    """Sealed queries whose main has no learned out-edges, but gold is reachable
+    via a SCHEMA_DEP first hop then DEPENDS_ON walks.
+
+    Example shape: main -SCHEMA_DEP→ bridge -DEPENDS_ON→ helper (OpenTable→Resy
+    prior, then Resy→weather/holiday learned).
+    """
+    threshold = store.tau
+    prior_out: dict[str, set[str]] = defaultdict(set)
+    learned_out: dict[str, set[str]] = defaultdict(set)
+    for (src, dst, rel), edge in store.edges.items():
+        src_name = store.by_id.get(src)
+        dst_name = store.by_id.get(dst)
+        if src_name is None or dst_name is None:
+            continue
+        if rel == "SCHEMA_DEP":
+            prior_out[src_name].add(dst_name)
+        elif rel == "DEPENDS_ON" and edge.p >= threshold:
+            learned_out[src_name].add(dst_name)
+
     out: list[Instance] = []
     for query in sealed:
-        helpers = [h for h in query.gold if h != query.main]
+        helpers = {name for name in query.gold if name != query.main}
         if not helpers:
             continue
-        if any(query.gold <= g for g in full_golds):
+        if learned_out.get(query.main):
             continue
-        needed = {(query.main, h) for h in helpers}
-        if needed <= edge_seen:
+        first = prior_out.get(query.main) or set()
+        if not first:
+            continue
+        reachable: set[str] = set(first)
+        queue: deque[str] = deque(first)
+        seen = set(first)
+        while queue:
+            node = queue.popleft()
+            for nxt in learned_out.get(node, ()):
+                if nxt in seen:
+                    continue
+                seen.add(nxt)
+                reachable.add(nxt)
+                queue.append(nxt)
+        if helpers <= reachable:
             out.append(query)
     return out

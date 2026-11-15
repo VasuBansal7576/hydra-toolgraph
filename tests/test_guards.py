@@ -1,4 +1,4 @@
-"""Checkpoint-1 guards: hidden catalog edges, equal-depth plain-store control."""
+"""Checkpoint guards: hidden catalog edges, equal-depth control, MSpaths prefix costs."""
 
 from __future__ import annotations
 
@@ -6,24 +6,39 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from toolgraph.data import Instance, Tool, load_dataset
-from toolgraph.eval_curve import ARM_SPEC, average_precision
-from toolgraph.graph import Edge, GraphStore, edge_confidence
-from toolgraph.learn import ingest_trace_edges, io_overlap, propose_schema_candidates
-from toolgraph.protocol import IO_OVERLAP_KEEP, MAX_LEN
+from toolgraph.data import Instance, Tool, load_dataset, split_by_main
+from toolgraph.eval_curve import ARM_SPEC, average_precision, metadata_vector_rank
+from toolgraph.graph import Edge, GraphStore, apply_prefix_costs, edge_confidence
+from toolgraph.learn import (
+    apply_io_prior,
+    composition_queries,
+    ingest_trace_edges,
+    io_overlap,
+    propose_schema_candidates,
+)
+from toolgraph.protocol import IO_OVERLAP_KEEP, MAX_LEN, SEEDS
 
 
 class FakeHydra:
     def __init__(self) -> None:
         self.statements: list[str] = []
+        self.rows: list = []
 
     def query(self, statement: str, parameters: dict | None = None) -> dict:
         self.statements.append(statement)
+        if "algo.MSpaths" in statement:
+            return {"columns": ["path", "pathCost"], "rows": self.rows, "bookmark": None}
         return {"columns": [], "rows": [], "bookmark": None}
 
 
-def _tool(name: str, deps: tuple[dict, ...] = (), params: tuple[dict, ...] = ()) -> Tool:
-    return Tool(name=name, description=f"tool {name}", kind="core", params=params, depends_on=deps)
+def _tool(name: str, deps: tuple[dict, ...] = (), params: tuple[dict, ...] = (), desc: str | None = None) -> Tool:
+    return Tool(
+        name=name,
+        description=desc or f"tool {name}",
+        kind="core",
+        params=params,
+        depends_on=deps,
+    )
 
 
 class HiddenEdgeGuardTest(unittest.TestCase):
@@ -35,6 +50,11 @@ class HiddenEdgeGuardTest(unittest.TestCase):
             if rels is None:
                 continue
             self.assertNotIn("ORACLE_DEP", rels)
+
+    def test_no_jev_arm_or_module(self) -> None:
+        self.assertTrue(all("jev" not in arm for arm in ARM_SPEC))
+        jev_path = Path(__file__).resolve().parents[1] / "toolgraph" / "jev.py"
+        self.assertFalse(jev_path.exists())
 
     def test_load_catalog_hides_depends_on_from_learned_rels(self) -> None:
         tools = [
@@ -93,6 +113,24 @@ class HiddenEdgeGuardTest(unittest.TestCase):
         without = {(a, b, c) for a, b, c, _s in propose_schema_candidates(stripped)}
         self.assertEqual(full, without)
 
+    def test_io_prior_is_deterministic_only(self) -> None:
+        tools = [
+            _tool("consumer", params=({"name": "timezone_id", "type": "string", "description": "tz"},)),
+            _tool("get_system_timezone", desc="Returns the system timezone id string"),
+            _tool("unrelated"),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            hydra = FakeHydra()
+            store = GraphStore(hydra, Path(tmp) / "edits.jsonl")  # type: ignore[arg-type]
+            store.load_catalog(tools, include_oracle=False)
+            candidates = propose_schema_candidates(tools)
+            stats = apply_io_prior(store, candidates)
+            self.assertEqual(stats["border_judged"], 0)
+            self.assertEqual(stats["overlap_keep"], IO_OVERLAP_KEEP)
+            schema = [e for e in store.edges.values() if e.rel == "SCHEMA_DEP"]
+            for edge in schema:
+                self.assertGreaterEqual(edge.p, 1.0 - 1e-9)
+
     def test_edge_confidence_formula(self) -> None:
         self.assertAlmostEqual(edge_confidence(0, 0), 0.5)
         self.assertAlmostEqual(edge_confidence(1, 1), 2 / 3)
@@ -141,6 +179,139 @@ class EqualDepthGuardTest(unittest.TestCase):
     def test_map10_defined(self) -> None:
         score = average_precision(["a", "x", "b"], frozenset({"a", "b"}), 10)
         self.assertGreater(score, 0.0)
+
+
+class MSpathsPrefixCostTest(unittest.TestCase):
+    def test_prefix_costs_s_a_b_unit(self) -> None:
+        costs: dict[str, float] = {"s": 0.0}
+        apply_prefix_costs(costs, ["s", "a", "b"], [1.0, 1.0], penalty=0.0)
+        self.assertEqual(costs, {"s": 0.0, "a": 1.0, "b": 2.0})
+
+    def test_closure_uses_prefix_not_path_total(self) -> None:
+        """Regression: pathCost total must not be stamped onto every node."""
+        with tempfile.TemporaryDirectory() as tmp:
+            hydra = FakeHydra()
+            # Simulate Hydra returning s->a->b with total pathCost=2 and unit hop costs.
+            hydra.rows = [
+                [
+                    {
+                        "value": {
+                            "nodes": [
+                                {"properties": {"tool_id": "s"}},
+                                {"properties": {"tool_id": "a"}},
+                                {"properties": {"tool_id": "b"}},
+                            ],
+                            "relationships": [
+                                {"properties": {"cost": 1.0}},
+                                {"properties": {"cost": 1.0}},
+                            ],
+                        },
+                        "type": "Path",
+                    },
+                    {"value": 2.0, "type": "Float"},
+                ]
+            ]
+            store = GraphStore(hydra, Path(tmp) / "edits.jsonl")  # type: ignore[arg-type]
+            tools = [_tool("s"), _tool("a"), _tool("b")]
+            store.load_catalog(tools, include_oracle=False)
+            store.tau = 0.0
+            costs = store.closure(["s"], ["DEPENDS_ON"])
+            self.assertAlmostEqual(costs["s"], 0.0)
+            self.assertAlmostEqual(costs["a"], 1.0)
+            self.assertAlmostEqual(costs["b"], 2.0)
+            # Bug would have set a=2 as well as b=2.
+            self.assertNotAlmostEqual(costs["a"], 2.0)
+
+
+class GroupedSplitAndCompositionTest(unittest.TestCase):
+    def test_grouped_split_keeps_main_siblings_together(self) -> None:
+        tools, instances = load_dataset(Path(__file__).resolve().parents[1] / "data")
+        self.assertEqual(len(instances), 1569)
+        for seed in SEEDS:
+            learn, dev, sealed, assignment = split_by_main(instances, seed)
+            for bucket in (learn, dev, sealed):
+                mains = {query.main for query in bucket}
+                for main in mains:
+                    count = sum(1 for query in instances if query.main == main)
+                    in_bucket = sum(1 for query in bucket if query.main == main)
+                    self.assertEqual(in_bucket, count)
+            learn_mains = {query.main for query in learn}
+            sealed_mains = {query.main for query in sealed}
+            self.assertFalse(learn_mains & sealed_mains)
+            self.assertEqual(len(assignment), len({query.main for query in instances}))
+
+    def test_toolinkos_every_main_has_three_identical_golds(self) -> None:
+        _tools, instances = load_dataset(Path(__file__).resolve().parents[1] / "data")
+        by_main: dict[str, list[Instance]] = {}
+        for query in instances:
+            by_main.setdefault(query.main, []).append(query)
+        self.assertEqual(len(by_main), 523)
+        for main, rows in by_main.items():
+            self.assertEqual(len(rows), 3, main)
+            golds = {row.gold for row in rows}
+            self.assertEqual(len(golds), 1, main)
+
+    def test_composition_prior_then_learned(self) -> None:
+        """OpenTable-style: main has no learned out-edge; gold via prior→learned."""
+        tools = [
+            _tool("opentable_search"),
+            _tool("resy_bridge"),
+            _tool("get_current_weather"),
+            _tool("get_us_national_holiday"),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            hydra = FakeHydra()
+            store = GraphStore(hydra, Path(tmp) / "edits.jsonl")  # type: ignore[arg-type]
+            store.load_catalog(tools, include_oracle=False)
+            store.add_schema_edge("opentable_search", "resy_bridge", "io_prior;overlap=0.7")
+            # Learned edges hang off the bridge, not the sealed main.
+            store.note_src_seen("resy_bridge")
+            store.learn_depends("resy_bridge", "get_current_weather", "trace")
+            store.learn_depends("resy_bridge", "get_us_national_holiday", "trace")
+            for edge in store.edges.values():
+                if edge.rel == "DEPENDS_ON":
+                    edge.p = 1.0
+            store.tau = 0.15
+            sealed = [
+                Instance(
+                    idx=0,
+                    text="book opentable",
+                    main="opentable_search",
+                    gold=frozenset(
+                        {
+                            "opentable_search",
+                            "resy_bridge",
+                            "get_current_weather",
+                            "get_us_national_holiday",
+                        }
+                    ),
+                )
+            ]
+            found = composition_queries(sealed, store)
+            self.assertEqual(len(found), 1)
+            # If the main itself learned an out-edge, it drops out.
+            store.note_src_seen("opentable_search")
+            store.learn_depends("opentable_search", "get_current_weather", "trace")
+            for edge in store.edges.values():
+                if edge.rel == "DEPENDS_ON":
+                    edge.p = 1.0
+            self.assertEqual(composition_queries(sealed, store), [])
+
+    def test_metadata_vector_appends_also_load(self) -> None:
+        also = {"seed": ["helper_a", "helper_b"], "other": ["x"]}
+        ranked = metadata_vector_rank(["seed", "noise"], also)
+        self.assertEqual(ranked[:3], ["seed", "helper_a", "helper_b"])
+        self.assertIn("noise", ranked)
+
+
+class MatplotlibOptionalTest(unittest.TestCase):
+    def test_eval_curve_imports_without_matplotlib(self) -> None:
+        # Import path used by unittest must not require matplotlib at module load.
+        import toolgraph.eval_curve as mod
+
+        self.assertTrue(hasattr(mod, "plot"))
+        source = Path(mod.__file__).read_text()
+        self.assertNotIn("import matplotlib\n", source.split("def plot")[0])
 
 
 if __name__ == "__main__":
