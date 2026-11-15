@@ -64,3 +64,31 @@ Measured against `ghcr.io/hydra-db/hydradb:latest` **v0.4.0** (labelled).
 | `algo.MSpaths` | inlined `sourceValues` string lists; `costProp` / `maxLen` in edges; pairs with no path silently absent |
 | Native time travel | **none** — `REQUIRES_HIST` + client `as_of` |
 | `MERGE` without `UNWIND` | **rejected** |
+
+## v3 pre-registered hypotheses (H1–H4)
+
+Written **before** any sealed B1/B2/staleness/H4 run. Spread = max − min across
+seeds (7/21/42) at the point being judged. No tuning on sealed.
+
+| ID | Claim | Pass rule |
+| --- | --- | --- |
+| **H1 multi-hop** | On sealed mains with gold depth ≥ 2: `hydra_graph` completeness@16 ≥ `iterative_search` − spread, and its LLM turns are lower by more than 3 × spread. Also report against `flat_topk`. | Pass if both completeness and LLM-turn inequalities hold; else fail and report measured gaps. |
+| **H2 plain store, honest** | Expect completeness ties between `hydra_graph`, `kv_hop`, and `kv_closure`; report the tie. The graph passes only on store requests (constant 2 vs `kv_hop` hops + 1) and staleness (`kv_closure` wrong-bundle rate > 0 while `hydra_graph` = 0). | Pass if completeness ties within spread **and** store-request edge holds **and** staleness edge holds; else fail the failing clause. |
+| **H3 sessions** | `hydra_graph` tokens per turn are lower than `flat_topk` and `kv_hop` by more than 3 × spread, with wrong-skip rate ≤ 2%. Report `kv_hop_session` honestly; if it ties on tokens, the graph's remaining edge is store requests. | Pass if token inequalities hold and wrong-skip ≤ 2%; else fail. |
+| **H4 learning curve** | Over trace budgets 0, 10, 30, 100, 300, all: `hydra_graph` tokens per complete task fall by more than 3 × spread from null to full while completeness@16 does not drop by more than spread. Keep the existing completeness rise test `(full − null) > 3 × seed_spread`. | Pass if token drop and non-drop completeness both hold; completeness rise reported separately. |
+
+### Arms under test (retrieval-seeded share `fused[:32]`)
+
+`preload_all`, `flat_topk`, `iterative_search`, `kv_hop`, `kv_hop_session`, `kv_closure`, `hydra_graph`, `oracle`.
+
+### Metrics (per task, then main-macro mean ± seed spread)
+
+completeness@16; tool-schema tokens (tiktoken cl100k); LLM turns on tool discovery; store requests; load_tools p50/p95 against real HydraDB; B2 only: tokens saved by skipping, wrong-skip rate.
+
+### Staleness protocol (pre-registered)
+
+After learning on all learn traces, apply 200 random edits from the edit log (retire, undo, reweight). After each edit, run 50 sealed queries and count bundles that differ from the bundle computed from the true current edges. Compare `kv_closure` (materialised closure rebuilt every 50 edits) against `hydra_graph`.
+
+### Forbidden
+
+Tuning on sealed; feeding catalog `depends_on` into learned arms (benchmark constructor and iterative_search simulator only, documented); claiming completeness separates graph from KV on ToolLinkOS.
