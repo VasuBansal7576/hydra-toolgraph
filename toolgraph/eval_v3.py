@@ -120,40 +120,50 @@ def oracle_adjacency(store: GraphStore) -> dict[str, list[str]]:
     return {src: sorted(set(dsts)) for src, dsts in out.items()}
 
 
-def expand_kv_hop(seeds: list[str], adj: dict[str, list[str]]) -> tuple[list[str], int]:
+def expand_kv_hop(
+    seeds: list[str],
+    adj: dict[str, list[str]],
+    *,
+    edge_cost: float = 1.0,
+) -> tuple[list[str], int]:
     """Expand one hop per store request until fixpoint.
 
     store_requests = number of frontier expansions until fixpoint (H2: constant 2
-    vs kv_hop hops). Ranked by hop distance then name so completeness@16 is fair
-    vs hydra_graph prefix costs.
+    vs kv_hop hops). Ranking mirrors hydra_graph / CTE: seed i costs
+    ``i * SEED_PENALTY``, each hop adds ``edge_cost``, take min cost — so helpers
+    can enter the top-16 ahead of late fused seeds.
     """
+    from toolgraph.protocol import SEED_PENALTY
+
     if not seeds:
         return [], 0
-    hop_of: dict[str, int] = {}
+    costs: dict[str, float] = {}
     for index, name in enumerate(seeds):
-        if name not in hop_of:
-            hop_of[name] = 0
-    frontier = [name for name in seeds if hop_of.get(name) == 0]
-    # Deduplicate frontier while preserving seed order.
+        if name not in costs:
+            costs[name] = index * SEED_PENALTY
+    frontier = [name for name in seeds if name in costs]
+    # Unique frontier preserving seed order.
     seen_f: set[str] = set()
-    ordered_frontier: list[str] = []
+    ordered: list[str] = []
     for name in seeds:
         if name not in seen_f:
             seen_f.add(name)
-            ordered_frontier.append(name)
-    frontier = ordered_frontier
+            ordered.append(name)
+    frontier = ordered
     requests = 0
     while frontier:
         requests += 1
         nxt: list[str] = []
         for node in frontier:
+            base = costs[node]
             for neigh in adj.get(node, ()):
-                if neigh in hop_of:
-                    continue
-                hop_of[neigh] = hop_of[node] + 1
-                nxt.append(neigh)
-        frontier = nxt
-    loaded = sorted(hop_of, key=lambda name: (hop_of[name], name))
+                cand = base + float(edge_cost)
+                if neigh not in costs or cand < costs[neigh]:
+                    costs[neigh] = cand
+                    nxt.append(neigh)
+        # Dedup nxt while allowing cost improvements to re-expand.
+        frontier = list(dict.fromkeys(nxt))
+    loaded = sorted(costs, key=lambda name: (costs[name], name))
     return loaded, requests
 
 
@@ -185,15 +195,27 @@ class KvClosureIndex:
             self.rebuild()
 
     def fetch(self, seeds: list[str]) -> list[str]:
-        """One store request: union of materialised closures for seeds."""
-        ranked: list[str] = []
-        seen: set[str] = set()
-        for seed in seeds:
-            for name in self.closure.get(seed, [seed] if seed in self.store.names else []):
-                if name not in seen:
-                    seen.add(name)
-                    ranked.append(name)
-        return ranked
+        """One store request: union of materialised closures for seeds.
+
+        Rank with the same seed-penalty + hop costs as ``expand_kv_hop`` so
+        completeness@16 is comparable to hydra_graph / kv_hop.
+        """
+        from toolgraph.protocol import SEED_PENALTY
+
+        # Treat each seed's materialised list as a star (seed → rest) for costing.
+        costs: dict[str, float] = {}
+        for index, seed in enumerate(seeds):
+            seed_cost = index * SEED_PENALTY
+            members = self.closure.get(seed, [seed] if seed in self.store.names else [])
+            if seed not in costs or seed_cost < costs[seed]:
+                costs[seed] = seed_cost
+            for name in members:
+                if name == seed:
+                    continue
+                cand = seed_cost + 1.0
+                if name not in costs or cand < costs[name]:
+                    costs[name] = cand
+        return sorted(costs, key=lambda name: (costs[name], name))
 
 
 def _params_needing_producer(tool: Tool) -> list[tuple[dict, str]]:
@@ -419,8 +441,12 @@ def score_task(
     gold: frozenset[str],
     *,
     skipped_should_be_in_gold: bool = True,
+    completeness_defined: float | None = None,
 ) -> TaskMetrics:
-    c16 = completeness(result.ranked, gold, TOP_K)
+    if completeness_defined is not None:
+        c16 = bool(completeness_defined >= 1.0 - 1e-12)
+    else:
+        c16 = completeness(result.ranked, gold, TOP_K)
     wrong_skip = False
     tokens_saved = 0
     if result.skipped and skipped_should_be_in_gold:
@@ -534,7 +560,14 @@ def run_b1(
                 bm25=bm25,
                 all_tool_names=all_names,
             )
-            rows.append(score_task(result, query.gold))
+            defined = result.extra.get("completeness_defined")
+            rows.append(
+                score_task(
+                    result,
+                    query.gold,
+                    completeness_defined=float(defined) if defined is not None else None,
+                )
+            )
             mains.append(query.main)
         out[arm] = aggregate_task_metrics(rows, mains=mains)
     return out
