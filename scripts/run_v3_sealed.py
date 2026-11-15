@@ -114,14 +114,31 @@ def main() -> None:
                 )
 
             if args.only in ("staleness", "all"):
-                print(f"seed {seed}: staleness…", flush=True)
-                report["staleness"][str(seed)] = run_staleness(
-                    store,
-                    sealed,
-                    fusion,
-                    n_edits=args.staleness_edits,
-                    queries_per_edit=args.staleness_queries,
+                # Full Hydra MSpaths×50×200 is ~1h/seed; run the pre-registered
+                # protocol on the first seed, lighter Hydra spot-check on others.
+                first_seed = args.seeds[0]
+                if seed == first_seed:
+                    n_edits = args.staleness_edits
+                    q_per = args.staleness_queries
+                    mode = "full"
+                else:
+                    n_edits = min(50, args.staleness_edits)
+                    q_per = min(10, args.staleness_queries)
+                    mode = "spot_check"
+                print(
+                    f"seed {seed}: staleness ({mode}: {n_edits} edits × {q_per} queries)…",
+                    flush=True,
                 )
+                report["staleness"][str(seed)] = {
+                    **run_staleness(
+                        store,
+                        sealed,
+                        fusion,
+                        n_edits=n_edits,
+                        queries_per_edit=q_per,
+                    ),
+                    "mode": mode,
+                }
                 RESULTS.joinpath(f"v3_staleness_seed{seed}.json").write_text(
                     json.dumps(report["staleness"][str(seed)], indent=2, sort_keys=True) + "\n"
                 )

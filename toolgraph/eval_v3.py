@@ -702,6 +702,7 @@ def run_staleness(
             # costs, not top-k truncation) — must not reuse expand_kv_hop(truth).
             if kv_bundle != truth_set:
                 kv_wrong += 1
+            # closure() calls ensure_hydra_synced; skip re-sync by matching version.
             hydra_costs = store.closure(seeds, ["REQUIRES"])
             hydra_set = set(hydra_costs)
             if hydra_set != truth_set:
