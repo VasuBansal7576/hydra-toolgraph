@@ -1,0 +1,408 @@
+{
+  "status": "passed",
+  "label": "Deterministic upstream ToolSandbox tool replay; no real SMS, no agent benchmark score",
+  "upstream": {
+    "repository": "https://github.com/apple-aiml-research/ToolSandbox",
+    "commit": "c8571d7854316d2e1c5f288e59fe1e34e53f6dd1",
+    "scenario": "send_message_with_contact_content_cellular_off",
+    "file_sha256": {
+      "tool_sandbox/tools/messaging.py": "d992831c735c44167b46f67ff45b11ad37fa70df951ebe9eac283c4b44e5607c",
+      "tool_sandbox/tools/contact.py": "af2b97be6b03d1acf44cd2e34465942622a3453d9e052099a1028e0d17361a49",
+      "tool_sandbox/tools/setting.py": "01cd0c5f45cc6ceadcd5935369f1260585bbc99852562ca30f81771b56a18e97",
+      "tool_sandbox/scenarios/base_scenarios.py": "226bc95508de98b9abda46d209e8a7d6232b9afeae9c949021198916c4401f9d",
+      "tool_sandbox/scenarios/multiple_tool_call_scenarios.py": "e2d351bebf9afec76d37263b02544120c78b687f4dd4501ab0a4b6c981ce1ff3"
+    }
+  },
+  "fixture": "Unmodified upstream contact fixture; fresh upstream ExecutionContext; cellular initially disabled; no prior messages",
+  "network": "Python socket connections blocked before upstream imports",
+  "checks": {
+    "actual_upstream_failure": true,
+    "failure_has_no_message_side_effect": true,
+    "state_repair_enables_actual_upstream_send": true,
+    "correct_recipient_and_content": true,
+    "changed_recipient_uses_new_lookup": true,
+    "later_cellular_change_invalidates_prior_success": true
+  },
+  "limits": [
+    "Scripted calls, not an autonomous agent",
+    "No ToolGraph or Hydra integration in this receipt",
+    "No full upstream scenario evaluator or benchmark score",
+    "The contact fixture and tool implementations are upstream; the replay harness and additional recipient/invalidation checks are ours",
+    "ccy 1.4.0 replaces unavailable upstream pin 1.3.1; no currency function is invoked"
+  ],
+  "dependencies": {
+    "polars": "0.20.31",
+    "dill": "0.3.8",
+    "StrEnum": "0.4.15",
+    "phonenumbers": "8.13.39",
+    "rapidfuzz": "3.9.3",
+    "decorator": "5.1.1",
+    "ccy": "1.4.0",
+    "geopy": "2.4.1",
+    "holidays": "0.51",
+    "pint": "0.23",
+    "requests": "2.32.3",
+    "typing_extensions": "4.16.0",
+    "numpy": "1.26.4"
+  },
+  "tool_catalog": [
+    {
+      "name": "search_contacts",
+      "description": "Search for a contact person based on provided arguments\n\nEach field has a search criteria of either\n1. Exact value matching\n2. Fuzzy string matching with a predefined threshold\nSearch results contains all contact entries that matched all criteria\n\nArgs:\n    person_id:      String format unique identifier for the contact person, will be exact matched\n    name:           Name of contact person, will be fuzzy matched\n    phone_number:   Phone number of contact person, will be exact matched\n    relationship:   Relationship between user and this contact, will be fuzzy matched\n    is_self:        If the requested contact corresponds to the current user. Will be exact matched\n\nReturns:\n    A List of matching contacts. An empty List if no matching contacts were found\n\nRaises:\n    ValueError: When all arguments were not provided",
+      "signature": "(person_id: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, name: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, phone_number: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, relationship: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, is_self: Union[bool, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN) -> List[Dict[Literal['person_id', 'name', 'phone_number', 'relationship', 'is_self'], str]]",
+      "parameters": [
+        {
+          "name": "person_id",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "name",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "phone_number",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "relationship",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "is_self",
+          "annotation": "typing.Union[bool, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        }
+      ],
+      "source_file": "tool_sandbox/tools/contact.py"
+    },
+    {
+      "name": "send_message_with_phone_number",
+      "description": "Send a message to a recipient using phone_number\n\nArgs:\n    phone_number:   String format phone number to send the message to\n    content:        Message payload text\n\nReturns:\n    String format unique identifier for the message, this can be passed to other functions\n    which require a unique identifier for this message\n\nRaises:\n    ValueError:         If less than or more than 1 self entry was found\n    ConnectionError:    If cellular service is not on",
+      "signature": "(phone_number: str, content: str) -> str",
+      "parameters": [
+        {
+          "name": "phone_number",
+          "annotation": "<class 'str'>",
+          "required": true
+        },
+        {
+          "name": "content",
+          "annotation": "<class 'str'>",
+          "required": true
+        }
+      ],
+      "source_file": "tool_sandbox/tools/messaging.py"
+    },
+    {
+      "name": "set_cellular_service_status",
+      "description": "Enable / Disable cellular service\n\nArgs:\n    on: If we want to turn on cellular service\n\nReturns:\n\nRaises:\n    ValueError:         If cellular service is already turned on / off\n    PermissionError:    If low battery mode is on, in which case we are not allowed to turn on cellular service",
+      "signature": "(on: bool) -> None",
+      "parameters": [
+        {
+          "name": "on",
+          "annotation": "<class 'bool'>",
+          "required": true
+        }
+      ],
+      "source_file": "tool_sandbox/tools/setting.py"
+    },
+    {
+      "name": "get_cellular_service_status",
+      "description": "Request cellular service status\n\nReturns:\n    Boolean indicating if the cellular service is on",
+      "signature": "() -> bool",
+      "parameters": [],
+      "source_file": "tool_sandbox/tools/setting.py"
+    }
+  ],
+  "events": [
+    {
+      "tool": "search_contacts",
+      "arguments": {
+        "name": "Fredrik Thordendal"
+      },
+      "result": [
+        {
+          "person_id": "9e137f06-916a-5310-8174-cf0b7e9f7054",
+          "name": "Fredrik Thordendal",
+          "phone_number": "+12453344098",
+          "relationship": "friend",
+          "is_self": false
+        }
+      ],
+      "status": "ok",
+      "before": {
+        "cellular": false,
+        "messages": []
+      },
+      "after": {
+        "cellular": false,
+        "messages": []
+      }
+    },
+    {
+      "tool": "send_message_with_phone_number",
+      "arguments": {
+        "phone_number": "+12453344098",
+        "content": "How's the new album coming along."
+      },
+      "error": "Cellular service is not enabled",
+      "error_type": "ConnectionError",
+      "status": "error",
+      "before": {
+        "cellular": false,
+        "messages": []
+      },
+      "after": {
+        "cellular": false,
+        "messages": []
+      }
+    },
+    {
+      "tool": "set_cellular_service_status",
+      "arguments": {
+        "on": true
+      },
+      "result": null,
+      "status": "ok",
+      "before": {
+        "cellular": false,
+        "messages": []
+      },
+      "after": {
+        "cellular": true,
+        "messages": []
+      }
+    },
+    {
+      "tool": "send_message_with_phone_number",
+      "arguments": {
+        "phone_number": "+12453344098",
+        "content": "How's the new album coming along."
+      },
+      "result": "3ef69575-8fab-4c1e-8e85-f71044b7f776",
+      "status": "ok",
+      "before": {
+        "cellular": true,
+        "messages": []
+      },
+      "after": {
+        "cellular": true,
+        "messages": [
+          {
+            "message_id": "3ef69575-8fab-4c1e-8e85-f71044b7f776",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "9e137f06-916a-5310-8174-cf0b7e9f7054",
+            "recipient_phone_number": "+12453344098",
+            "content": "How's the new album coming along.",
+            "creation_timestamp": 1794816510.366162
+          }
+        ]
+      }
+    },
+    {
+      "tool": "search_contacts",
+      "arguments": {
+        "name": "John Petrucci"
+      },
+      "result": [
+        {
+          "person_id": "a22e1984-6c6c-530c-8831-c3ea3b5138e7",
+          "name": "John Petrucci",
+          "phone_number": "+1234560987",
+          "relationship": "friend",
+          "is_self": false
+        }
+      ],
+      "status": "ok",
+      "before": {
+        "cellular": true,
+        "messages": [
+          {
+            "message_id": "3ef69575-8fab-4c1e-8e85-f71044b7f776",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "9e137f06-916a-5310-8174-cf0b7e9f7054",
+            "recipient_phone_number": "+12453344098",
+            "content": "How's the new album coming along.",
+            "creation_timestamp": 1794816510.366162
+          }
+        ]
+      },
+      "after": {
+        "cellular": true,
+        "messages": [
+          {
+            "message_id": "3ef69575-8fab-4c1e-8e85-f71044b7f776",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "9e137f06-916a-5310-8174-cf0b7e9f7054",
+            "recipient_phone_number": "+12453344098",
+            "content": "How's the new album coming along.",
+            "creation_timestamp": 1794816510.366162
+          }
+        ]
+      }
+    },
+    {
+      "tool": "send_message_with_phone_number",
+      "arguments": {
+        "phone_number": "+1234560987",
+        "content": "Rehearsal tomorrow?"
+      },
+      "result": "e15467f0-6e23-46f6-a7cf-d2d6aa2fadb2",
+      "status": "ok",
+      "before": {
+        "cellular": true,
+        "messages": [
+          {
+            "message_id": "3ef69575-8fab-4c1e-8e85-f71044b7f776",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "9e137f06-916a-5310-8174-cf0b7e9f7054",
+            "recipient_phone_number": "+12453344098",
+            "content": "How's the new album coming along.",
+            "creation_timestamp": 1794816510.366162
+          }
+        ]
+      },
+      "after": {
+        "cellular": true,
+        "messages": [
+          {
+            "message_id": "3ef69575-8fab-4c1e-8e85-f71044b7f776",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "9e137f06-916a-5310-8174-cf0b7e9f7054",
+            "recipient_phone_number": "+12453344098",
+            "content": "How's the new album coming along.",
+            "creation_timestamp": 1794816510.366162
+          },
+          {
+            "message_id": "e15467f0-6e23-46f6-a7cf-d2d6aa2fadb2",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "a22e1984-6c6c-530c-8831-c3ea3b5138e7",
+            "recipient_phone_number": "+1234560987",
+            "content": "Rehearsal tomorrow?",
+            "creation_timestamp": 1794816510.417168
+          }
+        ]
+      }
+    },
+    {
+      "tool": "set_cellular_service_status",
+      "arguments": {
+        "on": false
+      },
+      "result": null,
+      "status": "ok",
+      "before": {
+        "cellular": true,
+        "messages": [
+          {
+            "message_id": "3ef69575-8fab-4c1e-8e85-f71044b7f776",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "9e137f06-916a-5310-8174-cf0b7e9f7054",
+            "recipient_phone_number": "+12453344098",
+            "content": "How's the new album coming along.",
+            "creation_timestamp": 1794816510.366162
+          },
+          {
+            "message_id": "e15467f0-6e23-46f6-a7cf-d2d6aa2fadb2",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "a22e1984-6c6c-530c-8831-c3ea3b5138e7",
+            "recipient_phone_number": "+1234560987",
+            "content": "Rehearsal tomorrow?",
+            "creation_timestamp": 1794816510.417168
+          }
+        ]
+      },
+      "after": {
+        "cellular": false,
+        "messages": [
+          {
+            "message_id": "3ef69575-8fab-4c1e-8e85-f71044b7f776",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "9e137f06-916a-5310-8174-cf0b7e9f7054",
+            "recipient_phone_number": "+12453344098",
+            "content": "How's the new album coming along.",
+            "creation_timestamp": 1794816510.366162
+          },
+          {
+            "message_id": "e15467f0-6e23-46f6-a7cf-d2d6aa2fadb2",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "a22e1984-6c6c-530c-8831-c3ea3b5138e7",
+            "recipient_phone_number": "+1234560987",
+            "content": "Rehearsal tomorrow?",
+            "creation_timestamp": 1794816510.417168
+          }
+        ]
+      }
+    },
+    {
+      "tool": "send_message_with_phone_number",
+      "arguments": {
+        "phone_number": "+1234560987",
+        "content": "One more question"
+      },
+      "error": "Cellular service is not enabled",
+      "error_type": "ConnectionError",
+      "status": "error",
+      "before": {
+        "cellular": false,
+        "messages": [
+          {
+            "message_id": "3ef69575-8fab-4c1e-8e85-f71044b7f776",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "9e137f06-916a-5310-8174-cf0b7e9f7054",
+            "recipient_phone_number": "+12453344098",
+            "content": "How's the new album coming along.",
+            "creation_timestamp": 1794816510.366162
+          },
+          {
+            "message_id": "e15467f0-6e23-46f6-a7cf-d2d6aa2fadb2",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "a22e1984-6c6c-530c-8831-c3ea3b5138e7",
+            "recipient_phone_number": "+1234560987",
+            "content": "Rehearsal tomorrow?",
+            "creation_timestamp": 1794816510.417168
+          }
+        ]
+      },
+      "after": {
+        "cellular": false,
+        "messages": [
+          {
+            "message_id": "3ef69575-8fab-4c1e-8e85-f71044b7f776",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "9e137f06-916a-5310-8174-cf0b7e9f7054",
+            "recipient_phone_number": "+12453344098",
+            "content": "How's the new album coming along.",
+            "creation_timestamp": 1794816510.366162
+          },
+          {
+            "message_id": "e15467f0-6e23-46f6-a7cf-d2d6aa2fadb2",
+            "sender_person_id": "3815cac9-3cab-5d75-89e2-fe12fe19779e",
+            "sender_phone_number": "+11233344455",
+            "recipient_person_id": "a22e1984-6c6c-530c-8831-c3ea3b5138e7",
+            "recipient_phone_number": "+1234560987",
+            "content": "Rehearsal tomorrow?",
+            "creation_timestamp": 1794816510.417168
+          }
+        ]
+      }
+    }
+  ]
+}

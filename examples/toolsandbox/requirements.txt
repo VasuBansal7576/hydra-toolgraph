@@ -1,0 +1,13 @@
+polars==0.20.31
+dill==0.3.8
+StrEnum==0.4.15
+phonenumbers==8.13.39
+rapidfuzz==3.9.3
+decorator==5.1.1
+ccy==1.4.0
+geopy==2.4.1
+holidays==0.51
+pint==0.23
+requests==2.32.3
+typing_extensions==4.16.0
+numpy==1.26.4
