@@ -89,6 +89,9 @@ class ServiceConsistencyTest(unittest.TestCase):
         original = svc.store.load_tools
         svc.store.load_tools = Mock(wraps=original)
         svc.store.resolved["customer-session"] = {"get_id": 1.0}
+        for edge in svc.store.edges.values():
+            edge.source = "trace"
+            edge.prov = "observed-episode"
         payload = svc.load_tools("lookup a different customer", "customer-session")
         self.assertIsNone(svc.store.load_tools.call_args.args[1])
         self.assertIn("get_id", payload["ranked"])
@@ -132,6 +135,35 @@ class ServiceConsistencyTest(unittest.TestCase):
         payload = svc.record_trace("nothing happened", [], [])
         self.assertEqual(payload["edges_touched"], 0)
         self.assertEqual(payload["edit_ids"], [])
+
+    def test_evidence_scope_blocks_unrelated_episode_and_unverified_prior(self):
+        store = self.service.store
+        for edge in store.edges.values():
+            edge.source = "trace"
+            edge.prov = "episode-a"
+        store.edges[(store.names["helper"], store.names["leaf"], "REQUIRES")].prov = "episode-b"
+        store.add_schema_edge("root", "other", "similar words", cost=0.1)
+        empty = LoadToolsResult(tools=[], costs={}, why={}, skipped={})
+        result = self.service._merge_memory_expansion(empty, ["root"], ["root"], 16, evidence_scoped=True)
+        self.assertEqual(set(result.tools), {"root", "get_id", "helper"})
+        self.assertEqual(result.why["helper"].path, ["root", "get_id", "helper"])
+
+    def test_explicit_namespace_routing_does_not_invent_a_provider(self):
+        from toolgraph.seed_policy import explicit_namespaces
+        names = ["alpha_search", "alpha_book", "beta_search", "beta_book", "get_location", "get_weather"]
+        self.assertEqual(explicit_namespaces(names, "book with Alpha"), {"alpha"})
+        self.assertEqual(explicit_namespaces(names, "compare alpha and beta"), {"alpha", "beta"})
+        self.assertEqual(explicit_namespaces(names, "get a table"), set())
+
+    def test_namespace_mention_does_not_override_the_best_task_match(self):
+        from toolgraph.retrieve import Bm25Index
+        from toolgraph.seed_policy import select_demo_seeds
+        index = Bm25Index(
+            ["get_stock_price", "tesla_open", "tesla_close"],
+            [["tesla", "stock", "price"], ["tesla", "open", "car"], ["tesla", "close", "car"]],
+        )
+        seeds, _, _ = select_demo_seeds(index, "Tesla stock price")
+        self.assertEqual(seeds[0], "get_stock_price")
 
     def test_mutations_invalidate_cached_bundles(self):
         for operation in ("record_trace", "record_result", "undo_edit"):

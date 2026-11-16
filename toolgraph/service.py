@@ -15,7 +15,7 @@ from toolgraph.hydra import HydraClient, HydraError
 from toolgraph.learn import apply_io_prior, ingest_trace_edges, propose_schema_candidates
 from toolgraph.protocol import FUSION_POOL, MAX_LEN, SEED_PENALTY, SEEDS
 from toolgraph.retrieve import Bm25Index, dense_top, embed_texts, rrf
-from toolgraph.seed_policy import select_demo_seeds
+from toolgraph.seed_policy import explicit_namespaces, select_demo_seeds
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
@@ -74,6 +74,10 @@ class FusionIndex:
             )
         # Dense path: keep RRF ranking, but only expand IDF-anchored tools.
         fused = self.fuse(query)
+        namespaces = explicit_namespaces(self.names, query)
+        scoped = [name for name in fused if name.split("_", 1)[0] in namespaces]
+        if namespaces and scoped and fused[0].split("_", 1)[0] in namespaces:
+            fused = scoped
         _seeds, expand_seeds, debug = select_demo_seeds(
             self.bm25,
             query,
@@ -288,12 +292,12 @@ class ToolgraphService:
                 expand_seeds=expand_seeds,
                 fanout_cap=fanout_cap,
             )
-            result = self._merge_memory_expansion(result, seeds, expand_seeds, k)
+            result = self._merge_memory_expansion(result, seeds, expand_seeds, k, evidence_scoped=True)
             bundle_mode = "hybrid (Hydra paths + local learned-edge closure)"
         except HydraError as exc:
             result = self._merge_memory_expansion(
                 LoadToolsResult(tools=[], costs={}, why={}, skipped={}),
-                seeds, expand_seeds, k,
+                seeds, expand_seeds, k, evidence_scoped=True,
             )
             ranked = result.tools
             self._last_loaded[session_id or "_anon"] = list(ranked)
@@ -379,6 +383,7 @@ class ToolgraphService:
                 "not instrumented; synchronization and path requests depend on store state"
             ),
             "bundle_mode": bundle_mode,
+            "evidence_policy": "trace-provenance continuity; schema-overlap candidates withheld",
             "session_reuse": False,
             "session_reuse_note": "Tool-name matches alone do not prove cached results satisfy this request.",
             "seed_policy": seed_debug,
@@ -389,13 +394,30 @@ class ToolgraphService:
         cache[cache_key] = payload
         return payload
 
-    def _merge_memory_expansion(self, result, seeds: list[str], expand_seeds: list[str], k: int):
+    def _merge_memory_expansion(self, result, seeds: list[str], expand_seeds: list[str], k: int, *, evidence_scoped: bool = False):
         """Complete truncated paths with bounded, session-aware local evidence."""
         excluded = set(result.skipped)
-        costs = {name: cost for name, cost in result.costs.items() if name not in excluded}
-        why = {name: item for name, item in result.why.items() if name not in excluded}
+        def supported(path):
+            episode = None
+            for source, target in zip(path, path[1:]):
+                edge = self.store.edges.get((self.store.names.get(source), self.store.names.get(target), "REQUIRES"))
+                if edge is None or edge.source != "trace" or not edge.prov:
+                    return False
+                if episode is not None and episode != edge.prov:
+                    return False
+                episode = edge.prov
+            return True
+
+        allowed = {
+            name for name, item in result.why.items()
+            if not evidence_scoped or supported(item.path)
+        }
+        costs = {name: cost for name, cost in result.costs.items() if name not in excluded and name in allowed}
+        why = {name: item for name, item in result.why.items() if name not in excluded and name in allowed}
         adjacency = {}
         for edge in self.store.active_edges(["REQUIRES"]):
+            if evidence_scoped and (edge.source != "trace" or not edge.prov):
+                continue
             source = self.store.by_id[edge.src]
             adjacency.setdefault(source, []).append(edge)
         seed_costs = {name: index * SEED_PENALTY for index, name in enumerate(seeds)}
@@ -410,7 +432,11 @@ class ToolgraphService:
         best = {}
         while frontier:
             name, cost, path, edge_ids, sources = frontier.pop()
-            state = (name, len(path))
+            episode = None
+            if len(path) > 1:
+                prior = self.store.edges[(self.store.names[path[-2]], self.store.names[name], "REQUIRES")]
+                episode = prior.prov
+            state = (name, len(path), episode if evidence_scoped else None)
             if cost >= best.get(state, float("inf")):
                 continue
             best[state] = cost
@@ -422,6 +448,8 @@ class ToolgraphService:
             for edge in adjacency.get(name, ()):
                 target = self.store.by_id[edge.dst]
                 if target in excluded or target in path:
+                    continue
+                if evidence_scoped and episode is not None and edge.prov != episode:
                     continue
                 frontier.append((
                     target, cost + edge.cost, [*path, target],
