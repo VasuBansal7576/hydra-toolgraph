@@ -53,7 +53,10 @@ class ToolSandboxBridgeTest(unittest.TestCase):
 
     def test_any_existing_node_blocks_destructive_catalog_setup(self):
         client = Mock()
-        client.query.return_value = {"rows": [[{"value": 1, "type": "Integer"}]]}
+        client._post.return_value = {
+            "columns": ["n.id"],
+            "rows": [[{"value": 1, "type": "Integer"}]],
+        }
         with tempfile.TemporaryDirectory() as temporary:
             argv = [
                 "hydra_replay.py",
@@ -69,7 +72,59 @@ class ToolSandboxBridgeTest(unittest.TestCase):
                 patch.object(hydra_replay, "HydraClient", return_value=client),
                 patch.object(hydra_replay, "GraphStore") as graph,
             ):
-                with self.assertRaisesRegex(RuntimeError, "no nodes of any label"):
+                with self.assertRaisesRegex(RuntimeError, "catalog mutation footprint"):
                     hydra_replay.main()
                 graph.assert_not_called()
-                client.query.assert_called_once_with("MATCH (n) RETURN count(n)")
+                self.assertTrue(client._post.called)
+                self.assertTrue(
+                    all(
+                        ":Tool" not in call.args[0]
+                        for call in client._post.call_args_list
+                    )
+                )
+
+    def test_reset_and_parameter_allocations_are_all_checked(self):
+        from toolgraph.data import Tool
+        from toolgraph.graph import catalog_reset_ids
+
+        client = Mock()
+        client._post.return_value = {"columns": ["n.id"], "rows": []}
+        tools = [
+            Tool(
+                "target",
+                "target",
+                "external",
+                tuple({"name": f"p{i}"} for i in range(2005)),
+                (),
+            )
+        ]
+        count = hydra_replay.assert_catalog_footprint_clear(client, tools)
+        checked = {
+            int(call.args[0]["query"].split("id: ")[1].split("}")[0])
+            for call in client._post.call_args_list
+        }
+        self.assertTrue(set(catalog_reset_ids(1)).issubset(checked))
+        self.assertIn(12005, checked)
+        self.assertEqual(count, len(checked))
+
+    def test_unverifiable_query_response_prevents_setup(self):
+        from toolgraph.data import Tool
+
+        from toolgraph.hydra import HydraClient
+
+        client = HydraClient("http://127.0.0.1:18445", "isolated-test")
+        for response in (
+            {},
+            {"rows": [], "columns": [], "error": "failed"},
+            {"rows": [], "columns": [], "next_cursor": "more"},
+        ):
+            with (
+                self.subTest(response=response),
+                patch.object(client, "_post", return_value=response),
+            ):
+                with self.assertRaisesRegex(
+                    RuntimeError, "verifiable complete node lookup"
+                ):
+                    hydra_replay.assert_catalog_footprint_clear(
+                        client, [Tool("target", "target", "external", (), ())]
+                    )

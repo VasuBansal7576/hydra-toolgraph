@@ -154,6 +154,19 @@ def _logical_edge_id(src: int, dst: int) -> str:
     return f"req:{src}:{dst}"
 
 
+def catalog_reset_ids(tool_count: int) -> list[int]:
+    """All stable node IDs reset before loading a catalog."""
+    if tool_count <= 0:
+        return []
+    return [
+        *range(1, tool_count + 1),
+        *range(10_001, 10_001 + max(2_000, tool_count * 3)),
+        *range(20_000, 20_010),
+        *range(30_000, 30_200),
+        *range(40_000, 42_000),
+    ]
+
+
 class GraphStore:
     def __init__(self, hydra: HydraClient, edit_log: Path) -> None:
         self.hydra = hydra
@@ -203,12 +216,7 @@ class GraphStore:
         # Delete tracked ids plus the stable tool/param/meta ranges so a new
         # GraphStore on a reused HydraDB volume cannot inherit stale edges.
         ids = list(dict.fromkeys(self._node_ids))
-        if tool_count > 0:
-            ids.extend(range(1, tool_count + 1))
-            ids.extend(range(10_001, 10_001 + max(2_000, tool_count * 3)))
-            ids.extend(range(20_000, 20_010))
-            ids.extend(range(30_000, 30_000 + 200))
-            ids.extend(range(40_000, 40_000 + 2_000))
+        ids.extend(catalog_reset_ids(tool_count))
         ids = list(dict.fromkeys(ids))
         for start in range(0, len(ids), 50):
             chunk = ids[start : start + 50]

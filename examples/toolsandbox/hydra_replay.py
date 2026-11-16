@@ -7,12 +7,18 @@ import hashlib
 import json
 import os
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from toolgraph.data import Tool
-from toolgraph.graph import GraphStore, LoadToolsResult, positive_trace_provenance
-from toolgraph.hydra import HydraClient, unwrap
+from toolgraph.graph import (
+    GraphStore,
+    LoadToolsResult,
+    catalog_reset_ids,
+    positive_trace_provenance,
+)
+from toolgraph.hydra import HydraClient
 from toolgraph.service import ToolgraphService
 
 
@@ -87,6 +93,42 @@ def successful_repair_episode(receipt: dict) -> list[str]:
     return used
 
 
+def assert_catalog_footprint_clear(client: HydraClient, tools: list[Tool]) -> int:
+    """Reject any existing node in the complete catalog mutation footprint."""
+    parameter_count = sum(len(tool.params) for tool in tools)
+    footprint = sorted(
+        set(catalog_reset_ids(len(tools)))
+        | set(range(10_001, 10_001 + parameter_count))
+    )
+
+    def inspect(node_id: int) -> None:
+        result = client._post(
+            {
+                "cell_id": f"footprint-{node_id}",
+                "query": f"MATCH (n {{id: {node_id}}}) RETURN n.id",
+            }
+        )
+        if (
+            not isinstance(result, dict)
+            or not isinstance(result.get("rows"), list)
+            or not isinstance(result.get("columns"), list)
+            or "error" in result
+            or "errors" in result
+            or result.get("next_cursor")
+        ):
+            raise RuntimeError("Hydra did not return a verifiable complete node lookup")
+        rows = result["rows"]
+        if rows:
+            raise RuntimeError(
+                f"Existing node in catalog mutation footprint: {node_id}; no setup allowed"
+            )
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        for _ in executor.map(inspect, footprint):
+            pass
+    return len(footprint)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("receipt", type=Path)
@@ -102,12 +144,6 @@ def main() -> None:
             "This destructive setup proof requires a dedicated loopback Hydra instance"
         )
     client = HydraClient(args.hydra_url, os.environ["HYDRA_TOKEN"])
-    count_result = client.query("MATCH (n) RETURN count(n)")
-    rows = count_result.get("rows") or []
-    if len(rows) != 1 or int(unwrap(rows[0][0])) != 0:
-        raise RuntimeError(
-            "Use an exclusively owned fresh Hydra instance with no nodes of any label"
-        )
     catalog = {row["name"]: row for row in receipt.get("tool_catalog", [])}
     missing = EXPECTED_USED - set(catalog)
     if missing:
@@ -124,6 +160,7 @@ def main() -> None:
         )
         for name in sorted(EXPECTED_USED)
     ]
+    footprint_count = assert_catalog_footprint_clear(client, tools)
     with tempfile.TemporaryDirectory() as temporary:
         store = GraphStore(client, Path(temporary) / "edits.jsonl")
         store.load_catalog(tools, include_oracle=False)
@@ -171,6 +208,12 @@ def main() -> None:
             "label": "Actual ToolSandbox replay receipt followed by genuine self-hosted Hydra trace retrieval",
             "source_receipt_sha256": hashlib.sha256(receipt_bytes).hexdigest(),
             "upstream_commit": UPSTREAM_COMMIT,
+            "isolation": {
+                "required": "Exclusively owned fresh loopback Hydra instance; no concurrent writers",
+                "verified": "Every reset or created node ID was absent across all labels before setup",
+                "node_ids_checked": footprint_count,
+                "global_emptiness_verified": False,
+            },
             "episode_event_indices": [0, 2, 3],
             "failed_event_indices_excluded": [1],
             "fixed_seed": TARGET,

@@ -45,7 +45,7 @@ The scenario's milestone DAG is reference ground truth, **not evidence learned b
 
 `hydra_replay.py` reads that receipt, validates the successful repair episode, and records only its three successful calls. The failed send is not a positive observation. No tool-loading set was measured, so the bridge does not invent negative feedback.
 
-Use a **dedicated, exclusively owned, empty local Hydra instance**, separate from any app or benchmark graph. Catalog setup is destructive; the bridge refuses a non-loopback endpoint or an instance containing any node, regardless of label. Keep `HYDRA_TOKEN` in the environment and never commit it.
+Use a **dedicated, exclusively owned, empty local Hydra instance**, separate from any app or benchmark graph. Catalog setup is destructive; the bridge refuses a non-loopback endpoint and checks every node ID its catalog setup could delete or create, across all labels. Any occupied ID or unverifiable query aborts before setup. Hydra v0.4 does not support a general all-node scan, so this proves a clear mutation footprint, not global emptiness. The instance must still be fresh and exclusively owned with no concurrent writers. Keep `HYDRA_TOKEN` in the environment and never commit it.
 
 ```bash
 PYTHONPATH=. python examples/toolsandbox/hydra_replay.py \
