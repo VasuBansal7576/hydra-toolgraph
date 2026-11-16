@@ -1,0 +1,327 @@
+{
+  "protocol": "prospective-authored-transfer-v2",
+  "pre_scoring_revision": "Adds budget 5 and cellular-on control before any comparison; prior manifest sha256 1617ccb9b36f7fcd977e2a32518d67ff6fc0ef6caf1705832f96531518909002",
+  "status": "frozen before retrieval scoring",
+  "upstream_commit": "c8571d7854316d2e1c5f288e59fe1e34e53f6dd1",
+  "selection_rule": "Alphabetically first upstream non-self contact excluding both previously replayed recipients",
+  "catalog_rule": "All agent-visible registered tools defined in contact, messaging and setting modules; imported aliases excluded; sorted by name",
+  "tool_catalog": [
+    {
+      "name": "add_contact",
+      "description": "Add a new contact person to contact database. Entries with identical information are allowed,\nand will be assigned different person_ids.\n\nArgs:\n    name:           Name of contact person\n    phone_number:   Phone number of contact person\n    relationship:   Optional, relationship between user and this contact\n    is_self:        Optional. Defaults to False. Should be set to True if the contact corresponds to the current user.\n\nReturns:\n    String format unique identifier for the contact person, this can be passed to other functions\n    which require a unique identifier for this contact person\n\nRaises:\n    DuplicateError:     When self entry already exists, and we are adding a new one",
+      "signature": "(name: str, phone_number: str, relationship: Optional[str] = None, is_self: bool = False) -> str",
+      "parameters": [
+        {
+          "name": "name",
+          "annotation": "<class 'str'>",
+          "required": true
+        },
+        {
+          "name": "phone_number",
+          "annotation": "<class 'str'>",
+          "required": true
+        },
+        {
+          "name": "relationship",
+          "annotation": "typing.Optional[str]",
+          "required": false
+        },
+        {
+          "name": "is_self",
+          "annotation": "<class 'bool'>",
+          "required": false
+        }
+      ],
+      "source_file": "tool_sandbox/tools/contact.py",
+      "source_sha256": "af2b97be6b03d1acf44cd2e34465942622a3453d9e052099a1028e0d17361a49"
+    },
+    {
+      "name": "get_cellular_service_status",
+      "description": "Request cellular service status\n\nReturns:\n    Boolean indicating if the cellular service is on",
+      "signature": "() -> bool",
+      "parameters": [],
+      "source_file": "tool_sandbox/tools/setting.py",
+      "source_sha256": "01cd0c5f45cc6ceadcd5935369f1260585bbc99852562ca30f81771b56a18e97"
+    },
+    {
+      "name": "get_current_location",
+      "description": "Request current location latitude and longitude\n\nReturns:\n    A dictionary of latitude and longitude\n\nRaises:\n    PermissionError:    If location_service is not turned on, we are not allowed to access current location",
+      "signature": "() -> Dict[Literal['latitude', 'longitude'], float]",
+      "parameters": [],
+      "source_file": "tool_sandbox/tools/setting.py",
+      "source_sha256": "01cd0c5f45cc6ceadcd5935369f1260585bbc99852562ca30f81771b56a18e97"
+    },
+    {
+      "name": "get_location_service_status",
+      "description": "Request location service status\n\nReturns:\n    Boolean indicating if the location service is on",
+      "signature": "() -> bool",
+      "parameters": [],
+      "source_file": "tool_sandbox/tools/setting.py",
+      "source_sha256": "01cd0c5f45cc6ceadcd5935369f1260585bbc99852562ca30f81771b56a18e97"
+    },
+    {
+      "name": "get_low_battery_mode_status",
+      "description": "Request low battery mode status\n\nReturns:\n    Boolean indicating if the low battery mode is on",
+      "signature": "() -> bool",
+      "parameters": [],
+      "source_file": "tool_sandbox/tools/setting.py",
+      "source_sha256": "01cd0c5f45cc6ceadcd5935369f1260585bbc99852562ca30f81771b56a18e97"
+    },
+    {
+      "name": "get_wifi_status",
+      "description": "Request wifi status\n\nReturns:\n    Boolean indicating if the wifi is on",
+      "signature": "() -> bool",
+      "parameters": [],
+      "source_file": "tool_sandbox/tools/setting.py",
+      "source_sha256": "01cd0c5f45cc6ceadcd5935369f1260585bbc99852562ca30f81771b56a18e97"
+    },
+    {
+      "name": "modify_contact",
+      "description": "Modify a contact entry with new information provided\n\nArgs:\n    person_id:      String unique identifier for the contact person\n    name:           New name for the person\n    phone_number:   New phone number for the person\n    relationship:   New relationship for the person\n    is_self:        Optional. Defaults to False. Should be set to True if the contact corresponds to the current user.\n\nReturns:\n\nRaises:\n    ValueError:     When all arguments were None\n    NoDataError:    When the person_id cannot be found in database\n    DuplicateError: When multiple entries with the same id were found\n                    or when modifying an entry to self with existing self",
+      "signature": "(person_id: str, name: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, phone_number: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, relationship: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, is_self: Union[bool, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN) -> None",
+      "parameters": [
+        {
+          "name": "person_id",
+          "annotation": "<class 'str'>",
+          "required": true
+        },
+        {
+          "name": "name",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "phone_number",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "relationship",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "is_self",
+          "annotation": "typing.Union[bool, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        }
+      ],
+      "source_file": "tool_sandbox/tools/contact.py",
+      "source_sha256": "af2b97be6b03d1acf44cd2e34465942622a3453d9e052099a1028e0d17361a49"
+    },
+    {
+      "name": "remove_contact",
+      "description": "Remove an existing contact person to contact database.\n\nArgs:\n    person_id:      String format unique identifier of the person to be deleted\n\nReturns:\n\nRaises:\n    NoDataError:    If the provided person_id was not found",
+      "signature": "(person_id: str) -> None",
+      "parameters": [
+        {
+          "name": "person_id",
+          "annotation": "<class 'str'>",
+          "required": true
+        }
+      ],
+      "source_file": "tool_sandbox/tools/contact.py",
+      "source_sha256": "af2b97be6b03d1acf44cd2e34465942622a3453d9e052099a1028e0d17361a49"
+    },
+    {
+      "name": "search_contacts",
+      "description": "Search for a contact person based on provided arguments\n\nEach field has a search criteria of either\n1. Exact value matching\n2. Fuzzy string matching with a predefined threshold\nSearch results contains all contact entries that matched all criteria\n\nArgs:\n    person_id:      String format unique identifier for the contact person, will be exact matched\n    name:           Name of contact person, will be fuzzy matched\n    phone_number:   Phone number of contact person, will be exact matched\n    relationship:   Relationship between user and this contact, will be fuzzy matched\n    is_self:        If the requested contact corresponds to the current user. Will be exact matched\n\nReturns:\n    A List of matching contacts. An empty List if no matching contacts were found\n\nRaises:\n    ValueError: When all arguments were not provided",
+      "signature": "(person_id: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, name: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, phone_number: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, relationship: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, is_self: Union[bool, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN) -> List[Dict[Literal['person_id', 'name', 'phone_number', 'relationship', 'is_self'], str]]",
+      "parameters": [
+        {
+          "name": "person_id",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "name",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "phone_number",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "relationship",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "is_self",
+          "annotation": "typing.Union[bool, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        }
+      ],
+      "source_file": "tool_sandbox/tools/contact.py",
+      "source_sha256": "af2b97be6b03d1acf44cd2e34465942622a3453d9e052099a1028e0d17361a49"
+    },
+    {
+      "name": "search_messages",
+      "description": "Search for a message based on provided arguments\n\nEach field has a search criteria of one of the below\n1. Exact value matching\n2. Fuzzy string matching with a predefined threshold\n3. Range matching timestamp with upperbound or lowerbound\nSearch results contains all contact entries that matched all criteria\n\nArgs:\n    message_id:                     String format unique identifier for message, will be exact matched\n    sender_person_id:               String format unique identifier for the sender, will be exact matched\n    sender_phone_number:            Phone number for the sender, will be exact matched\n    recipient_person_id:            String format unique identifier for the recipient, will be exact matched\n    recipient_phone_number:         Phone number for the recipient, will be exact matched\n    content:                        Message content, will be fuzzy matched\n    creation_timestamp_lowerbound:  Lowerbound of the POSIX timestamp of the time the message is created.\n    creation_timestamp_upperbound:  Upperbound of the POSIX timestamp of the time the message is created.\n\n\nReturns:\n    A List of matching messages. An empty List if no matching contacts were found\n\nRaises:\n    ValueError: When all arguments were not provided",
+      "signature": "(message_id: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, sender_person_id: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, sender_phone_number: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, recipient_person_id: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, recipient_phone_number: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, content: Union[str, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, creation_timestamp_lowerbound: Union[float, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN, creation_timestamp_upperbound: Union[float, tool_sandbox.common.utils.NotGiven] = NOT_GIVEN) -> List[Dict[Literal['message_id', 'sender_person_id', 'sender_phone_number', 'recipient_person_id', 'recipient_phone_number', 'content', 'creation_timestamp'], Union[str, float]]]",
+      "parameters": [
+        {
+          "name": "message_id",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "sender_person_id",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "sender_phone_number",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "recipient_person_id",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "recipient_phone_number",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "content",
+          "annotation": "typing.Union[str, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "creation_timestamp_lowerbound",
+          "annotation": "typing.Union[float, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        },
+        {
+          "name": "creation_timestamp_upperbound",
+          "annotation": "typing.Union[float, tool_sandbox.common.utils.NotGiven]",
+          "required": false
+        }
+      ],
+      "source_file": "tool_sandbox/tools/messaging.py",
+      "source_sha256": "d992831c735c44167b46f67ff45b11ad37fa70df951ebe9eac283c4b44e5607c"
+    },
+    {
+      "name": "send_message_with_phone_number",
+      "description": "Send a message to a recipient using phone_number\n\nArgs:\n    phone_number:   String format phone number to send the message to\n    content:        Message payload text\n\nReturns:\n    String format unique identifier for the message, this can be passed to other functions\n    which require a unique identifier for this message\n\nRaises:\n    ValueError:         If less than or more than 1 self entry was found\n    ConnectionError:    If cellular service is not on",
+      "signature": "(phone_number: str, content: str) -> str",
+      "parameters": [
+        {
+          "name": "phone_number",
+          "annotation": "<class 'str'>",
+          "required": true
+        },
+        {
+          "name": "content",
+          "annotation": "<class 'str'>",
+          "required": true
+        }
+      ],
+      "source_file": "tool_sandbox/tools/messaging.py",
+      "source_sha256": "d992831c735c44167b46f67ff45b11ad37fa70df951ebe9eac283c4b44e5607c"
+    },
+    {
+      "name": "set_cellular_service_status",
+      "description": "Enable / Disable cellular service\n\nArgs:\n    on: If we want to turn on cellular service\n\nReturns:\n\nRaises:\n    ValueError:         If cellular service is already turned on / off\n    PermissionError:    If low battery mode is on, in which case we are not allowed to turn on cellular service",
+      "signature": "(on: bool) -> None",
+      "parameters": [
+        {
+          "name": "on",
+          "annotation": "<class 'bool'>",
+          "required": true
+        }
+      ],
+      "source_file": "tool_sandbox/tools/setting.py",
+      "source_sha256": "01cd0c5f45cc6ceadcd5935369f1260585bbc99852562ca30f81771b56a18e97"
+    },
+    {
+      "name": "set_location_service_status",
+      "description": "Enable / Disable location service\n\nArgs:\n    on: If we want to turn on location service\n\nReturns:\n\nRaises:\n    ValueError:         If location service is already turned on / off\n    PermissionError:    If low battery mode is on, in which case we are not allowed to turn on location service",
+      "signature": "(on: bool) -> None",
+      "parameters": [
+        {
+          "name": "on",
+          "annotation": "<class 'bool'>",
+          "required": true
+        }
+      ],
+      "source_file": "tool_sandbox/tools/setting.py",
+      "source_sha256": "01cd0c5f45cc6ceadcd5935369f1260585bbc99852562ca30f81771b56a18e97"
+    },
+    {
+      "name": "set_low_battery_mode_status",
+      "description": "Enable / Disable low battery mode\n\nArgs:\n    on: If we want to turn on low battery mode\n\nReturns:\n\nRaises:\n    ValueError: If low battery mode is already turned on / off",
+      "signature": "(on: bool) -> None",
+      "parameters": [
+        {
+          "name": "on",
+          "annotation": "<class 'bool'>",
+          "required": true
+        }
+      ],
+      "source_file": "tool_sandbox/tools/setting.py",
+      "source_sha256": "01cd0c5f45cc6ceadcd5935369f1260585bbc99852562ca30f81771b56a18e97"
+    },
+    {
+      "name": "set_wifi_status",
+      "description": "Enable / Disable wifi\n\nArgs:\n    on: If we want to turn on wifi\n\nReturns:\n\nRaises:\n    ValueError:         If wifi is already turned on / off\n    PermissionError:    If low battery mode is on, in which case we are not allowed to turn on wifi",
+      "signature": "(on: bool) -> None",
+      "parameters": [
+        {
+          "name": "on",
+          "annotation": "<class 'bool'>",
+          "required": true
+        }
+      ],
+      "source_file": "tool_sandbox/tools/setting.py",
+      "source_sha256": "01cd0c5f45cc6ceadcd5935369f1260585bbc99852562ca30f81771b56a18e97"
+    }
+  ],
+  "task": {
+    "recipient_name": "Homer S",
+    "content": "Can we review the rehearsal schedule tomorrow?",
+    "query": "Send Homer S a message saying \"Can we review the rehearsal schedule tomorrow?\"",
+    "initial_cellular": false,
+    "initial_messages": 0
+  },
+  "retrieval": {
+    "budgets": [
+      3,
+      5
+    ],
+    "initial_cellular_states": [
+      false,
+      true
+    ],
+    "query_access": "query only, not recipient phone or fixture database",
+    "ranker": "existing BM25 over the same full catalog for all arms; no per-arm query rewriting or forced target seed",
+    "arms": [
+      "bm25_before_learning",
+      "hydra_after_same_observed_episode",
+      "local_closure_after_same_observed_episode"
+    ],
+    "training": "Only original successful Fredrik repair episode; failed calls excluded; no repetition or added traces",
+    "no_tuning": "Freeze parameters, report full rankings and every arm; do not alter after outcome"
+  },
+  "execution": {
+    "policy": "Scripted replay of observed successful operation order search_contacts, set_cellular_service_status, send_message_with_phone_number; only tools in selected bundle may run",
+    "missing_lookup": "No phone supplied from hidden fixture; missing lookup prevents send",
+    "missing_setter": "If lookup and send available but setter absent, real upstream send is attempted and can fail",
+    "other_tools": "Not invoked by this restricted executor; count as unused tools",
+    "setter_errors": "Fixed policy attempts setter when selected, records any exception, then attempts send if phone and send tool are available. Already-enabled setter may raise on cellular-on control; do not suppress the recorded error.",
+    "success": "Exactly one new upstream message row to the named recipient with exact content; no external communication",
+    "measurement": "No autonomous-agent or full ToolSandbox benchmark claim"
+  },
+  "limits": [
+    "One prospectively frozen authored continuation, not a held-out benchmark dataset",
+    "Recipient and tool catalog originate from previously inspected upstream fixtures",
+    "The executor's operation order is scripted from the observed episode, not generated by Hydra",
+    "Equal graph and local closure outcomes establish no graph quality advantage",
+    "The upstream milestone graph is not used as training evidence"
+  ]
+}

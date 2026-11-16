@@ -39,7 +39,9 @@ Upstream: [ToolSandbox](https://github.com/apple-aiml-research/ToolSandbox/tree/
 
 Scenario: [`send_message_with_contact_content_cellular_off`](https://github.com/apple-aiml-research/ToolSandbox/blob/c8571d7854316d2e1c5f288e59fe1e34e53f6dd1/tool_sandbox/scenarios/multiple_tool_call_scenarios.py#L1356).
 
-The scenario's milestone DAG is reference ground truth, **not evidence learned by ToolGraph**. The replay does not use its edges to manufacture a learned result. See upstream [LICENSE](https://github.com/apple-aiml-research/ToolSandbox/blob/c8571d7854316d2e1c5f288e59fe1e34e53f6dd1/LICENSE). No upstream source is vendored here.
+The scenario's milestone DAG is reference ground truth, **not evidence learned by ToolGraph**. The replay does not use its edges to manufacture a learned result. See upstream [LICENSE](https://github.com/apple-aiml-research/ToolSandbox/blob/c8571d7854316d2e1c5f288e59fe1e34e53f6dd1/LICENSE). No upstream implementation source is vendored here. The transfer manifest exports upstream tool documentation; its license is retained as `LICENSE.upstream`.
+
+A separately frozen prospective task-and-distractor comparison is described in [TRANSFER_PROTOCOL.md](TRANSFER_PROTOCOL.md). It does not change the claims made by the original replay receipt.
 
 ## Record the observed repair in a real graph
 
