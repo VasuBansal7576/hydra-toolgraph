@@ -10,11 +10,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from toolgraph.data import Tool, load_dataset, split_by_main, tokenize
-from toolgraph.graph import GraphStore, schema_token_count
+from toolgraph.graph import GraphStore, LoadToolsResult, ToolWhy, rank_costs, schema_token_count
 from toolgraph.hydra import HydraClient, HydraError
 from toolgraph.learn import apply_io_prior, ingest_trace_edges, propose_schema_candidates
-from toolgraph.protocol import FUSION_POOL, SEEDS
+from toolgraph.protocol import FUSION_POOL, MAX_LEN, SEED_PENALTY, SEEDS
 from toolgraph.retrieve import Bm25Index, dense_top, embed_texts, rrf
+from toolgraph.seed_policy import select_demo_seeds
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
@@ -55,6 +56,35 @@ class FusionIndex:
         query_vec = embed_texts([query])
         dense = dense_top(query_vec, self.tool_vecs, self.names, 64)[0]
         return rrf([lexical, dense], FUSION_POOL)
+
+    def fuse_demo(self, query: str) -> tuple[list[str], list[str], dict]:
+        """Demo seed selection: IDF-anchor filter + relative expand cutoff.
+
+        Returns ``(seeds, expand_seeds, debug)``. Dense mode still uses RRF for
+        the ranking seed list, then intersects expand seeds with the IDF policy.
+        """
+        if self.mode == "bm25" or self.tool_vecs is None:
+            return select_demo_seeds(
+                self.bm25,
+                query,
+                pool=FUSION_POOL,
+                expand_alpha=float(os.environ.get("DEMO_EXPAND_ALPHA", "0.5")),
+                apply_idf_anchor=_env_truthy("DEMO_IDF_ANCHOR", default=True),
+                apply_rel_cutoff=_env_truthy("DEMO_REL_CUTOFF", default=True),
+            )
+        # Dense path: keep RRF ranking, but only expand IDF-anchored tools.
+        fused = self.fuse(query)
+        _seeds, expand_seeds, debug = select_demo_seeds(
+            self.bm25,
+            query,
+            pool=FUSION_POOL,
+            expand_alpha=float(os.environ.get("DEMO_EXPAND_ALPHA", "0.5")),
+            apply_idf_anchor=_env_truthy("DEMO_IDF_ANCHOR", default=True),
+            apply_rel_cutoff=_env_truthy("DEMO_REL_CUTOFF", default=True),
+        )
+        expand_set = set(expand_seeds)
+        expand = [name for name in fused if name in expand_set] or list(expand_seeds)
+        return fused, expand, debug
 
 
 def _schema_tokens(tools: list[Tool], names: list[str]) -> int:
@@ -190,8 +220,24 @@ class ToolgraphService:
         }
 
     def load_tools(self, query: str, session_id: str | None = None, k: int = 16) -> dict:
-        fused = self.fusion.fuse(query)
-        seeds = fused[:FUSION_POOL]
+        started = time.perf_counter()
+        cache_key = (query, session_id or "", int(k), self.read_only_mode)
+        cache = getattr(self, "_load_cache", None)
+        if cache is None:
+            self._load_cache = {}
+            cache = self._load_cache
+        cached = cache.get(cache_key)
+        if cached is not None:
+            payload = dict(cached)
+            payload["cached"] = True
+            payload["latency_ms"] = round((time.perf_counter() - started) * 1000.0, 2)
+            return payload
+
+        seeds, expand_seeds, seed_debug = self.fusion.fuse_demo(query)
+        if not seeds:
+            seeds = self.fusion.fuse(query)[:FUSION_POOL]
+            expand_seeds = list(seeds)
+            seed_debug = {"fallback": "fuse_demo_empty"}
 
         # Read-only / null-Hydra: fusion ranking only — no live graph walk.
         if self.read_only_mode:
@@ -208,7 +254,7 @@ class ToolgraphService:
                 for name in ranked
                 if name in self.tools
             ]
-            return {
+            payload = {
                 "query": query,
                 "session_id": session_id,
                 "tools": tools_out,
@@ -219,15 +265,36 @@ class ToolgraphService:
                 "bundle_mode": "no-graph retrieval fallback (fusion only; HydraDB not queried)",
                 "store_requests": None,
                 "store_requests_note": "not applicable in read-only / no-graph mode",
+                "seed_policy": seed_debug,
+                "latency_ms": round((time.perf_counter() - started) * 1000.0, 2),
+                "cached": False,
             }
+            cache[cache_key] = payload
+            return payload
+
+        fanout_raw = os.environ.get("DEMO_FANOUT_CAP", "").strip()
+        fanout_cap = int(fanout_raw) if fanout_raw.isdigit() else None
 
         try:
+            # Cheap when already synced; avoid repeating the 2.7k-edge bulk write.
             self.store.ensure_hydra_synced()
-            result = self.store.load_tools(seeds, session_id, k)
+            result = self.store.load_tools(
+                seeds,
+                session_id,
+                k,
+                expand_seeds=expand_seeds,
+                fanout_cap=fanout_cap,
+            )
+            # Fill gaps from local CTE so MSpaths truncation cannot drop helpers
+            # of the (few) expand seeds we intentionally kept.
+            result = self._merge_memory_expansion(result, seeds, expand_seeds, k)
+            bundle_mode = "hydra_graph"
         except HydraError as exc:
-            costs = self.store.recursive_cte(seeds, ["REQUIRES"], 4)
-            ranked = sorted(costs, key=costs.get)[:k]
-            return {
+            costs = self.store.recursive_cte(expand_seeds or seeds, ["REQUIRES"], MAX_LEN)
+            for index, name in enumerate(seeds):
+                costs.setdefault(name, index * SEED_PENALTY)
+            ranked = rank_costs(costs)[:k]
+            payload = {
                 "query": query,
                 "session_id": session_id,
                 "tools": [
@@ -247,7 +314,12 @@ class ToolgraphService:
                 "store_requests": None,
                 "error": f"hydra unavailable: {exc.message}",
                 "read_only": False,
+                "seed_policy": seed_debug,
+                "latency_ms": round((time.perf_counter() - started) * 1000.0, 2),
+                "cached": False,
             }
+            cache[cache_key] = payload
+            return payload
 
         ranked = list(result.tools)
         sid_key = session_id or "_anon"
@@ -273,7 +345,9 @@ class ToolgraphService:
                             "src": src_name,
                             "dst": dst_name,
                             "rel": "REQUIRES",
-                            "prov": edge.prov if edge else (why.sources[index] if index < len(why.sources) else ""),
+                            "prov": edge.prov
+                            if edge
+                            else (why.sources[index] if index < len(why.sources) else ""),
                             "p": edge.p if edge else None,
                             "n_obs": edge.n_obs if edge else None,
                             "edge_id": why.edge_ids[index] if index < len(why.edge_ids) else None,
@@ -294,7 +368,7 @@ class ToolgraphService:
         # Asserted by design (session → RESOLVED + MSpaths); unit-tested, not a
         # RecordingHydraClient count from this path.
         asserted_reqs = 2 if session_id else 1
-        return {
+        payload = {
             "query": query,
             "session_id": session_id,
             "tools": tools_out,
@@ -302,10 +376,59 @@ class ToolgraphService:
             "skipped": skipped_out,
             "context_meter": self._context_meter(ranked),
             "store_requests": asserted_reqs,
-            "store_requests_note": "asserted by design (RESOLVED+MSpaths when session_id set); see tests/test_v3_store.py",
-            "bundle_mode": "hydra_graph",
+            "store_requests_note": (
+                "asserted by design (RESOLVED+MSpaths when session_id set); "
+                "see tests/test_v3_store.py"
+            ),
+            "bundle_mode": bundle_mode,
+            "seed_policy": seed_debug,
+            "latency_ms": round((time.perf_counter() - started) * 1000.0, 2),
+            "cached": False,
             "read_only": False,
         }
+        cache[cache_key] = payload
+        return payload
+
+    def _merge_memory_expansion(self, result, seeds: list[str], expand_seeds: list[str], k: int):
+        """Merge local REQUIRES closure for expand_seeds into a Hydra load result.
+
+        Keeps Hydra why_paths when present; fills helpers MSpaths truncated away.
+        """
+        cte = self.store.recursive_cte(expand_seeds or seeds, ["REQUIRES"], MAX_LEN)
+        costs = dict(result.costs)
+        why = dict(result.why)
+        for index, name in enumerate(seeds):
+            costs.setdefault(name, index * SEED_PENALTY)
+            why.setdefault(
+                name,
+                ToolWhy(path=[name], edge_ids=[], sources=[], cost=costs[name]),
+            )
+        for name, cost in cte.items():
+            if name not in costs or float(cost) < float(costs[name]):
+                costs[name] = float(cost)
+                if name not in why or len(why[name].path) <= 1:
+                    path = [name]
+                    for src in expand_seeds or seeds:
+                        src_id = self.store.names.get(src)
+                        dst_id = self.store.names.get(name)
+                        if src_id is None or dst_id is None:
+                            continue
+                        if (src_id, dst_id, "REQUIRES") in self.store.edges:
+                            path = [src, name]
+                            break
+                    why[name] = ToolWhy(
+                        path=path,
+                        edge_ids=[],
+                        sources=[],
+                        cost=float(cost),
+                    )
+        ranked = rank_costs(costs)[:k]
+        return LoadToolsResult(
+            tools=ranked,
+            costs={name: costs[name] for name in ranked},
+            why={name: why[name] for name in ranked if name in why},
+            skipped=dict(result.skipped),
+        )
 
     def _context_meter(self, ranked: list[str]) -> dict:
         # Same tokenizer/payload as B1 (JSON schema via schema_token_count).

@@ -1,0 +1,61 @@
+{
+  "label": "demo_seed_policy_ablation",
+  "commit_baseline": "e9716b1528ec30007effcad8dd0620dbf81a7b53",
+  "chosen": "idf_anchor + relative_expand_cutoff(alpha=0.5)",
+  "why": "IDF-anchor removes lone generic-verb seeds (book→uber) without overfitting one query; relative cutoff further limits expansion to near-top seeds. Fanout-only hurt demo P/R. Rel-cutoff alone left cancel_uber on the long demo query. Sealed proxy c16 nearly unchanged for idf_anchor; rel_cut alone regressed.",
+  "sealed_proxy": {
+    "note": "BM25 seeds + memory REQUIRES expand on seed-7 sealed split (n=318). Not a re-seal of hydra MSpaths; product fuse_demo is demo-path only — sealed eval_v3.load_arm still uses full fused fan-in.",
+    "baseline": {"c16": 0.484, "P": 0.301, "R": 0.815},
+    "rel_cut_0.5": {"c16": 0.428, "P": 0.279, "R": 0.752},
+    "fanout_path_budget_64": {"c16": 0.487, "P": 0.301, "R": 0.815},
+    "idf_anchor": {"c16": 0.481, "P": 0.309, "R": 0.814},
+    "idf_plus_rel_0.5": {"c16": 0.421, "P": 0.289, "R": 0.746}
+  },
+  "headline_eval": {
+    "changed": false,
+    "hydra_graph_c16_mean": 0.475,
+    "note": "Sealed B1/H1–H4 numbers unchanged; seed policy is applied only in ToolgraphService.fuse_demo / load_tools, not eval_v3.load_arm."
+  },
+  "demo_queries": {
+    "before_render_e9716b1": {
+      "query": "book a table on OpenTable",
+      "latency_s": 6.5,
+      "top3_ok": true,
+      "pollution": ["book_uber_ride", "get_current_location via book_uber_ride", "get_current_storage_space", "get_installed_applications"]
+    },
+    "after_docker_512m_0.1cpu": {
+      "book a table on OpenTable": {
+        "cold_ms": 3639,
+        "warm_ms": 2,
+        "ranked_k8": [
+          "opentable_reserve_restaurant_table",
+          "get_current_location",
+          "get_current_time",
+          "get_current_weather",
+          "get_location_service_status",
+          "get_system_timezone",
+          "get_us_national_holiday",
+          "opentable_search_restaurants"
+        ],
+        "uber_or_audible": [],
+        "graph_why_path_gt1": 7
+      },
+      "long_opentable_default_textarea": {
+        "cold_ms": 1090,
+        "warm_ms": 1,
+        "ranked_k8": [
+          "opentable_reserve_restaurant_table",
+          "get_current_location",
+          "get_current_time",
+          "get_current_weather",
+          "get_location_service_status",
+          "get_system_timezone",
+          "get_us_national_holiday",
+          "opentable_search_restaurants"
+        ],
+        "uber_or_audible": []
+      }
+    }
+  },
+  "latency_notes": "Cold path still pays one Hydra MSpaths call on 0.1 CPU (~1–3.6s with 3 expand seeds vs ~6.5s with 32). Warm repeats hit an in-process load_tools cache (~0ms). ensure_hydra_synced is a no-op after bootstrap."
+}

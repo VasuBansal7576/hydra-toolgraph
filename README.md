@@ -76,6 +76,7 @@ Every ToolLinkOS main has exactly 3 queries with an identical gold set (`1569/15
 - Public demo writes (`record_trace` / `undo_edit` / `record_result`) require `DEMO_ALLOW_WRITES=1`.
 - No Jev / no paid LLM judge.
 - Hosted demo default is **live + BM25** (no MiniLM) with precomputed edges; dense MiniLM needs ≥1–2 GB. Readonly is fallback when Hydra is down or seeding times out — see `deploy/hf-space/README.md`.
+- Demo `load_tools` applies an **IDF-anchor + relative expand cutoff** so generic verbs like `book` do not seed Uber-style pollution; sealed eval fan-in is unchanged (headline c16 numbers above are untouched). See `results/demo_seed_policy.json`.
 
 ## Quickstart
 

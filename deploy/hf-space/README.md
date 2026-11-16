@@ -17,6 +17,7 @@ HF Spaces and Render-style hosts often run the container as **uid 1000**. This i
 - Honours **`$PORT`** then `DEMO_PORT` then `7860`
 - Defaults **`TOOLGRAPH_MODE=live`**, **`DEMO_FUSION=bm25`**, **`DEMO_LOAD_PRECOMPUTED_EDGES=1`**, **`DEMO_ALLOW_WRITES=0`**
 - Seeds the graph from `results/demo_requires_edges.json` (~2.7k REQUIRES); falls back to learn-split ingest if that file is missing
+- Demo retrieval uses **IDF-anchor seeding + relative expand cutoff** (`DEMO_IDF_ANCHOR=1`, `DEMO_REL_CUTOFF=1`, `DEMO_EXPAND_ALPHA=0.5`) so `book a table on OpenTable` expands OpenTable/Resy — not Uber via the verb `book`. Optional `DEMO_FANOUT_CAP`. In-process `load_tools` cache for repeat queries.
 - **HTTP binds immediately**; `/api/health` reports `phase` (`starting` → `seeding` → `ready` / `readonly_fallback`)
 - If cgroup memory ≤768 MiB, entrypoint forces **BM25** (not readonly) — skips MiniLM
 - Readonly only when HydraDB is unreachable, seeding exceeds `DEMO_SEED_TIMEOUT_SEC` (default 180s), or `TOOLGRAPH_MODE=readonly`

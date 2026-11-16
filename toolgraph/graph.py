@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -391,12 +392,18 @@ class GraphStore:
         k: int,
         *,
         fresh_after: float = 0.0,
+        expand_seeds: list[str] | None = None,
+        fanout_cap: int | None = None,
     ) -> LoadToolsResult:
         """EXACTLY two store requests (one if session_id is None).
 
         Request 1 (skipped when session_id is None): resolved producers for the session.
         Request 2: algo.MSpaths over REQUIRES only. Caller must sync live REQUIRES first;
         this method does not call ensure_hydra_synced (would add extra requests).
+
+        ``expand_seeds`` limits which seeds are MSpaths sources (others stay as
+        ranked seeds without outbound expansion). ``fanout_cap`` optionally
+        keeps at most N first-hop children per expand seed when merging paths.
         """
         resolved: set[str] = set()
         if session_id is not None:
@@ -421,7 +428,20 @@ class GraphStore:
         if not seeds:
             return LoadToolsResult(tools=[], costs={}, why={}, skipped={})
 
-        values = ", ".join(f"'{name}'" for name in seeds)
+        walk_seeds = list(expand_seeds) if expand_seeds is not None else list(seeds)
+        walk_seeds = [name for name in walk_seeds if name in self.names]
+        if not walk_seeds:
+            # No expansion sources: return seeds alone (still one store request shape
+            # when session_id set; zero-path MSpaths avoided).
+            costs = {name: index * SEED_PENALTY for index, name in enumerate(seeds)}
+            ranked = rank_costs(costs)[:k]
+            why = {
+                name: ToolWhy(path=[name], edge_ids=[], sources=[], cost=costs[name])
+                for name in ranked
+            }
+            return LoadToolsResult(tools=ranked, costs={n: costs[n] for n in ranked}, why=why, skipped={})
+
+        values = ", ".join(f"'{name}'" for name in walk_seeds)
         statement = (
             "CALL algo.MSpaths({"
             "sourceLabel: 'Tool', sourceProperty: 'tool_id', "
@@ -442,6 +462,7 @@ class GraphStore:
         best_path_meta: dict[str, tuple[float, list[str], list[str], list[str]]] = {
             name: (costs[name], [name], [], []) for name in seeds
         }
+        fanout_seen: dict[str, int] = defaultdict(int)
 
         for row in result.get("rows") or []:
             path = unwrap(row[0])
@@ -464,6 +485,16 @@ class GraphStore:
                 keep.append(node)
             if not keep:
                 continue
+            # Optional per-seed first-hop fanout cap (demo polish).
+            if fanout_cap is not None and len(keep) >= 2:
+                root = keep[0]
+                child = keep[1]
+                # Only count a child the first time we see it under this root.
+                prior = best_path_meta.get(child)
+                if prior is None or prior[1][:1] != [root]:
+                    if fanout_seen[root] >= fanout_cap:
+                        continue
+                    fanout_seen[root] += 1
             penalty = seed_index.get(keep[0], 0) * SEED_PENALTY
             edge_costs = self._path_edge_costs(path, keep, ["REQUIRES"])
             apply_prefix_costs(costs, keep, edge_costs, penalty)
