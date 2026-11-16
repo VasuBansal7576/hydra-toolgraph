@@ -2,7 +2,7 @@
 
 **Finding an action is not the same as finding everything it needs.**
 
-ToolGraph is an inspectable tool-context layer for agent builders: retrieve candidate tools, add learned prerequisites, and inspect the evidence behind the bundle. Record observed traces, compare the next retrieval, and undo a learned edit. The demo retrieves definitions; it does not execute tools or establish task success.
+ToolGraph is an inspectable tool-context layer for agent builders: retrieve candidate tools, add observed tool associations, and inspect the evidence behind the bundle. Record observed traces, compare the next retrieval, and undo a learned edit. The demo retrieves definitions; it does not execute tools or establish task success.
 
 [Open the dependency workbench](https://hydra-toolgraph.onrender.com/) · [Evaluation and limitations](docs/RESULTS_V3.md)
 
@@ -16,7 +16,15 @@ ToolGraph is an inspectable tool-context layer for agent builders: retrieve cand
 
 **Current boundary:** this is a retrieval and learning prototype, not a validated execution planner. The current runtime combines Hydra paths with local learned-edge closure and labels that mode explicitly. The sealed v3 results below describe the earlier evaluated policy, not a new benchmark for this hybrid path. Session skipping is disabled in the runtime: tool-name equality does not prove that a prior result satisfies a new request. Session IDs are retained for trace provenance. The historical evaluation of session skipping below is unchanged.
 
-## Technical evidence
+## Executed transfer with real upstream tools
+
+We froze a new recipient task against **15 real ToolSandbox tools**, then executed the returned bundles in the actual upstream sandbox. At a three-tool budget, BM25 omitted contact lookup and could not send. After one observed repair episode, the learned bundle included lookup, cellular repair and send, and the scripted execution succeeded with cellular initially off or on. No real SMS was sent.
+
+**The equally informed local-closure control tied Hydra.** This shows a benefit from recorded experience in one authored continuation, not a graph-database quality advantage or autonomous-agent benchmark. The already-enabled control still recorded a redundant setter error, and budget 5 used more tokens than BM25.
+
+[All 12 outcomes and limits](examples/toolsandbox/TRANSFER_RESULTS.md) · [Frozen protocol](examples/toolsandbox/TRANSFER_PROTOCOL.md) · [Compact phone-free receipt](examples/toolsandbox/transfer_results.json) · [Reproduce with upstream tools](examples/toolsandbox/README.md)
+
+## Historical synthetic evaluation
 
 A context layer that learns which tools to load from agent traces, with versioned, undoable, provenance-tagged `REQUIRES` edges in HydraDB; the earlier experiment also included session `RESOLVED` skips.
 

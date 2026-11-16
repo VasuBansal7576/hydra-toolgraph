@@ -59,3 +59,63 @@ PYTHONPATH=. python examples/toolsandbox/hydra_replay.py \
 The fixed seed is `send_message_with_phone_number` and the budget is three tools. Before learning, the fresh graph returns only that seed. The bridge then checks whether real Hydra paths retrieve the observed lookup and cellular-repair tools, and compares the result to local closure using identical evidence. The output must pass every check before it reports success.
 
 This is same-episode trace integration, not a held-out benchmark, causal prerequisite inference, autonomous agent, or proof that Hydra outperforms local closure. The sandbox's recipient and invalidation checks remain in the source receipt; the bridge does not pretend it executed them again under graph control. A measured bridge receipt is separate from `receipt.json`.
+
+## Reproduce the frozen new-recipient comparison
+
+Run from the ToolGraph checkout root with Python 3.12, Git and Docker available. Port 18447 must be free. This creates a new, loopback-only, memory-backed Hydra instance; do not point the proof at an existing app graph. The image digest and startup flags below are the ones used in the recorded run. The mounted token is the repository's public local-development token, not a production credential.
+
+```bash
+proof_dir=$(mktemp -d)
+proof_container="toolgraph-transfer-proof-$(date +%s)"
+export HYDRA_TOKEN="$(cat deploy/hydra-auth-token)"
+
+docker run -d --name "$proof_container" --memory 1g --cpus 1 \
+  --tmpfs /data/store:rw,size=256m -p 127.0.0.1:18447:8443 \
+  -e CLOUD_PROVIDER=local -e LOCAL_PATH=/data/store \
+  -e GRAPH_NAMESPACE=default -e GRAPH_ID=default \
+  -e GRAPH_ALLOW_PLAINTEXT=true -e GRAPH_USAGE_REPORT_ENABLED=false \
+  -e GRAPH_AUTH_TOKEN_FILE=/var/run/secrets/slatedb-graph/auth-token \
+  -v "$(pwd)/deploy/hydra-auth-token:/var/run/secrets/slatedb-graph/auth-token:ro" \
+  ghcr.io/hydra-db/hydradb@sha256:ab71d651fefee13ebb23eb56d72316065bdca563ff7587442e07be663f2bf880
+
+python3.12 -m venv "$proof_dir/toolgraph-venv"
+"$proof_dir/toolgraph-venv/bin/pip" install -r requirements.txt
+python3.12 -m venv "$proof_dir/toolsandbox-venv"
+"$proof_dir/toolsandbox-venv/bin/pip" install -r examples/toolsandbox/requirements.txt
+
+git clone https://github.com/apple-aiml-research/ToolSandbox.git "$proof_dir/upstream"
+git -C "$proof_dir/upstream" checkout c8571d7854316d2e1c5f288e59fe1e34e53f6dd1
+```
+
+Wait until this read-only query succeeds. It checks server readiness, not graph emptiness; the retrieval runner performs the full mutation-footprint guard before setup.
+
+```bash
+curl --fail --silent --show-error http://127.0.0.1:18447/v1/graphs/default/query \
+  -H "Authorization: Bearer $HYDRA_TOKEN" -H 'X-Graph-Namespace: default' \
+  -H 'Content-Type: application/json' \
+  --data '{"cell_id":"cell-0","query":"MATCH (n {id: 1}) RETURN n.id"}'
+```
+
+Run retrieval once, execute its exact bundles in the separate upstream environment, verify the raw states, then produce the phone-free summary. Do not rerun retrieval against the populated graph or change the frozen task after seeing results.
+
+```bash
+PYTHONPATH=. "$proof_dir/toolgraph-venv/bin/python" \
+  examples/toolsandbox/transfer_retrieve.py \
+  --hydra-url http://127.0.0.1:18447 \
+  --output "$proof_dir/retrieval.json"
+
+"$proof_dir/toolsandbox-venv/bin/python" examples/toolsandbox/transfer_execute.py \
+  "$proof_dir/upstream" "$proof_dir/retrieval.json" \
+  --output "$proof_dir/execution.json"
+
+"$proof_dir/toolgraph-venv/bin/python" examples/toolsandbox/transfer_verify.py \
+  "$proof_dir/execution.json" --retrieval "$proof_dir/retrieval.json"
+
+"$proof_dir/toolgraph-venv/bin/python" examples/toolsandbox/transfer_summarize.py \
+  "$proof_dir/execution.json" --retrieval "$proof_dir/retrieval.json" \
+  --output "$proof_dir/summary.json"
+
+docker stop "$proof_container"
+```
+
+Keep the raw receipts locally for verification; the public summary intentionally omits names, phone numbers, message contents and database rows. The source fixture contains synthetic upstream contacts, not personal user data. No model or API credit calls are needed. The recorded outcomes, including failures and the local-control tie, are in [TRANSFER_RESULTS.md](TRANSFER_RESULTS.md).
