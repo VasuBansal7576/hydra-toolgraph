@@ -1,261 +1,824 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>toolgraph v3 demo</title>
-  <style>
-    :root {
-      --bg: #0f1419;
-      --panel: #1a222c;
-      --ink: #e8eef4;
-      --muted: #8b9aab;
-      --accent: #3d9bfd;
-      --ok: #3ecf8e;
-      --warn: #f0b429;
-      --line: #2a3542;
-      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-      color: var(--ink);
-      background: radial-gradient(1200px 600px at 10% -10%, #1b2a3a 0%, var(--bg) 55%);
-    }
-    body { max-width: 1100px; margin: 1.25rem auto; padding: 0 1rem 2rem; }
-    h1 { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 0.25rem; }
-    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
-    .grid { display: grid; grid-template-columns: 1.1fr 1fr 0.9fr; gap: 0.85rem; }
-    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-    section {
-      background: color-mix(in srgb, var(--panel) 92%, #000);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 0.9rem 1rem;
-    }
-    section h2 { font-size: 0.95rem; margin: 0 0 0.6rem; font-weight: 600; }
-    label { display: block; font-size: 0.78rem; color: var(--muted); margin-top: 0.45rem; }
-    input, textarea, button { font: inherit; margin-top: 0.2rem; }
-    input, textarea {
-      width: 100%; box-sizing: border-box; padding: 0.4rem 0.5rem;
-      border: 1px solid var(--line); border-radius: 6px; background: #121820; color: var(--ink);
-    }
-    button {
-      margin-top: 0.55rem; margin-right: 0.35rem; padding: 0.4rem 0.75rem; border: 0;
-      border-radius: 6px; background: var(--accent); color: #041018; font-weight: 600; cursor: pointer;
-    }
-    button.secondary { background: #3a4654; color: var(--ink); font-weight: 500; }
-    .meter { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-    .meter .box {
-      background: #121820; border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem;
-    }
-    .meter .n { font-size: 1.35rem; font-weight: 650; }
-    .meter .l { font-size: 0.72rem; color: var(--muted); }
-    .tool { border-top: 1px solid var(--line); padding-top: 0.45rem; margin-top: 0.45rem; }
-    .prov { font-size: 0.72rem; color: var(--muted); font-family: ui-monospace, monospace; }
-    .skip { color: var(--warn); font-size: 0.8rem; }
-    .timeline { list-style: none; padding: 0; margin: 0; max-height: 360px; overflow: auto; }
-    .timeline li {
-      font-size: 0.78rem; border-left: 2px solid var(--ok); padding: 0.35rem 0.55rem; margin-bottom: 0.35rem;
-      background: #121820; border-radius: 0 6px 6px 0;
-    }
-    pre { background: #121820; padding: 0.65rem; overflow: auto; font-size: 0.72rem; border-radius: 6px; max-height: 220px; border: 1px solid var(--line); }
-    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-  </style>
-</head>
-<body>
-  <h1>toolgraph v3 — context meter · bundle · edit timeline</h1>
-  <p class="sub">Learned <code>REQUIRES</code> edges in HydraDB. Session skips via <code>RESOLVED</code>. No paid APIs.</p>
-
-  <section style="margin-bottom:0.85rem;">
-    <div class="row2">
-      <div>
-        <label for="session">session_id</label>
-        <input id="session" value="demo-session-1" />
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ToolGraph | Inspect the tools behind the task</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #101410;
+        --panel: #171d17;
+        --line: #344034;
+        --ink: #edf2e8;
+        --muted: #a8b5a1;
+        --accent: #ceef89;
+        --warn: #f1c585;
+        font-family: Inter, system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        max-width: 1440px;
+        margin: auto;
+        padding: 26px 36px 60px;
+      }
+      a {
+        color: var(--accent);
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 20px;
+        gap: 20px;
+      }
+      .brand {
+        font-size: 19px;
+        font-weight: 750;
+        letter-spacing: -0.6px;
+      }
+      .brand span {
+        color: var(--accent);
+      }
+      .eyebrow {
+        font:
+          11px ui-monospace,
+          monospace;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--accent);
+      }
+      .status {
+        font:
+          12px ui-monospace,
+          monospace;
+        color: var(--muted);
+      }
+      h1 {
+        font-size: clamp(32px, 4.4vw, 62px);
+        letter-spacing: -2.5px;
+        font-weight: 550;
+        max-width: 900px;
+        line-height: 1.06;
+        margin: 26px 0 18px;
+      }
+      h1 span {
+        color: var(--accent);
+      }
+      .intro {
+        max-width: 750px;
+        font-size: 17px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .hero {
+        padding: 30px 0 24px;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        gap: 22px;
+      }
+      .panel {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        padding: 24px;
+        border-radius: 5px;
+      }
+      .panel h2 {
+        font-size: 18px;
+        font-weight: 550;
+        letter-spacing: -0.5px;
+        margin: 0 0 8px;
+      }
+      .muted,
+      .note {
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--muted);
+      }
+      .note {
+        border-left: 2px solid var(--accent);
+        padding: 5px 0 5px 12px;
+      }
+      .label,
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin: 18px 0 7px;
+      }
+      textarea,
+      input,
+      button {
+        font: inherit;
+      }
+      textarea,
+      input {
+        width: 100%;
+        background: var(--bg);
+        color: var(--ink);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 12px;
+      }
+      textarea {
+        resize: vertical;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      input {
+        font-size: 13px;
+      }
+      button {
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        cursor: pointer;
+        background: var(--accent);
+        color: var(--bg);
+        padding: 12px 17px;
+        font-size: 13px;
+        font-weight: 650;
+      }
+      button:hover:not(:disabled) {
+        filter: brightness(1.1);
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .primary {
+        width: 100%;
+        margin-top: 18px;
+      }
+      .secondary {
+        background: transparent;
+        color: var(--ink);
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .row > * {
+        flex: 1;
+      }
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: center;
+      }
+      .toolbar button {
+        white-space: nowrap;
+      }
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        margin: 20px 0;
+      }
+      .metric {
+        padding: 20px 12px;
+        border-right: 1px solid var(--line);
+      }
+      .metric:first-child {
+        padding-left: 0;
+      }
+      .metric:last-child {
+        border: 0;
+      }
+      .number {
+        font-size: 32px;
+        letter-spacing: -1px;
+        font-variant-numeric: tabular-nums;
+      }
+      .caption {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 7px;
+      }
+      .tool {
+        display: grid;
+        grid-template-columns: 28px 1fr;
+        gap: 12px;
+        padding: 18px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .index {
+        color: var(--muted);
+        font:
+          11px ui-monospace,
+          monospace;
+        padding-top: 4px;
+      }
+      .name {
+        font-size: 14px;
+        font-weight: 650;
+        overflow-wrap: anywhere;
+      }
+      .desc {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+        margin: 7px 0;
+      }
+      .tag {
+        display: inline-block;
+        color: var(--accent);
+        font:
+          10px ui-monospace,
+          monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 7px;
+      }
+      .path {
+        font:
+          11px/1.8 ui-monospace,
+          monospace;
+        color: var(--accent);
+        overflow-wrap: anywhere;
+      }
+      .empty {
+        padding: 55px 20px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+      .empty b {
+        display: block;
+        color: var(--ink);
+        font-size: 20px;
+        margin-bottom: 10px;
+        font-weight: 500;
+      }
+      .lower {
+        margin-top: 22px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+      }
+      details {
+        margin: 16px 0;
+      }
+      summary {
+        cursor: pointer;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      pre {
+        background: var(--bg);
+        padding: 16px;
+        overflow: auto;
+        font:
+          11px/1.6 ui-monospace,
+          monospace;
+        max-height: 360px;
+        border: 1px solid var(--line);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .message {
+        font-size: 13px;
+        color: var(--warn);
+        min-height: 22px;
+        margin: 16px 0 0;
+        line-height: 1.5;
+      }
+      .diff {
+        font:
+          12px/1.8 ui-monospace,
+          monospace;
+        padding: 15px;
+        border: 1px solid var(--line);
+        margin-top: 16px;
+        overflow-wrap: anywhere;
+      }
+      .add {
+        color: var(--accent);
+      }
+      .remove {
+        color: var(--warn);
+      }
+      .timeline {
+        padding-left: 18px;
+        font:
+          12px/1.8 ui-monospace,
+          monospace;
+        overflow-wrap: anywhere;
+      }
+      .foot {
+        margin-top: 32px;
+        border-top: 1px solid var(--line);
+        padding-top: 20px;
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        gap: 20px;
+        justify-content: space-between;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      textarea:focus-visible,
+      summary:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 4px;
+      }
+      @media (max-width: 900px) {
+        body {
+          padding: 20px;
+        }
+        .layout,
+        .lower {
+          grid-template-columns: 1fr;
+        }
+        h1 {
+          letter-spacing: -1px;
+        }
+        .hero {
+          padding: 20px 0;
+        }
+        .toolbar {
+          align-items: flex-start;
+        }
+        .metrics {
+          margin-top: 15px;
+        }
+        .number {
+          font-size: 26px;
+        }
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        button {
+          transition: filter 0.15s;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        tool<span>graph</span
+        ><span class="status"> / dependency workbench</span>
       </div>
-      <div>
-        <label for="k">top k</label>
-        <input id="k" type="number" value="12" min="1" max="32" />
+      <div id="health" class="status" role="status">
+        Connecting to the engine…
       </div>
+    </header>
+    <div class="hero">
+      <div class="eyebrow">Context for tool-using agents</div>
+      <h1>
+        Finding the action is easy.<br /><span>What does it depend on?</span>
+      </h1>
+      <p class="intro">
+        Inspect a task's tool bundle, follow the learned dependency evidence,
+        and compare what changes after a trace. Less guessing. A visible reason
+        for every addition.
+      </p>
     </div>
-    <label for="query">task query</label>
-    <textarea id="query" rows="2">I'd like to book a table for dinner at The Italian Bistro at 7 PM. Can you handle an OpenTable reservation?</textarea>
-    <label for="tools_used">trace tools_used (comma-separated)</label>
-    <input id="tools_used" placeholder="main_tool, helper_a" />
-    <button id="loadBtn">1. load tools</button>
-    <button id="resolveBtn" class="secondary">2. record_result (first tool)</button>
-    <button id="load2Btn" class="secondary">3. load again (same session)</button>
-    <button id="traceBtn" class="secondary">4. record_trace</button>
-  </section>
-
-  <div class="grid">
-    <section>
-      <h2>1 · context meter</h2>
-      <div class="meter">
-        <div class="box"><div class="n" id="preloadTok">—</div><div class="l">preload-all tokens</div></div>
-        <div class="box"><div class="n" id="bundleTok">—</div><div class="l">bundle tokens</div></div>
-        <div class="box"><div class="n" id="savedTok">—</div><div class="l">tokens saved</div></div>
-        <div class="box"><div class="n" id="bundleSize">—</div><div class="l">bundle size / catalog</div></div>
-      </div>
-    </section>
-
-    <section>
-      <h2>2 · bundle (why-path + skips)</h2>
-      <div id="toolsOut"></div>
-      <div id="skippedOut"></div>
-    </section>
-
-    <section>
-      <h2>3 · edit timeline</h2>
-      <label for="edit_id">undo edit_id</label>
-      <input id="edit_id" placeholder="e…" />
-      <button id="undoBtn" class="secondary">undo</button>
-      <label for="as_of">as_of (ISO / datetime-local)</label>
-      <input id="as_of" type="datetime-local" />
-      <button id="asOfBtn" class="secondary">as_of snapshot</button>
-      <ul class="timeline" id="timeline"></ul>
-    </section>
-  </div>
-
-  <section style="margin-top:0.85rem;">
-    <h2 style="font-size:0.95rem;margin:0 0 0.5rem;">raw</h2>
-    <pre id="raw"></pre>
-  </section>
-
-  <script>
-    const raw = document.getElementById("raw");
-    let lastRanked = [];
-
-    async function post(path, body) {
-      const res = await fetch(path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      return res.json();
-    }
-
-    function sessionId() {
-      return document.getElementById("session").value.trim() || null;
-    }
-
-    function renderMeter(meter) {
-      if (!meter) return;
-      document.getElementById("preloadTok").textContent = meter.preload_all_tokens;
-      document.getElementById("bundleTok").textContent = meter.bundle_tokens;
-      document.getElementById("savedTok").textContent = meter.tokens_saved;
-      document.getElementById("bundleSize").textContent =
-        `${meter.bundle_size} / ${meter.catalog_size}`;
-    }
-
-    function renderLoad(data) {
-      lastRanked = data.ranked || [];
-      const toolsOut = document.getElementById("toolsOut");
-      const skippedOut = document.getElementById("skippedOut");
-      toolsOut.innerHTML = "";
-      skippedOut.innerHTML = "";
-      (data.tools || []).forEach((t) => {
-        const div = document.createElement("div");
-        div.className = "tool";
-        const path = (t.why_path || []).join(" → ");
-        const edges = (t.provenance || [])
-          .map((e) => `${e.src}-[REQUIRES p=${e.p?.toFixed?.(2) ?? "?"}]→${e.dst}`)
-          .join(" · ");
-        div.innerHTML =
-          `<strong>${t.name}</strong>` +
-          (path ? `<div class="prov">why: ${path}</div>` : "") +
-          (edges ? `<div class="prov">${edges}</div>` : "");
-        toolsOut.appendChild(div);
-      });
-      const skipped = data.skipped || {};
-      Object.entries(skipped).forEach(([name, reason]) => {
-        const div = document.createElement("div");
-        div.className = "skip";
-        div.textContent = `${name}: ${reason}`;
-        skippedOut.appendChild(div);
-      });
-      renderMeter(data.context_meter);
-      if (data.bundle_mode) {
-        const mode = document.createElement("div");
-        mode.className = "skip";
-        mode.textContent = "bundle mode: " + data.bundle_mode;
-        skippedOut.prepend(mode);
+    <div class="layout">
+      <section class="panel">
+        <div class="eyebrow">01 / Ask</div>
+        <h2 style="margin-top: 12px">Start with a real task</h2>
+        <p class="muted">
+          This workbench retrieves tool definitions. It does not execute tools
+          or book anything.
+        </p>
+        <label for="query">What should the agent do?</label
+        ><textarea id="query" rows="5">
+I'd like to book a table for dinner at The Italian Bistro at 7 PM. Can you handle an OpenTable reservation?</textarea
+        >
+        <div class="row">
+          <div>
+            <label for="k">Tool budget</label
+            ><input id="k" type="number" min="1" max="32" value="12" />
+          </div>
+          <div>
+            <label for="session">Session (optional)</label
+            ><input id="session" placeholder="No session" value="" />
+          </div>
+        </div>
+        <button id="loadBtn" class="primary">Inspect tool bundle →</button>
+        <div
+          id="message"
+          class="message"
+          role="status"
+          aria-live="polite"
+        ></div>
+        <p class="note">
+          Session IDs group traces, not cached results. Session skipping is
+          disabled: a matching tool name does not prove that an earlier result
+          satisfies this task.
+        </p>
+        <details>
+          <summary>What is actually being measured?</summary>
+          <p class="muted">
+            Tokens are the size of returned tool schemas, not a measured
+            reduction in agent cost. A smaller bundle can omit required tools.
+            This screen does not establish task success or benchmark
+            superiority.
+          </p>
+        </details>
+      </section>
+      <section class="panel">
+        <div class="toolbar">
+          <div>
+            <div class="eyebrow">02 / Inspect</div>
+            <h2 style="margin-top: 12px">The bundle, with its reasons</h2>
+          </div>
+          <button id="captureBtn" class="secondary" disabled>
+            Pin as before
+          </button>
+        </div>
+        <div id="degraded" class="message" role="status" hidden></div>
+        <div id="mode" class="muted">
+          Engine and retrieval mode appear with the actual response.
+        </div>
+        <div class="metrics">
+          <div class="metric">
+            <div class="number" id="bundleSize">·</div>
+            <div class="caption">TOOLS / CATALOG</div>
+          </div>
+          <div class="metric">
+            <div class="number" id="bundleTok">·</div>
+            <div class="caption">BUNDLE SCHEMA TOKENS</div>
+          </div>
+          <div class="metric">
+            <div class="number" id="preloadTok">·</div>
+            <div class="caption">FULL CATALOG TOKENS</div>
+          </div>
+        </div>
+        <div id="comparison" hidden></div>
+        <div id="toolsOut">
+          <div class="empty">
+            <b>A list of names isn't enough.</b>Run a task to see which tools
+            were retrieved directly<br />and which were added through dependency
+            paths.
+          </div>
+        </div>
+        <div id="skippedOut" class="message"></div>
+      </section>
+    </div>
+    <div class="lower">
+      <section class="panel">
+        <div class="eyebrow">03 / Observe, don't invent</div>
+        <h2 style="margin-top: 12px">Teach from an observed trace</h2>
+        <p class="muted">
+          Pin the current bundle, enter the tools actually used outside this
+          demo, then retrieve again. Co-occurrence is evidence, not proof of a
+          dependency. An unchanged bundle is a valid result.
+        </p>
+        <p id="writeState" class="note">
+          Checking whether this deployment permits writes.
+        </p>
+        <label for="tools_used"
+          >Observed tools, in order (comma-separated exact names)</label
+        ><input id="tools_used" placeholder="tool_a, tool_b" /><button
+          id="traceBtn"
+          class="primary"
+          disabled
+        >
+          Record observed trace
+        </button>
+        <p id="traceResult" class="message" role="status"></p>
+        <details>
+          <summary>Reverse a learned edit</summary>
+          <label for="edit_id">Edit ID</label
+          ><input
+            id="edit_id"
+            placeholder="ID returned by record trace"
+          /><button
+            id="undoBtn"
+            class="secondary"
+            style="margin-top: 12px"
+            disabled
+          >
+            Undo this edit
+          </button>
+        </details>
+      </section>
+      <section class="panel">
+        <div class="eyebrow">04 / Audit</div>
+        <h2 style="margin-top: 12px">Keep the evidence in view</h2>
+        <p class="muted">
+          No animated success counters. Inspect the actual response and edit
+          history. Compare related tasks separately; a changed query is not a
+          controlled before/after test.
+        </p>
+        <ul id="timeline" class="timeline">
+          <li>No edits loaded.</li>
+        </ul>
+        <details>
+          <summary>Full API response</summary>
+          <pre id="raw">No request yet.</pre>
+        </details>
+        <details>
+          <summary>Historical snapshot</summary>
+          <label for="as_of">Local date and time</label
+          ><input id="as_of" type="datetime-local" /><button
+            id="asOfBtn"
+            class="secondary"
+            style="margin-top: 12px"
+          >
+            Read snapshot
+          </button>
+        </details>
+      </section>
+    </div>
+    <div class="foot">
+      <span
+        >HydraDB graph paths + learned dependency evidence. Mode is reported per
+        request.</span
+      ><span
+        ><a href="https://github.com/VasuBansal7576/hydra-toolgraph"
+          >Source &amp; evaluation limits ↗</a
+        ></span
+      >
+    </div>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let current = null,
+        baseline = null,
+        writes = false,
+        busy = false;
+      function node(tag, cls, value) {
+        const el = document.createElement(tag);
+        if (cls) el.className = cls;
+        if (value != null) el.textContent = value;
+        return el;
       }
-      if (data.store_requests == null && data.store_requests_note) {
-        const note = document.createElement("div");
-        note.className = "skip";
-        note.textContent = data.store_requests_note;
-        skippedOut.appendChild(note);
+      function syncButtons() {
+        $("loadBtn").disabled = busy;
+        $("captureBtn").disabled = busy || !current;
+        $("traceBtn").disabled = busy || !writes || !current;
+        $("undoBtn").disabled = busy || !writes;
+        $("asOfBtn").disabled = busy;
       }
-      raw.textContent = JSON.stringify(data, null, 2);
-      refreshTimeline();
-    }
-
-    async function refreshTimeline() {
-      const data = await fetch("/api/timeline").then((r) => r.json());
-      const ul = document.getElementById("timeline");
-      ul.innerHTML = "";
-      (data.events || []).slice().reverse().forEach((ev) => {
-        const li = document.createElement("li");
-        li.textContent = `${ev.op} · ${JSON.stringify(ev).slice(0, 140)}`;
-        ul.appendChild(li);
-      });
-    }
-
-    document.getElementById("loadBtn").onclick = async () => {
-      renderLoad(await post("/api/load_tools", {
-        query: document.getElementById("query").value,
-        session_id: sessionId(),
-        k: Number(document.getElementById("k").value || 16),
-      }));
-    };
-
-    document.getElementById("load2Btn").onclick = async () => {
-      renderLoad(await post("/api/load_tools", {
-        query: document.getElementById("query").value,
-        session_id: sessionId(),
-        k: Number(document.getElementById("k").value || 16),
-      }));
-    };
-
-    document.getElementById("resolveBtn").onclick = async () => {
-      const tool = lastRanked[0];
-      if (!tool) { raw.textContent = "load tools first"; return; }
-      const data = await post("/api/record_result", {
-        session_id: sessionId(),
-        tool,
-      });
-      raw.textContent = JSON.stringify(data, null, 2);
-      refreshTimeline();
-    };
-
-    document.getElementById("traceBtn").onclick = async () => {
-      const tools_used = document.getElementById("tools_used").value
-        .split(",").map((s) => s.trim()).filter(Boolean);
-      const data = await post("/api/record_trace", {
-        query: document.getElementById("query").value,
-        session_id: sessionId(),
-        tools_used,
-        tools_loaded: lastRanked,
-      });
-      raw.textContent = JSON.stringify(data, null, 2);
-      if (data.edit_ids?.length) {
-        document.getElementById("edit_id").value = data.edit_ids[data.edit_ids.length - 1];
+      async function request(path, body) {
+        const res = await fetch(
+          path,
+          body === undefined
+            ? {}
+            : {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+              },
+        );
+        const data = await res.json();
+        const usableFallback =
+          path === "/api/load_tools" &&
+          Array.isArray(data.ranked) &&
+          Array.isArray(data.tools) &&
+          typeof data.bundle_mode === "string" &&
+          data.bundle_mode.includes("fallback");
+        if (!res.ok || data.ok === false || (data.error && !usableFallback))
+          throw new Error(data.error || `Request failed (${res.status})`);
+        return data;
       }
-      refreshTimeline();
-    };
-
-    document.getElementById("undoBtn").onclick = async () => {
-      const data = await post("/api/undo_edit", { edit_id: document.getElementById("edit_id").value });
-      raw.textContent = JSON.stringify(data, null, 2);
-      refreshTimeline();
-    };
-
-    document.getElementById("asOfBtn").onclick = async () => {
-      const v = document.getElementById("as_of").value;
-      const date_iso = v ? new Date(v).toISOString() : new Date().toISOString();
-      const data = await post("/api/as_of", { date_iso });
-      raw.textContent = JSON.stringify(data, null, 2);
-      refreshTimeline();
-    };
-
-    refreshTimeline();
-  </script>
-</body>
+      async function action(fn) {
+        if (busy) return;
+        busy = true;
+        syncButtons();
+        $("message").textContent = "Working…";
+        try {
+          await fn();
+          $("message").textContent = "";
+        } catch (e) {
+          $("message").textContent = e.message;
+        } finally {
+          busy = false;
+          syncButtons();
+        }
+      }
+      function showRaw(data) {
+        $("raw").textContent = JSON.stringify(data, null, 2);
+      }
+      function renderComparison() {
+        const out = $("comparison");
+        out.replaceChildren();
+        out.hidden = !baseline || !current;
+        if (out.hidden) return;
+        out.className = "diff";
+        const same =
+          baseline.query === current.query &&
+          baseline.k === current.k &&
+          baseline.session === current.session &&
+          baseline.data.bundle_mode === current.data.bundle_mode;
+        out.append(
+          node(
+            "div",
+            "",
+            same
+              ? "BEFORE → CURRENT · same query, budget and session"
+              : "DIFFERENT INPUTS OR RETRIEVAL MODE · descriptive comparison, not a controlled test",
+          ),
+        );
+        const before = new Set(baseline.data.ranked || []),
+          after = new Set(current.data.ranked || []);
+        const added = [...after].filter((x) => !before.has(x)),
+          removed = [...before].filter((x) => !after.has(x));
+        out.append(
+          node(
+            "div",
+            "add",
+            added.length ? "+ " + added.join(", ") : "No tools added.",
+          ),
+          node(
+            "div",
+            "remove",
+            removed.length ? "− " + removed.join(", ") : "No tools removed.",
+          ),
+        );
+        const a = baseline.data.context_meter?.bundle_tokens,
+          b = current.data.context_meter?.bundle_tokens;
+        if (Number.isFinite(a) && Number.isFinite(b))
+          out.append(
+            node(
+              "div",
+              "",
+              `Schema tokens: ${a} → ${b}. This is not an execution-success measurement.`,
+            ),
+          );
+      }
+      function renderLoad(data) {
+        showRaw(data);
+        $("degraded").hidden = !data.error;
+        $("degraded").textContent = data.error
+          ? `Degraded retrieval: ${data.error}. The bundle below is a fallback, not a live Hydra result.`
+          : "";
+        $("mode").textContent =
+          "Retrieval mode: " + (data.bundle_mode || "not reported");
+        const meter = data.context_meter || {};
+        $("bundleSize").textContent =
+          `${meter.bundle_size ?? "?"} / ${meter.catalog_size ?? "?"}`;
+        $("bundleTok").textContent = meter.bundle_tokens ?? "·";
+        $("preloadTok").textContent = meter.preload_all_tokens ?? "·";
+        $("toolsOut").replaceChildren();
+        (data.tools || []).forEach((tool, i) => {
+          const item = node("div", "tool"),
+            body = node("div");
+          item.append(
+            node("div", "index", String(i + 1).padStart(2, "0")),
+            body,
+          );
+          const path = tool.why_path || [];
+          body.append(
+            node(
+              "div",
+              "tag",
+              path.length > 1 ? "Dependency expansion" : "Retrieval candidate",
+            ),
+            node("div", "name", tool.name),
+            node("div", "desc", tool.description || ""),
+          );
+          if (path.length > 1)
+            body.append(node("div", "path", path.join(" → ")));
+          (tool.provenance || []).forEach((edge) => {
+            const p = Number.isFinite(edge.p) ? edge.p.toFixed(2) : "unknown";
+            body.append(
+              node(
+                "div",
+                "desc",
+                `Evidence: ${edge.prov || "not reported"} · weight ${p} · observations ${edge.n_obs ?? "unknown"}`,
+              ),
+            );
+          });
+          $("toolsOut").append(item);
+        });
+        if (!(data.tools || []).length)
+          $("toolsOut").append(
+            node(
+              "div",
+              "empty",
+              "No tools returned. Try a more specific task.",
+            ),
+          );
+        $("skippedOut").replaceChildren();
+        Object.entries(data.skipped || {}).forEach(([name, reason]) =>
+          $("skippedOut").append(node("div", "", `${name}: ${reason}`)),
+        );
+        renderComparison();
+      }
+      async function timeline() {
+        try {
+          const data = await request("/api/timeline");
+          $("timeline").replaceChildren();
+          const events = (data.events || []).slice(-8).reverse();
+          if (!events.length)
+            $("timeline").append(node("li", "", "No edits in this process."));
+          events.forEach((ev) =>
+            $("timeline").append(
+              node("li", "", `${ev.op}: ${JSON.stringify(ev)}`),
+            ),
+          );
+        } catch (e) {
+          $("timeline").replaceChildren(
+            node("li", "", "History unavailable: " + e.message),
+          );
+        }
+      }
+      $("loadBtn").onclick = () =>
+        action(async () => {
+          const query = $("query").value.trim(),
+            k = Number($("k").value),
+            session = $("session").value.trim() || null;
+          if (!query) throw new Error("Enter a task first.");
+          if (!Number.isInteger(k) || k < 1 || k > 32)
+            throw new Error("Tool budget must be an integer from 1 to 32.");
+          const data = await request("/api/load_tools", {
+            query,
+            k,
+            session_id: session,
+          });
+          current = { query, k, session, data };
+          renderLoad(data);
+          await timeline();
+        });
+      $("captureBtn").onclick = () => {
+        baseline = structuredClone(current);
+        $("captureBtn").textContent = "Replace pinned before";
+        renderComparison();
+      };
+      $("traceBtn").onclick = () =>
+        action(async () => {
+          if (!current) throw new Error("Retrieve a bundle first.");
+          if (
+            $("query").value.trim() !== current.query ||
+            ($("session").value.trim() || null) !== current.session
+          )
+            throw new Error(
+              "Retrieve this task and session before recording its trace.",
+            );
+          const used = $("tools_used")
+            .value.split(",")
+            .map((x) => x.trim())
+            .filter(Boolean);
+          if (!used.length)
+            throw new Error(
+              "Enter the exact tool names from an observed trace.",
+            );
+          const data = await request("/api/record_trace", {
+            query: current.query,
+            session_id: current.session,
+            tools_used: used,
+            tools_loaded: current.data.ranked || [],
+          });
+          showRaw(data);
+          $("traceResult").textContent =
+            `Trace recorded. ${data.edges_touched ?? "Unknown"} edges touched. Retrieve again to inspect the actual effect.`;
+          if (data.edit_ids?.length) $("edit_id").value = data.edit_ids.at(-1);
+          await timeline();
+        });
+      $("undoBtn").onclick = () =>
+        action(async () => {
+          const edit_id = $("edit_id").value.trim();
+          if (!edit_id) throw new Error("Enter an edit ID.");
+          const data = await request("/api/undo_edit", { edit_id });
+          showRaw(data);
+          $("traceResult").textContent =
+            "Undo response received. Inspect the API response and retrieve again.";
+          await timeline();
+        });
+      $("asOfBtn").onclick = () =>
+        action(async () => {
+          if (!$("as_of").value) throw new Error("Choose a date and time.");
+          showRaw(
+            await request("/api/as_of", {
+              date_iso: new Date($("as_of").value).toISOString(),
+            }),
+          );
+        });
+      async function health() {
+        try {
+          const data = await request("/api/health");
+          writes = data.allow_writes === true && !data.read_only;
+          $("health").textContent =
+            `${data.ready ? "ENGINE READY" : String(data.phase || "starting").toUpperCase()} · ${data.fusion_mode || data.fusion || "initializing"}`;
+          $("writeState").textContent = writes
+            ? "Writes enabled. Traces change the shared graph; use only observed tool names."
+            : "Read-only learning controls. This deployment does not accept trace edits. Retrieval and inspection remain available.";
+          syncButtons();
+          if (!data.ready) setTimeout(health, 5000);
+        } catch (e) {
+          $("health").textContent = "ENGINE UNAVAILABLE";
+          $("writeState").textContent =
+            "Cannot verify write access. Learning controls remain disabled.";
+          writes = false;
+          syncButtons();
+        }
+      }
+      health();
+      timeline();
+    </script>
+  </body>
 </html>

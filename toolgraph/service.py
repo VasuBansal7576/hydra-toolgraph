@@ -229,7 +229,10 @@ class ToolgraphService:
         cached = cache.get(cache_key)
         if cached is not None:
             payload = dict(cached)
+            self._last_loaded[session_id or "_anon"] = list(payload.get("ranked", []))
             payload["cached"] = True
+            payload["store_requests"] = 0
+            payload["store_requests_note"] = "cached bundle; no backend requests"
             payload["latency_ms"] = round((time.perf_counter() - started) * 1000.0, 2)
             return payload
 
@@ -280,20 +283,20 @@ class ToolgraphService:
             self.store.ensure_hydra_synced()
             result = self.store.load_tools(
                 seeds,
-                session_id,
+                None,
                 k,
                 expand_seeds=expand_seeds,
                 fanout_cap=fanout_cap,
             )
-            # Fill gaps from local CTE so MSpaths truncation cannot drop helpers
-            # of the (few) expand seeds we intentionally kept.
             result = self._merge_memory_expansion(result, seeds, expand_seeds, k)
-            bundle_mode = "hydra_graph"
+            bundle_mode = "hybrid (Hydra paths + local learned-edge closure)"
         except HydraError as exc:
-            costs = self.store.recursive_cte(expand_seeds or seeds, ["REQUIRES"], MAX_LEN)
-            for index, name in enumerate(seeds):
-                costs.setdefault(name, index * SEED_PENALTY)
-            ranked = rank_costs(costs)[:k]
+            result = self._merge_memory_expansion(
+                LoadToolsResult(tools=[], costs={}, why={}, skipped={}),
+                seeds, expand_seeds, k,
+            )
+            ranked = result.tools
+            self._last_loaded[session_id or "_anon"] = list(ranked)
             payload = {
                 "query": query,
                 "session_id": session_id,
@@ -302,7 +305,7 @@ class ToolgraphService:
                         "name": name,
                         "description": self.tools[name].description if name in self.tools else "",
                         "provenance": [],
-                        "why_path": [name],
+                        "why_path": list(result.why[name].path) if name in result.why else [name],
                     }
                     for name in ranked
                     if name in self.tools
@@ -310,7 +313,7 @@ class ToolgraphService:
                 "ranked": ranked,
                 "skipped": {},
                 "context_meter": self._context_meter(ranked),
-                "bundle_mode": "memory-CTE fallback (Hydra unavailable)",
+                "bundle_mode": "local learned-edge fallback (Hydra unavailable)",
                 "store_requests": None,
                 "error": f"hydra unavailable: {exc.message}",
                 "read_only": False,
@@ -318,7 +321,6 @@ class ToolgraphService:
                 "latency_ms": round((time.perf_counter() - started) * 1000.0, 2),
                 "cached": False,
             }
-            cache[cache_key] = payload
             return payload
 
         ranked = list(result.tools)
@@ -365,9 +367,6 @@ class ToolgraphService:
             name: f"skipped, already resolved by {producer}"
             for name, producer in (result.skipped or {}).items()
         }
-        # Asserted by design (session → RESOLVED + MSpaths); unit-tested, not a
-        # RecordingHydraClient count from this path.
-        asserted_reqs = 2 if session_id else 1
         payload = {
             "query": query,
             "session_id": session_id,
@@ -375,12 +374,13 @@ class ToolgraphService:
             "ranked": ranked,
             "skipped": skipped_out,
             "context_meter": self._context_meter(ranked),
-            "store_requests": asserted_reqs,
+            "store_requests": None,
             "store_requests_note": (
-                "asserted by design (RESOLVED+MSpaths when session_id set); "
-                "see tests/test_v3_store.py"
+                "not instrumented; synchronization and path requests depend on store state"
             ),
             "bundle_mode": bundle_mode,
+            "session_reuse": False,
+            "session_reuse_note": "Tool-name matches alone do not prove cached results satisfy this request.",
             "seed_policy": seed_debug,
             "latency_ms": round((time.perf_counter() - started) * 1000.0, 2),
             "cached": False,
@@ -390,38 +390,43 @@ class ToolgraphService:
         return payload
 
     def _merge_memory_expansion(self, result, seeds: list[str], expand_seeds: list[str], k: int):
-        """Merge local REQUIRES closure for expand_seeds into a Hydra load result.
-
-        Keeps Hydra why_paths when present; fills helpers MSpaths truncated away.
-        """
-        cte = self.store.recursive_cte(expand_seeds or seeds, ["REQUIRES"], MAX_LEN)
-        costs = dict(result.costs)
-        why = dict(result.why)
-        for index, name in enumerate(seeds):
-            costs.setdefault(name, index * SEED_PENALTY)
-            why.setdefault(
-                name,
-                ToolWhy(path=[name], edge_ids=[], sources=[], cost=costs[name]),
-            )
-        for name, cost in cte.items():
-            if name not in costs or float(cost) < float(costs[name]):
-                costs[name] = float(cost)
-                if name not in why or len(why[name].path) <= 1:
-                    path = [name]
-                    for src in expand_seeds or seeds:
-                        src_id = self.store.names.get(src)
-                        dst_id = self.store.names.get(name)
-                        if src_id is None or dst_id is None:
-                            continue
-                        if (src_id, dst_id, "REQUIRES") in self.store.edges:
-                            path = [src, name]
-                            break
-                    why[name] = ToolWhy(
-                        path=path,
-                        edge_ids=[],
-                        sources=[],
-                        cost=float(cost),
-                    )
+        """Complete truncated paths with bounded, session-aware local evidence."""
+        excluded = set(result.skipped)
+        costs = {name: cost for name, cost in result.costs.items() if name not in excluded}
+        why = {name: item for name, item in result.why.items() if name not in excluded}
+        adjacency = {}
+        for edge in self.store.active_edges(["REQUIRES"]):
+            source = self.store.by_id[edge.src]
+            adjacency.setdefault(source, []).append(edge)
+        seed_costs = {name: index * SEED_PENALTY for index, name in enumerate(seeds)}
+        for name, cost in seed_costs.items():
+            if name not in excluded and cost < costs.get(name, float("inf")):
+                costs[name] = cost
+                why[name] = ToolWhy(path=[name], edge_ids=[], sources=[], cost=cost)
+        frontier = [
+            (name, seed_costs.get(name, 0.0), [name], [], [])
+            for name in expand_seeds if name not in excluded
+        ]
+        best = {}
+        while frontier:
+            name, cost, path, edge_ids, sources = frontier.pop()
+            state = (name, len(path))
+            if cost >= best.get(state, float("inf")):
+                continue
+            best[state] = cost
+            if cost < costs.get(name, float("inf")):
+                costs[name] = cost
+                why[name] = ToolWhy(path=path, edge_ids=edge_ids, sources=sources, cost=cost)
+            if len(path) > MAX_LEN:
+                continue
+            for edge in adjacency.get(name, ()):
+                target = self.store.by_id[edge.dst]
+                if target in excluded or target in path:
+                    continue
+                frontier.append((
+                    target, cost + edge.cost, [*path, target],
+                    [*edge_ids, edge.edge_id], [*sources, edge.source],
+                ))
         ranked = rank_costs(costs)[:k]
         return LoadToolsResult(
             tools=ranked,
@@ -470,7 +475,9 @@ class ToolgraphService:
             }
         sid_key = session_id or "_anon"
         loaded = tools_loaded if tools_loaded is not None else list(self._last_loaded.get(sid_key) or [])
+        self._load_cache = {}
         before = len(self.store.edges)
+        prior_edit_ids = {edge.edit_id for edge in self.store.edges.values() if edge.edit_id}
         touched = self.store.record_trace(session_id, query, tools_used, loaded)
         try:
             self.store.ensure_hydra_synced()
@@ -479,8 +486,9 @@ class ToolgraphService:
         edit_ids = [
             edge.edit_id
             for edge in self.store.edges.values()
-            if edge.rel == "REQUIRES" and edge.source == "trace" and edge.edit_id
-        ][-max(1, touched) :]
+            if edge.rel == "REQUIRES" and edge.source == "trace"
+            and edge.edit_id and edge.edit_id not in prior_edit_ids
+        ]
         self._edit_timeline.append(
             {
                 "op": "record_trace",
@@ -505,6 +513,7 @@ class ToolgraphService:
         if blocked:
             return {"session_id": session_id, "tool": tool, **blocked}
         digest = args_hash or hashlib.sha1(f"{session_id}:{tool}".encode()).hexdigest()[:16]
+        self._load_cache = {}
         self.store.record_result(session_id, tool, digest)
         self._edit_timeline.append(
             {
@@ -526,6 +535,7 @@ class ToolgraphService:
         blocked = self._writes_blocked("undo_edit")
         if blocked:
             return {"undone": edit_id, **blocked}
+        self._load_cache = {}
         ok = self.store.undo_edit(edit_id)
         try:
             self.store.ensure_hydra_synced()

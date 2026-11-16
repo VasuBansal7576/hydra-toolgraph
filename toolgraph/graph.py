@@ -433,13 +433,13 @@ class GraphStore:
         if not walk_seeds:
             # No expansion sources: return seeds alone (still one store request shape
             # when session_id set; zero-path MSpaths avoided).
-            costs = {name: index * SEED_PENALTY for index, name in enumerate(seeds)}
+            costs = {name: index * SEED_PENALTY for index, name in enumerate(seeds) if name not in resolved}
             ranked = rank_costs(costs)[:k]
             why = {
                 name: ToolWhy(path=[name], edge_ids=[], sources=[], cost=costs[name])
                 for name in ranked
             }
-            return LoadToolsResult(tools=ranked, costs={n: costs[n] for n in ranked}, why=why, skipped={})
+            return LoadToolsResult(tools=ranked, costs={n: costs[n] for n in ranked}, why=why, skipped={name: name for name in resolved})
 
         values = ", ".join(f"'{name}'" for name in walk_seeds)
         statement = (
@@ -457,7 +457,7 @@ class GraphStore:
         why: dict[str, ToolWhy] = {
             name: ToolWhy(path=[name], edge_ids=[], sources=[], cost=costs[name]) for name in seeds
         }
-        skipped: dict[str, str] = {}
+        skipped: dict[str, str] = {name: name for name in resolved}
         seed_index = {name: index for index, name in enumerate(seeds)}
         best_path_meta: dict[str, tuple[float, list[str], list[str], list[str]]] = {
             name: (costs[name], [name], [], []) for name in seeds

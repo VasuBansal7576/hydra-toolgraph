@@ -1,6 +1,24 @@
-# hydra-toolgraph
+# ToolGraph
 
-A context layer that learns which tools to load from agent traces, with versioned, undoable, provenance-tagged `REQUIRES` edges in HydraDB — plus session `RESOLVED` skips.
+**Finding an action is not the same as finding everything it needs.**
+
+ToolGraph is an inspectable tool-context layer for agent builders: retrieve candidate tools, add learned prerequisites, and inspect the evidence behind the bundle. Record observed traces, compare the next retrieval, and undo a learned edit. The demo retrieves definitions; it does not execute tools or establish task success.
+
+[Open the dependency workbench](https://hydra-toolgraph.onrender.com/) · [Evaluation and limitations](docs/RESULTS_V3.md)
+
+### Try the evidence loop
+
+1. Enter a specific task and inspect its returned tools and dependency paths.
+2. Pin that response as the before snapshot.
+3. On a write-enabled local instance, record exact tool names from an actual observed trace. Public write-disabled deployments keep this control unavailable.
+4. Retrieve the same task again and inspect the additions, removals and evidence. Then try a related task separately. A changed query is not a controlled before/after comparison.
+5. Undo the returned edit ID and inspect retrieval again. An unchanged bundle is a valid result, not a hidden failure.
+
+**Current boundary:** this is a retrieval and learning prototype, not a validated execution planner. The current runtime combines Hydra paths with local learned-edge closure and labels that mode explicitly. The sealed v3 results below describe the earlier evaluated policy, not a new benchmark for this hybrid path. Session skipping is disabled in the runtime: tool-name equality does not prove that a prior result satisfies a new request. Session IDs are retained for trace provenance. The historical evaluation of session skipping below is unchanged.
+
+## Technical evidence
+
+A context layer that learns which tools to load from agent traces, with versioned, undoable, provenance-tagged `REQUIRES` edges in HydraDB; the earlier experiment also included session `RESOLVED` skips.
 
 **Headline:** H3 sessions **FAIL** (wrong-skip 25%; tokens not below kv_hop). H1/H4 pass with disclosed cuts; H2 passes **only under a post-hoc modified staleness metric** (see below).
 
@@ -36,7 +54,7 @@ Main-macro completeness@16. **measured.** Pre-reg sha `6264be76…`.
 | **hydra_graph** | **0.475** | **1123** | **0** | **2†** | **202‡** |
 | oracle | 0.955 | 956 | 0 | 1 | 3 |
 
-† hydra `store_requests=2` is **asserted by design** when `session_id` is set (`eval_v3.py` hard-codes 2; guarded by unit test) — **not** counted via `RecordingHydraClient` in the sealed B1 loop.  
+† hydra `store_requests=2` is **asserted by design** when `session_id` is set (`eval_v3.py` hard-codes 2; guarded by unit test) — **not** counted via `RecordingHydraClient` in the sealed B1 loop.
 ‡ latency column is the **mean of per-seed p50s** (seed7 446.5 / seed21 89.7 / seed42 70.3 → 202.2), not a pooled p50 over all tasks.
 
 hydra trails kv by **0.070** c16 (inside hydra seed spread 0.097; **loses 2/3 seeds** — wins seed 7, loses 21 & 42).
@@ -88,8 +106,8 @@ docker compose up --build
 # mcp  → POST http://localhost:8080/tools/{load_tools,record_trace,record_result,undo_edit,as_of,explain}
 ```
 
-Stdio MCP: `PYTHONPATH=. python3 -m toolgraph.mcp_server`  
-Smoke: `PYTHONPATH=. python3 scripts/smoke_demo.py`  
+Stdio MCP: `PYTHONPATH=. python3 -m toolgraph.mcp_server`
+Smoke: `PYTHONPATH=. python3 scripts/smoke_demo.py`
 HF Spaces single-container: `deploy/hf-space/README.md` (do not deploy without owner approval).
 
 ## Product
@@ -103,7 +121,7 @@ HF Spaces single-container: `deploy/hf-space/README.md` (do not deploy without o
 | `as_of(ts)` | REQUIRES_HIST snapshot + diff vs now |
 | `explain(tool)` | in/out REQUIRES + lesson |
 
-Demo panels: context meter · bundle (why-path + skips) · edit timeline.  
+Demo panels: task input, dependency evidence, pinned before/after tool-set comparison, explicit observed-trace recording, undo, and the raw API audit trail. Session results are not fabricated by clicking the first tool.
 Read-only mode labels the bundle as a **no-graph retrieval fallback** and does not claim store requests. Context-meter tokens use the same JSON-schema cl100k definition as B1 (~49k preload), not tool `base_text`.
 
 ## Reproduce
