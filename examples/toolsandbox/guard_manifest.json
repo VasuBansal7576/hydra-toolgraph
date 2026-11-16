@@ -1,0 +1,59 @@
+{
+  "protocol": "authored-state-guard-v2",
+  "status": "frozen before guarded execution",
+  "upstream_commit": "c8571d7854316d2e1c5f288e59fe1e34e53f6dd1",
+  "purpose": "Measure a new explicitly authored execution guard, not a change to the frozen retrieval comparison",
+  "arms": [
+    "fixed_observed_order",
+    "authored_fresh_state_guard"
+  ],
+  "loaded_tools_both_arms": [
+    "search_contacts",
+    "get_cellular_service_status",
+    "set_cellular_service_status",
+    "send_message_with_phone_number"
+  ],
+  "tasks": [
+    {
+      "id": "initially_off",
+      "recipient_name": "Homer S",
+      "content": "Can we review the rehearsal schedule tomorrow?",
+      "environment_action_before": "disable_cellular",
+      "expected_initial_cellular": false
+    },
+    {
+      "id": "already_on_new_recipient",
+      "recipient_name": "Fredrik Thordendal",
+      "content": "Please confirm the next rehearsal time.",
+      "environment_action_before": "none",
+      "expected_initial_cellular": true
+    },
+    {
+      "id": "turned_off_again_new_recipient",
+      "recipient_name": "John Petrucci",
+      "content": "Bring the revised rehearsal notes.",
+      "environment_action_before": "disable_cellular",
+      "expected_initial_cellular": false
+    }
+  ],
+  "context": "Each arm begins with a fresh actual upstream ExecutionContext and original contact fixture. Tasks within an arm share that context. Harness cellular changes are explicitly recorded environment events, not adapter actions.",
+  "fixed_policy": "Look up current recipient, attempt setter on=true unconditionally, then send if lookup returned exactly one contact. Record and preserve setter errors, then continue exactly as in the original frozen executor.",
+  "guarded_policy": "Look up current recipient, execute actual loaded getter for fresh cellular state, enable only if getter returns false, recheck actual getter after repair, and send only after valid lookup and a true state check. Getter failure or ambiguous/missing contact blocks the send. No cached recipient or state is reused.",
+  "measurement": [
+    "Exact number and destination/content of actual new message rows per task",
+    "All selected tool calls and exceptions, including getter overhead",
+    "Whether already-on setter was skipped",
+    "Whether later environmental invalidation is freshly checked",
+    "Same loaded four-tool schema token budget for both arms"
+  ],
+  "success_criteria": "All three messages in each arm match their current requested recipient and content. Guarded arm avoids redundant already-on setter errors, and repairs state again after the environment disables cellular. Report all tool-call overhead; no latency claim.",
+  "limits": [
+    "Manually authored guard, not a precondition learned by Hydra",
+    "No actual external SMS",
+    "Three authored stress tasks, not held-out benchmark data or an autonomous-agent score",
+    "Same four tools available to both arms; the getter is neither hidden nor free",
+    "Original frozen retrieval experiment and its failures remain unchanged",
+    "This does not establish graph necessity or a graph-over-local advantage"
+  ],
+  "pre_scoring_revision": "Explicitly requires rechecking the actual getter after repair before any scoring; previous manifest SHA-256 3e13dac18ea58683e3263db3da09f44e262a2fc6183991d910fda8686bba0751"
+}
