@@ -15,7 +15,7 @@ from toolgraph.hydra import HydraClient, HydraError
 from toolgraph.learn import apply_io_prior, ingest_trace_edges, propose_schema_candidates
 from toolgraph.protocol import FUSION_POOL, MAX_LEN, SEED_PENALTY, SEEDS
 from toolgraph.retrieve import Bm25Index, dense_top, embed_texts, rrf
-from toolgraph.seed_policy import explicit_namespaces, select_demo_seeds
+from toolgraph.seed_policy import select_demo_seeds
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
@@ -74,10 +74,6 @@ class FusionIndex:
             )
         # Dense path: keep RRF ranking, but only expand IDF-anchored tools.
         fused = self.fuse(query)
-        namespaces = explicit_namespaces(self.names, query)
-        scoped = [name for name in fused if name.split("_", 1)[0] in namespaces]
-        if namespaces and scoped and fused[0].split("_", 1)[0] in namespaces:
-            fused = scoped
         _seeds, expand_seeds, debug = select_demo_seeds(
             self.bm25,
             query,
@@ -397,10 +393,21 @@ class ToolgraphService:
     def _merge_memory_expansion(self, result, seeds: list[str], expand_seeds: list[str], k: int, *, evidence_scoped: bool = False):
         """Complete truncated paths with bounded, session-aware local evidence."""
         excluded = set(result.skipped)
-        def supported(path):
+        active_edges = self.store.active_edges(["REQUIRES"])
+        active = {(edge.src, edge.dst): edge for edge in active_edges}
+
+        def supported(name, path):
+            if not path or path[-1] != name or len(path) > MAX_LEN + 1:
+                return False
+            if excluded.intersection(path) or len(set(path)) != len(path):
+                return False
+            if len(path) == 1:
+                return name in seeds
+            if path[0] not in expand_seeds:
+                return False
             episode = None
             for source, target in zip(path, path[1:]):
-                edge = self.store.edges.get((self.store.names.get(source), self.store.names.get(target), "REQUIRES"))
+                edge = active.get((self.store.names.get(source), self.store.names.get(target)))
                 if edge is None or edge.source != "trace" or not edge.prov:
                     return False
                 if episode is not None and episode != edge.prov:
@@ -410,12 +417,12 @@ class ToolgraphService:
 
         allowed = {
             name for name, item in result.why.items()
-            if not evidence_scoped or supported(item.path)
+            if not evidence_scoped or supported(name, item.path)
         }
         costs = {name: cost for name, cost in result.costs.items() if name not in excluded and name in allowed}
         why = {name: item for name, item in result.why.items() if name not in excluded and name in allowed}
         adjacency = {}
-        for edge in self.store.active_edges(["REQUIRES"]):
+        for edge in active_edges:
             if evidence_scoped and (edge.source != "trace" or not edge.prov):
                 continue
             source = self.store.by_id[edge.src]

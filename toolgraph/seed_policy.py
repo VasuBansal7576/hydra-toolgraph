@@ -155,22 +155,6 @@ def relative_expand_cutoff(
     return [name for name, score in scored_seeds if score >= alpha * top]
 
 
-def explicit_namespaces(names: list[str], query: str) -> set[str]:
-    """Find explicitly requested catalog prefixes, excluding generic operations."""
-    generic = _STOP | _GENERIC_VERBS | {
-        "analyze", "calculate", "convert", "monitor", "fetch", "list", "retrieve",
-        "detect", "generate", "track", "measure", "control", "enable", "disable",
-        "schedule", "manage", "record", "resolve", "validate", "execute", "export", "log",
-    }
-    counts = defaultdict(int)
-    for name in names:
-        prefix, separator, _ = name.partition("_")
-        if separator and prefix not in generic:
-            counts[prefix.lower()] += 1
-    terms = set(tokenize(query))
-    return {prefix for prefix, count in counts.items() if count >= 2 and prefix in terms}
-
-
 def select_demo_seeds(
     bm25: Bm25Index,
     query: str,
@@ -190,10 +174,6 @@ def select_demo_seeds(
         filtered = idf_anchor_filter(scored, anchors)
     else:
         filtered = [(name, score) for name, score, _contrib in scored]
-    namespaces = explicit_namespaces(bm25.names, query)
-    scoped = [(name, score) for name, score in filtered if name.split("_", 1)[0] in namespaces]
-    if namespaces and scoped and filtered[0][0].split("_", 1)[0] in namespaces:
-        filtered = scoped
     seeds = [name for name, _score in filtered]
     if apply_rel_cutoff:
         expand_seeds = relative_expand_cutoff(filtered, alpha=expand_alpha)
@@ -201,7 +181,6 @@ def select_demo_seeds(
         expand_seeds = list(seeds)
     debug = {
         "anchors": sorted(anchors),
-        "explicit_namespaces": sorted(namespaces),
         "n_scored": len(scored),
         "n_seeds": len(seeds),
         "n_expand": len(expand_seeds),

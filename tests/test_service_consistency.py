@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
-from toolgraph.graph import GraphStore, LoadToolsResult
+from toolgraph.graph import GraphStore, LoadToolsResult, ToolWhy
 from toolgraph.hydra import HydraError
 from toolgraph.protocol import SEED_PENALTY
 from toolgraph.service import ToolgraphService
@@ -148,22 +148,40 @@ class ServiceConsistencyTest(unittest.TestCase):
         self.assertEqual(set(result.tools), {"root", "get_id", "helper"})
         self.assertEqual(result.why["helper"].path, ["root", "get_id", "helper"])
 
-    def test_explicit_namespace_routing_does_not_invent_a_provider(self):
-        from toolgraph.seed_policy import explicit_namespaces
-        names = ["alpha_search", "alpha_book", "beta_search", "beta_book", "get_location", "get_weather"]
-        self.assertEqual(explicit_namespaces(names, "book with Alpha"), {"alpha"})
-        self.assertEqual(explicit_namespaces(names, "compare alpha and beta"), {"alpha", "beta"})
-        self.assertEqual(explicit_namespaces(names, "get a table"), set())
-
-    def test_namespace_mention_does_not_override_the_best_task_match(self):
+    def test_provider_and_generic_task_both_remain_retrievable(self):
         from toolgraph.retrieve import Bm25Index
         from toolgraph.seed_policy import select_demo_seeds
         index = Bm25Index(
-            ["get_stock_price", "tesla_open", "tesla_close"],
-            [["tesla", "stock", "price"], ["tesla", "open", "car"], ["tesla", "close", "car"]],
+            ["alpha_book", "alpha_search", "get_weather"],
+            [["alpha", "book", "table"], ["alpha", "search", "table"], ["weather", "forecast"]],
         )
-        seeds, _, _ = select_demo_seeds(index, "Tesla stock price")
-        self.assertEqual(seeds[0], "get_stock_price")
+        seeds, _, _ = select_demo_seeds(index, "alpha book table and weather")
+        self.assertIn("alpha_book", seeds)
+        self.assertIn("get_weather", seeds)
+
+    def test_raw_hydra_paths_require_active_complete_anchored_evidence(self):
+        store = self.service.store
+        for edge in store.edges.values():
+            edge.source = "trace"
+            edge.prov = "episode-a"
+        store.tau = 0.15
+        edge = store.edges[(store.names["root"], store.names["get_id"], "REQUIRES")]
+        edge.p = 0.0
+        for path in (["root", "get_id"], [], ["other", "get_id"], ["root"]):
+            with self.subTest(path=path):
+                raw = LoadToolsResult(
+                    tools=["get_id"], costs={"get_id": 0.1}, skipped={},
+                    why={"get_id": ToolWhy(path=path, edge_ids=[], sources=[], cost=0.1)},
+                )
+                result = self.service._merge_memory_expansion(raw, ["root"], ["root"], 16, evidence_scoped=True)
+                self.assertEqual(result.tools, ["root"])
+        edge.p = 1.0
+        raw = LoadToolsResult(
+            tools=["get_id"], costs={"get_id": 0.4}, skipped={},
+            why={"get_id": ToolWhy(path=["root", "get_id"], edge_ids=[edge.edge_id], sources=["trace"], cost=0.4)},
+        )
+        result = self.service._merge_memory_expansion(raw, ["root"], ["root"], 16, evidence_scoped=True)
+        self.assertIn("get_id", result.tools)
 
     def test_mutations_invalidate_cached_bundles(self):
         for operation in ("record_trace", "record_result", "undo_edit"):

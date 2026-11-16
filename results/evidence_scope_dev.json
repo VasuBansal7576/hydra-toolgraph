@@ -5,11 +5,11 @@
   "k": 12,
   "n": 312,
   "baseline_complete": 87,
-  "candidate_complete": 122,
-  "gains": 41,
-  "losses": 6,
+  "candidate_complete": 117,
+  "gains": 33,
+  "losses": 3,
   "baseline_mean_size": 11.759615384615385,
-  "candidate_mean_size": 10.846153846153847,
+  "candidate_mean_size": 11.701923076923077,
   "paired_rows": [
     {
       "idx": 1257,
@@ -522,10 +522,17 @@
       ],
       "candidate_ranked": [
         "ebay_checkout_cart",
-        "ebay_add_item_to_cart",
-        "ebay_delete_item_from_cart",
-        "ebay_user_login",
-        "ebay_review_item"
+        "amazon_checkout_cart",
+        "amazon_user_login",
+        "get_system_language",
+        "get_wifi_status",
+        "set_wifi_status",
+        "validate_email",
+        "etsy_checkout_cart",
+        "etsy_user_login",
+        "temu_checkout_cart",
+        "ali_express_checkout_cart",
+        "ebay_add_item_to_cart"
       ]
     },
     {
@@ -556,7 +563,10 @@
         "get_wifi_status",
         "set_wifi_status",
         "validate_email",
-        "ebay_review_item"
+        "send_reminder_email",
+        "ebay_review_item",
+        "amazon_checkout_cart",
+        "amazon_user_login"
       ]
     },
     {
@@ -580,10 +590,17 @@
       ],
       "candidate_ranked": [
         "ebay_checkout_cart",
-        "ebay_delete_item_from_cart",
-        "ebay_add_item_to_cart",
-        "ebay_user_login",
-        "ebay_review_item"
+        "amazon_checkout_cart",
+        "amazon_user_login",
+        "get_system_language",
+        "get_wifi_status",
+        "set_wifi_status",
+        "validate_email",
+        "etsy_checkout_cart",
+        "etsy_user_login",
+        "temu_checkout_cart",
+        "ali_express_checkout_cart",
+        "schedule_grocery_delivery"
       ]
     },
     {
@@ -709,16 +726,17 @@
       ],
       "candidate_ranked": [
         "delta_update_travel_preferences",
-        "delta_view_flight_status",
-        "delta_user_login",
+        "emirates_update_travel_preferences",
+        "frontier_update_travel_preferences",
+        "jetblue_update_travel_preferences",
         "get_airplane_mode_status",
         "get_system_language",
+        "get_user_profile",
         "get_wifi_status",
+        "jetblue_user_login",
         "set_airplane_mode_status",
         "set_wifi_status",
-        "validate_email",
-        "delta_select_entertainment",
-        "delta_manage_notifications"
+        "validate_email"
       ]
     },
     {
@@ -743,15 +761,16 @@
       "candidate_ranked": [
         "delta_update_travel_preferences",
         "delta_select_entertainment",
-        "delta_view_flight_status",
-        "delta_user_login",
+        "emirates_update_travel_preferences",
+        "frontier_update_travel_preferences",
+        "jetblue_update_travel_preferences",
         "get_airplane_mode_status",
         "get_system_language",
+        "get_user_profile",
         "get_wifi_status",
+        "jetblue_user_login",
         "set_airplane_mode_status",
-        "set_wifi_status",
-        "validate_email",
-        "delta_manage_notifications"
+        "set_wifi_status"
       ]
     },
     {
@@ -775,10 +794,17 @@
       ],
       "candidate_ranked": [
         "delta_update_travel_preferences",
-        "delta_manage_notifications",
-        "delta_view_flight_status",
-        "delta_select_entertainment",
-        "delta_user_login"
+        "emirates_update_travel_preferences",
+        "frontier_update_travel_preferences",
+        "jetblue_update_travel_preferences",
+        "get_airplane_mode_status",
+        "get_system_language",
+        "get_user_profile",
+        "get_wifi_status",
+        "jetblue_user_login",
+        "set_airplane_mode_status",
+        "set_wifi_status",
+        "validate_email"
       ]
     },
     {
@@ -810,9 +836,9 @@
         "set_wifi_status",
         "united_user_login",
         "validate_email",
-        "united_find_my_bags",
-        "united_select_entertainment",
-        "united_manage_notifications"
+        "delta_update_travel_preferences",
+        "emirates_update_travel_preferences",
+        "frontier_update_travel_preferences"
       ]
     },
     {
@@ -844,9 +870,9 @@
         "set_wifi_status",
         "united_user_login",
         "validate_email",
-        "united_view_flight_status",
-        "united_manage_notifications",
-        "united_select_entertainment"
+        "delta_update_travel_preferences",
+        "emirates_update_travel_preferences",
+        "frontier_update_travel_preferences"
       ]
     },
     {
@@ -870,11 +896,17 @@
       ],
       "candidate_ranked": [
         "united_update_travel_preferences",
-        "united_find_my_bags",
-        "united_manage_notifications",
-        "united_select_entertainment",
-        "united_view_flight_status",
-        "united_user_login"
+        "delta_update_travel_preferences",
+        "emirates_update_travel_preferences",
+        "frontier_update_travel_preferences",
+        "jetblue_update_travel_preferences",
+        "get_airplane_mode_status",
+        "get_system_language",
+        "get_user_profile",
+        "get_wifi_status",
+        "jetblue_user_login",
+        "set_airplane_mode_status",
+        "set_wifi_status"
       ]
     },
     {
@@ -898,14 +930,17 @@
       ],
       "candidate_ranked": [
         "legal_risk_assessment_tool",
+        "api_key_rotation_manager",
         "legal_brief_generator",
         "legal_deadline_tracker",
         "assess_local_carbon_intensity",
+        "estimate_flight_carbon_footprint",
         "assess_green_home_features",
         "legal_research_timer",
-        "legal_document_search",
-        "assess_electronic_device_manufacturing_footprint",
-        "legal_citation_generator"
+        "jurisdiction_checker",
+        "locate_pet_parks",
+        "find_nearby_movie_theaters",
+        "find_pet_friendly_hotels"
       ]
     },
     {
@@ -929,17 +964,17 @@
       ],
       "candidate_ranked": [
         "legal_risk_assessment_tool",
+        "cancel_uber_ride",
         "legal_brief_generator",
         "get_wifi_status",
         "set_wifi_status",
         "legal_deadline_tracker",
         "legal_research_timer",
         "evaluate_heart_rate_status",
+        "find_nearby_movie_theaters",
         "evaluate_recycling_options",
-        "legal_document_search",
-        "evaluate_shipping_mode_footprint",
-        "evaluate_clothing_purchase_carbon_footprint",
-        "legal_citation_generator"
+        "api_key_rotation_manager",
+        "check_ip_reputation"
       ]
     },
     {
@@ -963,16 +998,17 @@
       ],
       "candidate_ranked": [
         "legal_risk_assessment_tool",
-        "legal_research_timer",
-        "legal_deadline_tracker",
-        "get_case_id",
-        "get_current_time",
-        "get_system_timezone",
+        "track_forest_fire_risk",
+        "get_current_location",
+        "get_location_service_status",
         "get_wifi_status",
+        "set_location_service_status",
         "set_wifi_status",
-        "legal_brief_generator",
-        "legal_document_search",
-        "legal_citation_generator"
+        "advise_on_weather",
+        "get_current_weather",
+        "calculate_interest_coverage_ratio",
+        "get_current_date",
+        "get_ebitda"
       ]
     },
     {
@@ -1713,8 +1749,11 @@
         "planet_fitness_user_login",
         "set_wifi_status",
         "validate_email",
-        "planet_fitness_generate_workout_plan",
-        "planet_fitness_schedule_class"
+        "crunch_fitness_log_workout_notes",
+        "crunch_fitness_user_login",
+        "la_fitness_log_workout_notes",
+        "la_fitness_user_login",
+        "planet_fitness_generate_workout_plan"
       ]
     },
     {
@@ -1779,7 +1818,10 @@
         "set_wifi_status",
         "validate_email",
         "planet_fitness_generate_workout_plan",
-        "planet_fitness_schedule_class"
+        "planet_fitness_schedule_class",
+        "crunch_fitness_log_workout_notes",
+        "crunch_fitness_user_login",
+        "la_fitness_log_workout_notes"
       ]
     },
     {
@@ -1922,7 +1964,7 @@
       "idx": 1519,
       "main": "southwest_find_my_bags",
       "baseline_complete": false,
-      "candidate_complete": true,
+      "candidate_complete": false,
       "baseline_ranked": [
         "southwest_find_my_bags",
         "american_find_my_bags",
@@ -1939,17 +1981,17 @@
       ],
       "candidate_ranked": [
         "southwest_find_my_bags",
-        "southwest_view_flight_status",
+        "american_find_my_bags",
+        "united_find_my_bags",
         "get_airplane_mode_status",
         "get_system_language",
         "get_wifi_status",
         "set_airplane_mode_status",
         "set_wifi_status",
-        "southwest_user_login",
+        "united_user_login",
         "validate_email",
-        "southwest_manage_notifications",
-        "southwest_update_travel_preferences",
-        "southwest_select_entertainment"
+        "jetblue_find_my_bags",
+        "lufthansa_find_my_bags"
       ]
     },
     {
@@ -2793,8 +2835,15 @@
         "yummly_add_to_favorites",
         "yummly_remove_from_favorites",
         "yummly_get_recipe",
-        "yummly_get_ingredients",
-        "yummly_login"
+        "allrecipes_add_to_favorites",
+        "allrecipes_get_recipe",
+        "allrecipes_login",
+        "get_wifi_status",
+        "set_wifi_status",
+        "validate_email",
+        "fresh_direct_add_to_favorites",
+        "fresh_direct_get_recipe",
+        "fresh_direct_login"
       ]
     },
     {
@@ -2819,9 +2868,16 @@
       "candidate_ranked": [
         "yummly_add_to_favorites",
         "yummly_remove_from_favorites",
-        "yummly_get_recipe",
-        "yummly_get_ingredients",
-        "yummly_login"
+        "allrecipes_add_to_favorites",
+        "allrecipes_get_recipe",
+        "allrecipes_login",
+        "get_wifi_status",
+        "set_wifi_status",
+        "validate_email",
+        "fresh_direct_add_to_favorites",
+        "fresh_direct_get_recipe",
+        "fresh_direct_login",
+        "allrecipes_remove_from_favorites"
       ]
     },
     {
@@ -2848,7 +2904,14 @@
         "yummly_add_to_favorites",
         "yummly_remove_from_favorites",
         "yummly_get_ingredients",
-        "yummly_login"
+        "allrecipes_get_recipe",
+        "allrecipes_login",
+        "get_wifi_status",
+        "set_wifi_status",
+        "validate_email",
+        "allrecipes_add_to_favorites",
+        "allrecipes_remove_from_favorites",
+        "fresh_direct_get_recipe"
       ]
     },
     {
@@ -3841,7 +3904,7 @@
       "idx": 266,
       "main": "optimize_system_resources_by_uptime",
       "baseline_complete": true,
-      "candidate_complete": false,
+      "candidate_complete": true,
       "baseline_ranked": [
         "optimize_system_resources_by_uptime",
         "get_system_uptime",
@@ -3858,7 +3921,17 @@
       ],
       "candidate_ranked": [
         "optimize_system_resources_by_uptime",
-        "optimize_physical_performance"
+        "recommend_scheduled_reboot",
+        "get_battery_status",
+        "get_low_battery_mode_status",
+        "get_system_uptime",
+        "set_low_battery_mode_status",
+        "analyze_network_activity_by_ip_and_uptime",
+        "get_network_ip_address",
+        "delete_file_from_system",
+        "set_do_not_disturb_status",
+        "get_user_settings",
+        "translate_text_to_language"
       ]
     },
     {
@@ -3967,7 +4040,7 @@
       "idx": 648,
       "main": "crunch_fitness_schedule_class",
       "baseline_complete": false,
-      "candidate_complete": true,
+      "candidate_complete": false,
       "baseline_ranked": [
         "crunch_fitness_schedule_class",
         "la_fitness_schedule_class",
@@ -3984,21 +4057,24 @@
       ],
       "candidate_ranked": [
         "crunch_fitness_schedule_class",
-        "crunch_fitness_track_workout",
-        "crunch_fitness_user_login",
+        "la_fitness_schedule_class",
         "get_system_language",
         "get_wifi_status",
+        "la_fitness_user_login",
         "set_wifi_status",
         "validate_email",
-        "crunch_fitness_generate_workout_plan",
-        "crunch_fitness_log_workout_notes"
+        "planet_fitness_schedule_class",
+        "equinox_schedule_class",
+        "equinox_user_login",
+        "golds_gym_schedule_class",
+        "golds_gym_user_login"
       ]
     },
     {
       "idx": 649,
       "main": "crunch_fitness_schedule_class",
       "baseline_complete": false,
-      "candidate_complete": true,
+      "candidate_complete": false,
       "baseline_ranked": [
         "crunch_fitness_schedule_class",
         "la_fitness_schedule_class",
@@ -4015,14 +4091,17 @@
       ],
       "candidate_ranked": [
         "crunch_fitness_schedule_class",
-        "crunch_fitness_track_workout",
-        "crunch_fitness_user_login",
+        "la_fitness_schedule_class",
         "get_system_language",
         "get_wifi_status",
+        "la_fitness_user_login",
         "set_wifi_status",
         "validate_email",
-        "crunch_fitness_generate_workout_plan",
-        "crunch_fitness_log_workout_notes"
+        "planet_fitness_schedule_class",
+        "equinox_schedule_class",
+        "equinox_user_login",
+        "golds_gym_schedule_class",
+        "golds_gym_user_login"
       ]
     },
     {
@@ -4053,14 +4132,17 @@
         "set_wifi_status",
         "validate_email",
         "crunch_fitness_generate_workout_plan",
-        "crunch_fitness_log_workout_notes"
+        "crunch_fitness_log_workout_notes",
+        "la_fitness_track_workout",
+        "la_fitness_user_login",
+        "planet_fitness_track_workout"
       ]
     },
     {
       "idx": 1329,
       "main": "buy_stock_fidelity",
       "baseline_complete": true,
-      "candidate_complete": false,
+      "candidate_complete": true,
       "baseline_ranked": [
         "buy_stock_fidelity",
         "sell_stock_fidelity",
@@ -4077,17 +4159,17 @@
       ],
       "candidate_ranked": [
         "buy_stock_fidelity",
-        "buy_stock_etrade",
-        "buy_stock_robinhood",
+        "sell_stock_fidelity",
+        "fidelity_user_login",
         "get_user_profile",
         "get_wifi_status",
-        "robinhood_user_login",
         "set_wifi_status",
         "validate_email",
+        "buy_stock_etrade",
+        "buy_stock_robinhood",
+        "robinhood_user_login",
         "buy_stock_webull",
-        "webull_user_login",
-        "buy_stock_nerd_wallet",
-        "nerd_wallet_user_login"
+        "webull_user_login"
       ]
     },
     {
@@ -4128,7 +4210,7 @@
       "idx": 1331,
       "main": "buy_stock_fidelity",
       "baseline_complete": true,
-      "candidate_complete": false,
+      "candidate_complete": true,
       "baseline_ranked": [
         "buy_stock_fidelity",
         "sell_stock_fidelity",
@@ -4145,17 +4227,17 @@
       ],
       "candidate_ranked": [
         "buy_stock_fidelity",
-        "buy_stock_etrade",
-        "buy_stock_robinhood",
+        "sell_stock_fidelity",
+        "fidelity_user_login",
         "get_user_profile",
         "get_wifi_status",
-        "robinhood_user_login",
         "set_wifi_status",
         "validate_email",
+        "buy_stock_etrade",
+        "buy_stock_robinhood",
+        "robinhood_user_login",
         "buy_stock_webull",
-        "webull_user_login",
-        "buy_stock_nerd_wallet",
-        "nerd_wallet_user_login"
+        "webull_user_login"
       ]
     },
     {
@@ -4351,7 +4433,15 @@
         "connect_mobile_hotspot",
         "get_wifi_status",
         "set_wifi_status",
-        "connect_bluetooth_device"
+        "enable_mobile_hotspot",
+        "set_bluetooth_status",
+        "get_bluetooth_status",
+        "get_cellular_service_status",
+        "set_cellular_service_status",
+        "list_connected_bluetooth_devices",
+        "check_bluetooth_device_battery",
+        "get_battery_status",
+        "get_low_battery_mode_status"
       ]
     },
     {
@@ -4547,14 +4637,22 @@
         "suggest_exercise_duration",
         "suggest_meditation_duration",
         "get_steps_per_day",
-        "suggest_daily_calorie_intake"
+        "cancel_uber_ride",
+        "suggest_daily_calorie_intake",
+        "evaluate_heart_rate_status",
+        "get_bpm",
+        "get_user_profile",
+        "track_stretch_breaks",
+        "recommend_exercise_attire",
+        "calculate_mortgage_affordability",
+        "start_fitness_tracker_mode"
       ]
     },
     {
       "idx": 1461,
       "main": "frontier_view_flight_status",
       "baseline_complete": false,
-      "candidate_complete": true,
+      "candidate_complete": false,
       "baseline_ranked": [
         "frontier_view_flight_status",
         "cancel_uber_ride",
@@ -4571,23 +4669,24 @@
       ],
       "candidate_ranked": [
         "frontier_view_flight_status",
-        "frontier_find_my_bags",
-        "frontier_user_login",
+        "cancel_uber_ride",
+        "delta_view_flight_status",
+        "delta_user_login",
         "get_airplane_mode_status",
         "get_system_language",
         "get_wifi_status",
         "set_airplane_mode_status",
         "set_wifi_status",
         "validate_email",
-        "frontier_select_entertainment",
-        "frontier_manage_notifications"
+        "emirates_view_flight_status",
+        "emirates_user_login"
       ]
     },
     {
       "idx": 1462,
       "main": "frontier_view_flight_status",
       "baseline_complete": false,
-      "candidate_complete": true,
+      "candidate_complete": false,
       "baseline_ranked": [
         "frontier_view_flight_status",
         "delta_view_flight_status",
@@ -4604,17 +4703,17 @@
       ],
       "candidate_ranked": [
         "frontier_view_flight_status",
-        "frontier_find_my_bags",
-        "frontier_user_login",
+        "delta_view_flight_status",
+        "delta_user_login",
         "get_airplane_mode_status",
         "get_system_language",
         "get_wifi_status",
         "set_airplane_mode_status",
         "set_wifi_status",
         "validate_email",
-        "frontier_select_entertainment",
-        "frontier_manage_notifications",
-        "frontier_update_travel_preferences"
+        "emirates_view_flight_status",
+        "emirates_user_login",
+        "jetblue_view_flight_status"
       ]
     },
     {
@@ -4836,12 +4935,17 @@
       ],
       "candidate_ranked": [
         "launch_steam_game",
+        "login_to_steam",
+        "download_steam_game",
+        "get_current_storage_space",
+        "get_system_language",
+        "get_wifi_status",
+        "set_wifi_status",
+        "validate_email",
         "launch_safari",
         "launch_chrome",
         "launch_google_meet",
-        "launch_ms_teams",
-        "launch_microsoft_word",
-        "launch_vscode"
+        "launch_ms_teams"
       ]
     },
     {
@@ -4865,6 +4969,7 @@
       ],
       "candidate_ranked": [
         "lufthansa_view_flight_status",
+        "cancel_uber_ride",
         "lufthansa_find_my_bags",
         "get_airplane_mode_status",
         "get_system_language",
@@ -4874,15 +4979,14 @@
         "set_wifi_status",
         "validate_email",
         "lufthansa_select_entertainment",
-        "lufthansa_update_travel_preferences",
-        "lufthansa_manage_notifications"
+        "delta_view_flight_status"
       ]
     },
     {
       "idx": 1480,
       "main": "lufthansa_view_flight_status",
       "baseline_complete": false,
-      "candidate_complete": true,
+      "candidate_complete": false,
       "baseline_ranked": [
         "lufthansa_view_flight_status",
         "cancel_uber_ride",
@@ -4899,17 +5003,17 @@
       ],
       "candidate_ranked": [
         "lufthansa_view_flight_status",
-        "lufthansa_find_my_bags",
+        "cancel_uber_ride",
+        "delta_view_flight_status",
+        "delta_user_login",
         "get_airplane_mode_status",
         "get_system_language",
         "get_wifi_status",
-        "lufthansa_user_login",
         "set_airplane_mode_status",
         "set_wifi_status",
         "validate_email",
-        "lufthansa_select_entertainment",
-        "lufthansa_manage_notifications",
-        "lufthansa_update_travel_preferences"
+        "emirates_view_flight_status",
+        "emirates_user_login"
       ]
     },
     {
@@ -4943,7 +5047,7 @@
         "set_wifi_status",
         "validate_email",
         "lufthansa_select_entertainment",
-        "lufthansa_manage_notifications"
+        "delta_view_flight_status"
       ]
     },
     {
@@ -4973,10 +5077,11 @@
         "get_system_timezone",
         "get_wifi_status",
         "set_wifi_status",
-        "legal_risk_assessment_tool",
-        "legal_brief_generator",
-        "legal_citation_generator",
-        "legal_document_search"
+        "set_background_app_refresh",
+        "add_apple_calendar_reminder",
+        "track_stretch_breaks",
+        "calculate_interest_coverage_ratio",
+        "add_google_calendar_reminder"
       ]
     },
     {
@@ -5000,11 +5105,17 @@
       ],
       "candidate_ranked": [
         "legal_research_timer",
+        "cancel_uber_ride",
         "legal_deadline_tracker",
+        "jurisdiction_checker",
+        "launch_vscode",
+        "log_user_activity",
         "legal_brief_generator",
         "legal_document_search",
+        "frontier_find_my_bags",
         "legal_risk_assessment_tool",
-        "legal_citation_generator"
+        "log_device_uptime",
+        "schedule_meeting"
       ]
     },
     {
@@ -5028,11 +5139,17 @@
       ],
       "candidate_ranked": [
         "legal_research_timer",
-        "legal_deadline_tracker",
-        "legal_risk_assessment_tool",
-        "legal_brief_generator",
-        "legal_document_search",
-        "legal_citation_generator"
+        "cancel_uber_ride",
+        "track_stretch_breaks",
+        "tesla_start_stop_climate_control",
+        "calculate_interest_coverage_ratio",
+        "tesla_check_or_set_charging_schedule",
+        "track_puzzle_game_timer",
+        "track_study_session_with_timer",
+        "log_workout_session",
+        "tesla_schedule_climate_preconditioning",
+        "frontier_find_my_bags",
+        "set_clock_timer"
       ]
     },
     {
@@ -5860,7 +5977,10 @@
         "set_wifi_status",
         "validate_email",
         "planet_fitness_schedule_class",
-        "planet_fitness_generate_workout_plan"
+        "planet_fitness_generate_workout_plan",
+        "crunch_fitness_log_workout_notes",
+        "crunch_fitness_user_login",
+        "la_fitness_log_workout_notes"
       ]
     },
     {
@@ -5891,7 +6011,10 @@
         "validate_email",
         "planet_fitness_schedule_class",
         "planet_fitness_generate_workout_plan",
-        "planet_fitness_log_workout_notes"
+        "planet_fitness_log_workout_notes",
+        "crunch_fitness_user_login",
+        "crunch_fitness_track_workout",
+        "crunch_fitness_log_workout_notes"
       ]
     },
     {
@@ -5922,7 +6045,10 @@
         "set_wifi_status",
         "validate_email",
         "planet_fitness_schedule_class",
-        "planet_fitness_generate_workout_plan"
+        "planet_fitness_generate_workout_plan",
+        "crunch_fitness_log_workout_notes",
+        "crunch_fitness_user_login",
+        "la_fitness_log_workout_notes"
       ]
     },
     {
@@ -6055,10 +6181,10 @@
         "login_to_tesla_account",
         "set_wifi_status",
         "validate_email",
+        "is_tesla_charger_location_full",
         "tesla_schedule_install_software_update",
         "tesla_check_or_set_charging_schedule",
-        "tesla_remote_lock_unlock_doors",
-        "tesla_open_trunk_or_frunk"
+        "tesla_remote_lock_unlock_doors"
       ]
     },
     {
@@ -6083,16 +6209,16 @@
       "candidate_ranked": [
         "tesla_schedule_climate_preconditioning",
         "tesla_start_stop_climate_control",
-        "tesla_schedule_install_software_update",
-        "tesla_enable_disable_valet_mode",
+        "is_tesla_charger_location_full",
         "get_current_storage_space",
         "get_installed_applications",
         "get_wifi_status",
         "login_to_tesla_account",
         "set_wifi_status",
         "validate_email",
-        "tesla_monitor_battery_status",
-        "tesla_remote_lock_unlock_doors"
+        "tesla_schedule_install_software_update",
+        "flash_tesla_headlights",
+        "get_airplane_mode_status"
       ]
     },
     {
@@ -6252,7 +6378,17 @@
       ],
       "candidate_ranked": [
         "case_outcome_predictor",
-        "case_law_summarizer"
+        "cancel_uber_ride",
+        "witness_preparation_checklist",
+        "precedent_analyzer",
+        "court_date_scheduler",
+        "jurisdiction_checker",
+        "case_law_summarizer",
+        "calculate_mortgage_affordability",
+        "get_doctor_appointments",
+        "calculate_meal_carbon_footprint",
+        "get_case_id",
+        "legal_brief_generator"
       ]
     },
     {
@@ -6286,7 +6422,7 @@
         "legal_deadline_tracker",
         "get_current_time",
         "get_system_timezone",
-        "legal_document_search"
+        "jurisdiction_checker"
       ]
     },
     {
@@ -6313,14 +6449,14 @@
         "legal_brief_generator",
         "get_wifi_status",
         "set_wifi_status",
+        "cancel_uber_ride",
         "legal_deadline_tracker",
         "get_case_id",
         "get_current_time",
         "get_system_timezone",
-        "case_law_summarizer",
-        "legal_citation_generator",
-        "legal_document_search",
-        "legal_risk_assessment_tool"
+        "jurisdiction_checker",
+        "get_current_location",
+        "get_location_service_status"
       ]
     },
     {
@@ -6344,12 +6480,17 @@
       ],
       "candidate_ranked": [
         "resy_search_restaurants",
-        "resy_reserve_restaurant_table",
-        "get_current_weather",
-        "get_us_national_holiday",
-        "place_doordash_order",
-        "place_instacart_order",
-        "place_ubereats_order"
+        "find_public_transport_nearby",
+        "get_current_location",
+        "get_location_service_status",
+        "set_location_service_status",
+        "find_tesla_charger_tool",
+        "get_current_storage_space",
+        "get_installed_applications",
+        "get_wifi_status",
+        "login_to_tesla_account",
+        "set_wifi_status",
+        "validate_email"
       ]
     },
     {
@@ -6390,7 +6531,7 @@
       "idx": 191,
       "main": "resy_search_restaurants",
       "baseline_complete": false,
-      "candidate_complete": false,
+      "candidate_complete": true,
       "baseline_ranked": [
         "resy_search_restaurants",
         "opentable_search_restaurants",
@@ -6407,9 +6548,17 @@
       ],
       "candidate_ranked": [
         "resy_search_restaurants",
-        "resy_reserve_restaurant_table",
+        "opentable_search_restaurants",
+        "get_current_location",
+        "get_current_time",
         "get_current_weather",
-        "get_us_national_holiday"
+        "get_location_service_status",
+        "get_system_timezone",
+        "get_us_national_holiday",
+        "opentable_reserve_restaurant_table",
+        "set_location_service_status",
+        "check_available_wifi_networks",
+        "resy_reserve_restaurant_table"
       ]
     },
     {
@@ -6440,10 +6589,10 @@
         "set_airplane_mode_status",
         "set_wifi_status",
         "validate_email",
-        "emirates_manage_notifications",
-        "emirates_find_my_bags",
-        "emirates_select_entertainment",
-        "emirates_update_travel_preferences"
+        "update_application_by_name",
+        "get_cellular_service_status",
+        "get_current_storage_space",
+        "get_installed_applications"
       ]
     },
     {
@@ -6475,9 +6624,9 @@
         "set_airplane_mode_status",
         "set_wifi_status",
         "validate_email",
-        "emirates_view_flight_status",
-        "emirates_select_entertainment",
-        "emirates_update_travel_preferences"
+        "delta_manage_notifications",
+        "delta_user_login",
+        "get_notifications"
       ]
     },
     {
@@ -6501,17 +6650,17 @@
       ],
       "candidate_ranked": [
         "emirates_manage_notifications",
-        "emirates_update_travel_preferences",
-        "emirates_find_my_bags",
-        "emirates_user_login",
+        "send_reminder_email",
+        "validate_email",
+        "delta_manage_notifications",
+        "delta_user_login",
         "get_airplane_mode_status",
+        "get_notifications",
         "get_system_language",
         "get_wifi_status",
         "set_airplane_mode_status",
-        "set_wifi_status",
-        "validate_email",
-        "emirates_view_flight_status",
-        "emirates_select_entertainment"
+        "set_notifications",
+        "set_wifi_status"
       ]
     },
     {
@@ -6542,10 +6691,10 @@
         "set_wifi_status",
         "southwest_user_login",
         "validate_email",
-        "southwest_manage_notifications",
-        "get_user_profile",
-        "southwest_update_travel_preferences",
-        "southwest_select_entertainment"
+        "update_application_by_name",
+        "get_cellular_service_status",
+        "get_current_storage_space",
+        "get_installed_applications"
       ]
     },
     {
@@ -6570,16 +6719,16 @@
       "candidate_ranked": [
         "southwest_manage_notifications",
         "southwest_find_my_bags",
-        "southwest_user_login",
+        "delta_manage_notifications",
+        "delta_user_login",
         "get_airplane_mode_status",
+        "get_notifications",
         "get_system_language",
         "get_wifi_status",
         "set_airplane_mode_status",
+        "set_notifications",
         "set_wifi_status",
-        "validate_email",
-        "southwest_view_flight_status",
-        "get_user_profile",
-        "southwest_update_travel_preferences"
+        "validate_email"
       ]
     },
     {
@@ -6603,17 +6752,17 @@
       ],
       "candidate_ranked": [
         "southwest_manage_notifications",
-        "southwest_update_travel_preferences",
+        "delta_manage_notifications",
+        "delta_user_login",
         "get_airplane_mode_status",
+        "get_notifications",
         "get_system_language",
-        "get_user_profile",
         "get_wifi_status",
         "set_airplane_mode_status",
+        "set_notifications",
         "set_wifi_status",
-        "southwest_user_login",
         "validate_email",
-        "southwest_view_flight_status",
-        "southwest_select_entertainment"
+        "emirates_manage_notifications"
       ]
     },
     {
@@ -7001,11 +7150,17 @@
       ],
       "candidate_ranked": [
         "frontier_update_travel_preferences",
-        "frontier_view_flight_status",
-        "frontier_find_my_bags",
-        "frontier_select_entertainment",
-        "frontier_manage_notifications",
-        "frontier_user_login"
+        "delta_update_travel_preferences",
+        "emirates_update_travel_preferences",
+        "jetblue_update_travel_preferences",
+        "get_airplane_mode_status",
+        "get_system_language",
+        "get_user_profile",
+        "get_wifi_status",
+        "jetblue_user_login",
+        "set_airplane_mode_status",
+        "set_wifi_status",
+        "validate_email"
       ]
     },
     {
@@ -7029,17 +7184,17 @@
       ],
       "candidate_ranked": [
         "frontier_update_travel_preferences",
-        "frontier_find_my_bags",
-        "frontier_user_login",
+        "delta_update_travel_preferences",
+        "emirates_update_travel_preferences",
+        "jetblue_update_travel_preferences",
         "get_airplane_mode_status",
         "get_system_language",
+        "get_user_profile",
         "get_wifi_status",
+        "jetblue_user_login",
         "set_airplane_mode_status",
         "set_wifi_status",
-        "validate_email",
-        "frontier_view_flight_status",
-        "frontier_manage_notifications",
-        "frontier_select_entertainment"
+        "validate_email"
       ]
     },
     {
@@ -7063,11 +7218,17 @@
       ],
       "candidate_ranked": [
         "frontier_update_travel_preferences",
-        "frontier_find_my_bags",
-        "frontier_manage_notifications",
-        "frontier_view_flight_status",
-        "frontier_select_entertainment",
-        "frontier_user_login"
+        "delta_update_travel_preferences",
+        "emirates_update_travel_preferences",
+        "jetblue_update_travel_preferences",
+        "get_airplane_mode_status",
+        "get_system_language",
+        "get_user_profile",
+        "get_wifi_status",
+        "jetblue_user_login",
+        "set_airplane_mode_status",
+        "set_wifi_status",
+        "validate_email"
       ]
     },
     {
@@ -7199,7 +7360,11 @@
         "validate_email",
         "allrecipes_add_to_favorites",
         "allrecipes_remove_from_favorites",
-        "allrecipes_get_ingredients"
+        "allrecipes_get_ingredients",
+        "cook_recipe_with_timer",
+        "get_clock_timers",
+        "set_clock_timer",
+        "yummly_get_recipe"
       ]
     },
     {
@@ -7229,7 +7394,11 @@
         "set_wifi_status",
         "validate_email",
         "allrecipes_add_to_favorites",
-        "allrecipes_remove_from_favorites"
+        "allrecipes_remove_from_favorites",
+        "yummly_get_ingredients",
+        "fresh_direct_get_ingredients",
+        "yummly_get_recipe",
+        "fresh_direct_get_recipe"
       ]
     },
     {
@@ -7259,7 +7428,11 @@
         "set_wifi_status",
         "validate_email",
         "allrecipes_add_to_favorites",
-        "allrecipes_remove_from_favorites"
+        "allrecipes_remove_from_favorites",
+        "yummly_get_ingredients",
+        "fresh_direct_get_ingredients",
+        "calculate_meal_carbon_footprint",
+        "yummly_get_recipe"
       ]
     },
     {
@@ -7428,8 +7601,8 @@
         "set_wifi_status",
         "validate_email",
         "qatar_view_flight_status",
-        "qatar_manage_notifications",
-        "qatar_update_travel_preferences"
+        "delta_select_entertainment",
+        "emirates_select_entertainment"
       ]
     },
     {
@@ -7462,8 +7635,8 @@
         "set_wifi_status",
         "validate_email",
         "qatar_find_my_bags",
-        "qatar_update_travel_preferences",
-        "qatar_manage_notifications"
+        "delta_select_entertainment",
+        "emirates_select_entertainment"
       ]
     },
     {
@@ -7997,14 +8170,17 @@
       ],
       "candidate_ranked": [
         "tesla_start_stop_climate_control",
-        "tesla_limit_speed_for_teen_driver",
-        "tesla_summon_vehicle",
-        "tesla_remote_lock_unlock_doors",
-        "tesla_activate_deactivate_sentry_mode",
-        "tesla_schedule_climate_preconditioning",
-        "tesla_open_trunk_or_frunk",
-        "tesla_schedule_install_software_update",
-        "tesla_monitor_battery_status"
+        "is_tesla_charger_location_full",
+        "get_current_storage_space",
+        "get_installed_applications",
+        "get_wifi_status",
+        "login_to_tesla_account",
+        "set_wifi_status",
+        "validate_email",
+        "check_local_air_quality_index",
+        "get_current_location",
+        "get_location_service_status",
+        "set_location_service_status"
       ]
     },
     {
@@ -8063,13 +8239,16 @@
       "candidate_ranked": [
         "tesla_start_stop_climate_control",
         "tesla_schedule_climate_preconditioning",
-        "tesla_check_or_set_charging_schedule",
-        "tesla_schedule_install_software_update",
-        "tesla_limit_speed_for_teen_driver",
-        "tesla_adjust_autopilot_fsd_settings",
-        "tesla_remote_lock_unlock_doors",
-        "tesla_open_trunk_or_frunk",
-        "tesla_summon_vehicle"
+        "set_alexa_thermostat_temperature",
+        "get_cellular_service_status",
+        "get_current_date",
+        "get_current_storage_space",
+        "get_current_time",
+        "get_installed_applications",
+        "get_system_timezone",
+        "get_wifi_status",
+        "set_cellular_service_status",
+        "set_wifi_status"
       ]
     },
     {
@@ -8094,9 +8273,16 @@
       "candidate_ranked": [
         "yummly_remove_from_favorites",
         "yummly_add_to_favorites",
+        "allrecipes_remove_from_favorites",
+        "allrecipes_get_recipe",
+        "allrecipes_login",
+        "get_wifi_status",
+        "set_wifi_status",
+        "validate_email",
+        "fresh_direct_remove_from_favorites",
         "yummly_get_recipe",
-        "yummly_get_ingredients",
-        "yummly_login"
+        "allrecipes_add_to_favorites",
+        "fresh_direct_add_to_favorites"
       ]
     },
     {
@@ -8121,9 +8307,16 @@
       "candidate_ranked": [
         "yummly_add_to_favorites",
         "yummly_remove_from_favorites",
-        "yummly_get_ingredients",
-        "yummly_get_recipe",
-        "yummly_login"
+        "allrecipes_add_to_favorites",
+        "allrecipes_get_recipe",
+        "allrecipes_login",
+        "get_wifi_status",
+        "set_wifi_status",
+        "validate_email",
+        "allrecipes_remove_from_favorites",
+        "fresh_direct_add_to_favorites",
+        "fresh_direct_get_recipe",
+        "fresh_direct_login"
       ]
     },
     {
@@ -8148,9 +8341,16 @@
       "candidate_ranked": [
         "yummly_remove_from_favorites",
         "yummly_add_to_favorites",
+        "allrecipes_remove_from_favorites",
+        "allrecipes_get_recipe",
+        "allrecipes_login",
+        "get_wifi_status",
+        "set_wifi_status",
+        "validate_email",
+        "fresh_direct_remove_from_favorites",
         "yummly_get_recipe",
-        "yummly_get_ingredients",
-        "yummly_login"
+        "allrecipes_add_to_favorites",
+        "fresh_direct_add_to_favorites"
       ]
     },
     {
@@ -8350,11 +8550,11 @@
         "get_wifi_status",
         "set_cellular_service_status",
         "set_wifi_status",
-        "launch_steam_game",
-        "launch_chrome",
-        "launch_safari",
-        "launch_google_meet",
-        "launch_vscode"
+        "check_bluetooth_device_battery",
+        "get_battery_status",
+        "get_bluetooth_status",
+        "get_low_battery_mode_status",
+        "list_connected_bluetooth_devices"
       ]
     },
     {
@@ -8548,15 +8748,17 @@
       ],
       "candidate_ranked": [
         "tesla_summon_vehicle",
+        "is_tesla_charger_location_full",
+        "get_current_storage_space",
+        "get_installed_applications",
+        "get_wifi_status",
+        "login_to_tesla_account",
+        "set_wifi_status",
+        "validate_email",
         "tesla_start_stop_climate_control",
         "tesla_limit_speed_for_teen_driver",
-        "tesla_remote_lock_unlock_doors",
-        "tesla_activate_deactivate_sentry_mode",
-        "tesla_schedule_install_software_update",
-        "tesla_open_trunk_or_frunk",
-        "tesla_schedule_climate_preconditioning",
-        "tesla_monitor_battery_status",
-        "tesla_enable_disable_valet_mode"
+        "flash_tesla_headlights",
+        "tesla_remote_lock_unlock_doors"
       ]
     },
     {
@@ -8927,7 +9129,7 @@
       "idx": 750,
       "main": "etsy_review_item",
       "baseline_complete": false,
-      "candidate_complete": true,
+      "candidate_complete": false,
       "baseline_ranked": [
         "etsy_review_item",
         "amazon_review_item",
@@ -8944,14 +9146,17 @@
       ],
       "candidate_ranked": [
         "etsy_review_item",
-        "etsy_delete_item_from_cart",
-        "etsy_user_login",
+        "amazon_review_item",
+        "amazon_user_login",
         "get_system_language",
         "get_wifi_status",
         "set_wifi_status",
         "validate_email",
-        "etsy_checkout_cart",
-        "etsy_add_item_to_cart"
+        "ebay_review_item",
+        "ebay_user_login",
+        "temu_review_item",
+        "temu_user_login",
+        "ali_express_review_item"
       ]
     },
     {
@@ -8975,17 +9180,24 @@
       ],
       "candidate_ranked": [
         "etsy_review_item",
-        "etsy_checkout_cart",
-        "etsy_delete_item_from_cart",
-        "etsy_user_login",
-        "etsy_add_item_to_cart"
+        "amazon_review_item",
+        "amazon_user_login",
+        "get_system_language",
+        "get_wifi_status",
+        "set_wifi_status",
+        "validate_email",
+        "ebay_review_item",
+        "ebay_user_login",
+        "temu_review_item",
+        "temu_user_login",
+        "ali_express_review_item"
       ]
     },
     {
       "idx": 752,
       "main": "etsy_review_item",
       "baseline_complete": false,
-      "candidate_complete": true,
+      "candidate_complete": false,
       "baseline_ranked": [
         "etsy_review_item",
         "place_ubereats_order",
@@ -9002,14 +9214,17 @@
       ],
       "candidate_ranked": [
         "etsy_review_item",
-        "etsy_delete_item_from_cart",
-        "etsy_user_login",
-        "get_system_language",
+        "place_ubereats_order",
+        "get_cellular_service_status",
+        "get_current_date",
+        "get_current_time",
+        "get_current_weather",
+        "get_system_timezone",
+        "get_us_national_holiday",
         "get_wifi_status",
+        "set_cellular_service_status",
         "set_wifi_status",
-        "validate_email",
-        "etsy_add_item_to_cart",
-        "etsy_checkout_cart"
+        "cook_recipe_with_timer"
       ]
     },
     {
@@ -9144,8 +9359,8 @@
         "validate_email",
         "united_view_flight_status",
         "united_manage_notifications",
-        "united_select_entertainment",
-        "united_update_travel_preferences"
+        "delta_view_flight_status",
+        "delta_user_login"
       ]
     },
     {
@@ -9177,9 +9392,9 @@
         "set_wifi_status",
         "united_user_login",
         "validate_email",
-        "united_view_flight_status",
-        "united_select_entertainment",
-        "united_update_travel_preferences"
+        "american_manage_notifications",
+        "american_user_login",
+        "get_notifications"
       ]
     },
     {
@@ -9203,17 +9418,17 @@
       ],
       "candidate_ranked": [
         "united_manage_notifications",
-        "united_update_travel_preferences",
-        "united_user_login",
+        "delta_manage_notifications",
+        "delta_user_login",
         "get_airplane_mode_status",
+        "get_notifications",
         "get_system_language",
         "get_wifi_status",
         "set_airplane_mode_status",
+        "set_notifications",
         "set_wifi_status",
         "validate_email",
-        "united_view_flight_status",
-        "united_find_my_bags",
-        "united_select_entertainment"
+        "emirates_manage_notifications"
       ]
     },
     {
@@ -9339,14 +9554,17 @@
       ],
       "candidate_ranked": [
         "planet_fitness_schedule_class",
+        "crunch_fitness_schedule_class",
+        "la_fitness_schedule_class",
+        "get_system_language",
+        "get_wifi_status",
+        "la_fitness_user_login",
+        "set_wifi_status",
+        "validate_email",
         "planet_fitness_generate_workout_plan",
         "planet_fitness_log_workout_notes",
         "planet_fitness_track_workout",
-        "get_system_language",
-        "get_wifi_status",
-        "planet_fitness_user_login",
-        "set_wifi_status",
-        "validate_email"
+        "planet_fitness_user_login"
       ]
     },
     {
@@ -9370,10 +9588,17 @@
       ],
       "candidate_ranked": [
         "planet_fitness_schedule_class",
-        "planet_fitness_generate_workout_plan",
-        "planet_fitness_track_workout",
-        "planet_fitness_user_login",
-        "planet_fitness_log_workout_notes"
+        "crunch_fitness_schedule_class",
+        "la_fitness_schedule_class",
+        "get_system_language",
+        "get_wifi_status",
+        "la_fitness_user_login",
+        "set_wifi_status",
+        "validate_email",
+        "equinox_schedule_class",
+        "equinox_user_login",
+        "golds_gym_schedule_class",
+        "golds_gym_user_login"
       ]
     },
     {
@@ -9404,7 +9629,10 @@
         "get_wifi_status",
         "planet_fitness_user_login",
         "set_wifi_status",
-        "validate_email"
+        "validate_email",
+        "start_fitness_tracker_mode",
+        "get_bluetooth_status",
+        "get_cellular_service_status"
       ]
     },
     {
@@ -9734,11 +9962,17 @@
       ],
       "candidate_ranked": [
         "frontier_manage_notifications",
-        "frontier_view_flight_status",
-        "frontier_user_login",
-        "frontier_find_my_bags",
-        "frontier_update_travel_preferences",
-        "frontier_select_entertainment"
+        "delta_manage_notifications",
+        "delta_user_login",
+        "get_airplane_mode_status",
+        "get_notifications",
+        "get_system_language",
+        "get_wifi_status",
+        "set_airplane_mode_status",
+        "set_notifications",
+        "set_wifi_status",
+        "validate_email",
+        "emirates_manage_notifications"
       ]
     },
     {
@@ -9762,11 +9996,17 @@
       ],
       "candidate_ranked": [
         "frontier_manage_notifications",
-        "frontier_find_my_bags",
-        "frontier_view_flight_status",
-        "frontier_update_travel_preferences",
-        "frontier_select_entertainment",
-        "frontier_user_login"
+        "delta_manage_notifications",
+        "delta_user_login",
+        "get_airplane_mode_status",
+        "get_notifications",
+        "get_system_language",
+        "get_wifi_status",
+        "set_airplane_mode_status",
+        "set_notifications",
+        "set_wifi_status",
+        "validate_email",
+        "emirates_manage_notifications"
       ]
     },
     {
@@ -9790,17 +10030,17 @@
       ],
       "candidate_ranked": [
         "frontier_manage_notifications",
-        "frontier_user_login",
+        "cancel_uber_ride",
+        "set_notifications",
         "get_airplane_mode_status",
+        "get_notifications",
         "get_system_language",
         "get_wifi_status",
         "set_airplane_mode_status",
         "set_wifi_status",
         "validate_email",
-        "frontier_select_entertainment",
-        "frontier_find_my_bags",
-        "frontier_view_flight_status",
-        "frontier_update_travel_preferences"
+        "delta_manage_notifications",
+        "delta_user_login"
       ]
     },
     {
@@ -9831,7 +10071,10 @@
         "validate_email",
         "la_fitness_log_workout_notes",
         "la_fitness_schedule_class",
-        "la_fitness_generate_workout_plan"
+        "la_fitness_generate_workout_plan",
+        "crunch_fitness_track_workout",
+        "crunch_fitness_user_login",
+        "planet_fitness_track_workout"
       ]
     },
     {
@@ -9862,7 +10105,10 @@
         "la_fitness_track_workout",
         "la_fitness_schedule_class",
         "la_fitness_generate_workout_plan",
-        "la_fitness_log_workout_notes"
+        "la_fitness_log_workout_notes",
+        "crunch_fitness_user_login",
+        "crunch_fitness_track_workout",
+        "crunch_fitness_log_workout_notes"
       ]
     },
     {
@@ -9893,7 +10139,10 @@
         "validate_email",
         "la_fitness_log_workout_notes",
         "la_fitness_track_workout",
-        "la_fitness_generate_workout_plan"
+        "la_fitness_generate_workout_plan",
+        "crunch_fitness_schedule_class",
+        "planet_fitness_schedule_class",
+        "equinox_schedule_class"
       ]
     },
     {
@@ -10124,7 +10373,14 @@
         "yummly_get_recipe",
         "yummly_remove_from_favorites",
         "yummly_add_to_favorites",
-        "yummly_login"
+        "allrecipes_get_ingredients",
+        "fresh_direct_get_ingredients",
+        "allrecipes_get_recipe",
+        "allrecipes_login",
+        "get_wifi_status",
+        "set_wifi_status",
+        "validate_email",
+        "allrecipes_add_to_favorites"
       ]
     },
     {
@@ -10151,14 +10407,21 @@
         "yummly_add_to_favorites",
         "yummly_remove_from_favorites",
         "yummly_get_ingredients",
-        "yummly_login"
+        "allrecipes_get_recipe",
+        "allrecipes_login",
+        "get_wifi_status",
+        "set_wifi_status",
+        "validate_email",
+        "allrecipes_add_to_favorites",
+        "allrecipes_remove_from_favorites",
+        "fresh_direct_get_recipe"
       ]
     },
     {
       "idx": 872,
       "main": "yummly_get_recipe",
       "baseline_complete": false,
-      "candidate_complete": true,
+      "candidate_complete": false,
       "baseline_ranked": [
         "yummly_get_ingredients",
         "yummly_get_recipe",
@@ -10178,11 +10441,16 @@
         "yummly_get_recipe",
         "yummly_add_to_favorites",
         "yummly_remove_from_favorites",
-        "yummly_login",
+        "jetblue_find_my_bags",
+        "allrecipes_get_recipe",
+        "allrecipes_login",
         "get_wifi_status",
         "set_wifi_status",
-        "validate_email"
+        "validate_email",
+        "allrecipes_add_to_favorites",
+        "allrecipes_remove_from_favorites"
       ]
     }
-  ]
+  ],
+  "candidate_policy": "original seeds; active-edge and trace-provenance continuity only"
 }
