@@ -28,4 +28,4 @@ The final policy only withholds schema-overlap candidates and prevents switching
 
 Final exploratory development result: **117/312 complete vs 87/312**, with **33 gains and 3 losses**. Mean bundle size is **11.70 vs 11.76**. Lost queries are 1080 (car ownership), 265 (system resources), and 485 (carbon intensity). Current full paired ranks are in `results/evidence_scope_dev.json`; earlier numbers above document discarded development variants, not this result.
 
-Trace provenance stores the latest edge update, not every supporting episode. Continuity is conservative evidence hygiene, not proof of a causal dependency. Legitimate dependencies can be missed. No general superiority or live-engine speedup is established by this local reference.
+Continuity now uses the latest known positive observation, kept separately from a later negative or undo update. It does not store every supporting episode. Continuity is conservative evidence hygiene, not proof of a causal dependency. Legitimate dependencies can be missed. No general superiority or live-engine speedup is established by this local reference.

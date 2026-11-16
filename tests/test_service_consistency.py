@@ -183,6 +183,41 @@ class ServiceConsistencyTest(unittest.TestCase):
         result = self.service._merge_memory_expansion(raw, ["root"], ["root"], 16, evidence_scoped=True)
         self.assertIn("get_id", result.tools)
 
+    def test_negative_feedback_is_not_reported_as_positive_support(self):
+        from toolgraph.graph import positive_trace_provenance
+        svc = self.service
+        store = svc.store
+        for _ in range(3):
+            store.record_trace(None, "observed", ["root", "get_id"], ["root", "get_id"])
+        key = (store.names["root"], store.names["get_id"], "REQUIRES")
+        positive = positive_trace_provenance(store.edges[key])
+        store.record_trace(None, "helper unused", ["root"], ["root", "get_id"])
+        edge = store.edges[key]
+        negative_edit = edge.edit_id
+        self.assertAlmostEqual(edge.p, 2 / 3)
+        self.assertTrue(edge.prov.startswith("neg:"))
+        self.assertEqual(positive_trace_provenance(edge), positive)
+        svc.tools = store.tools
+        row = next(row for row in svc.explain("root")["out_edges"] if row["dst"] == "get_id")
+        self.assertEqual(row["latest_update"], edge.prov)
+        self.assertEqual(row["latest_positive_observation"], positive)
+        self.assertIn("not a verified dependency", row["evidence_note"])
+        self.assertTrue(store.undo_edit(negative_edit))
+        restored = store.edges[key]
+        self.assertTrue(restored.prov.startswith("undo:"))
+        self.assertEqual(positive_trace_provenance(restored), positive)
+        snapshot = store._edge_snapshot(restored)
+        self.assertEqual(positive_trace_provenance(store._edge_from_snapshot(snapshot)), positive)
+
+    def test_legacy_negative_only_provenance_does_not_invent_support(self):
+        from toolgraph.graph import positive_trace_provenance
+        store = self.service.store
+        edge = next(iter(store.edges.values()))
+        edge.source = "trace"
+        edge.prov = "neg:legacy"
+        edge.positive_prov = ""
+        self.assertEqual(positive_trace_provenance(edge), "")
+
     def test_mutations_invalidate_cached_bundles(self):
         for operation in ("record_trace", "record_result", "undo_edit"):
             with self.subTest(operation=operation):

@@ -689,7 +689,7 @@ I'd like to book a table for dinner at The Italian Bistro at 7 PM. Can you handl
               node(
                 "div",
                 "desc",
-                `Evidence: ${edge.prov || "not reported"} · weight ${p} · observations ${edge.n_obs ?? "unknown"}`,
+                `Latest recorded update: ${edge.latest_update || edge.prov || "not reported"} · latest positive observation: ${edge.latest_positive_observation || "not known"} · weight ${p} · observations ${edge.n_obs ?? "unknown"}. Co-occurrence is not a verified dependency.`,
               ),
             );
           });

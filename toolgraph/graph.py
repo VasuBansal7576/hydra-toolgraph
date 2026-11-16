@@ -83,6 +83,17 @@ class Edge:
     beta_penalty: float = 0.0
     valid_from: float = 0.0
     edge_id: str = ""
+    positive_prov: str = ""
+
+
+def positive_trace_provenance(edge: Edge) -> str:
+    """Most recent known positive observation, never a negative update."""
+    if edge.source != "trace":
+        return ""
+    provenance = edge.positive_prov or edge.prov
+    if not provenance or provenance.startswith(("neg:", "undo:")) or provenance == "demo_seed":
+        return ""
+    return provenance
 
 
 @dataclass
@@ -655,6 +666,7 @@ class GraphStore:
                 support=edge.support,
                 edit_id=edge.edit_id,
                 prov=edge.prov,
+                positive_prov=positive_trace_provenance(edge),
                 n_obs=n_ab,
                 n_seen_src=seen,
                 p=p,
@@ -792,6 +804,7 @@ class GraphStore:
         edit_id = self._next_edit()
         edge_id = _logical_edge_id(src, dst)
         current = self.edges.get(key)
+        positive_prov = (positive_trace_provenance(current) if current else "") if prov.startswith("neg:") else prov
         live = p >= self.tau
 
         if current is not None and current.source == "io_prior" and n_ab == 0:
@@ -814,6 +827,7 @@ class GraphStore:
                 support=(current.support if current is not None else 1),
                 edit_id=edit_id,
                 prov=prov,
+                positive_prov=positive_prov,
                 n_obs=n_ab,
                 n_seen_src=n_src,
                 p=p,
@@ -883,6 +897,7 @@ class GraphStore:
             support=(current.support + 1) if current is not None else 1,
             edit_id=edit_id,
             prov=prov,
+            positive_prov=positive_prov,
             n_obs=n_ab,
             n_seen_src=n_src,
             p=p,
@@ -1025,6 +1040,7 @@ class GraphStore:
             "support": edge.support,
             "edit_id": edge.edit_id,
             "prov": edge.prov,
+            "positive_prov": positive_trace_provenance(edge),
             "n_obs": edge.n_obs,
             "n_seen_src": edge.n_seen_src,
             "p": edge.p,
@@ -1045,6 +1061,7 @@ class GraphStore:
             support=int(snap["support"]),
             edit_id=str(snap["edit_id"]),
             prov=str(snap["prov"]),
+            positive_prov=str(snap.get("positive_prov") or ""),
             n_obs=int(snap.get("n_obs") or 0),
             n_seen_src=int(snap.get("n_seen_src") or 0),
             p=float(snap.get("p") or 0.5),
@@ -1201,6 +1218,7 @@ class GraphStore:
                 support=int(row.get("support") or 1),
                 edit_id=str(row.get("edit_id") or self._next_edit()),
                 prov=str(row.get("prov") or "demo_seed"),
+                positive_prov=str(row.get("positive_prov") or ""),
                 n_obs=n_obs,
                 n_seen_src=n_seen,
                 p=p,
@@ -1413,6 +1431,8 @@ class GraphStore:
             restored = None
         else:
             restored = self._edge_from_snapshot(prev)
+            restored.positive_prov = positive_trace_provenance(restored)
+            restored.prov = f"undo:{edit_id}"
             restored.edit_id = undo_id
             restored.valid_from = now
             self.edges[key] = restored

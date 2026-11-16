@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from toolgraph.data import Tool, load_dataset, split_by_main, tokenize
-from toolgraph.graph import GraphStore, LoadToolsResult, ToolWhy, rank_costs, schema_token_count
+from toolgraph.graph import GraphStore, LoadToolsResult, ToolWhy, positive_trace_provenance, rank_costs, schema_token_count
 from toolgraph.hydra import HydraClient, HydraError
 from toolgraph.learn import apply_io_prior, ingest_trace_edges, propose_schema_candidates
 from toolgraph.protocol import FUSION_POOL, MAX_LEN, SEED_PENALTY, SEEDS
@@ -350,6 +350,9 @@ class ToolgraphService:
                             "prov": edge.prov
                             if edge
                             else (why.sources[index] if index < len(why.sources) else ""),
+                            "latest_update": edge.prov if edge else None,
+                            "latest_positive_observation": positive_trace_provenance(edge) if edge else None,
+                            "evidence_note": "Co-occurrence support, not a verified dependency; not a complete trace history.",
                             "p": edge.p if edge else None,
                             "n_obs": edge.n_obs if edge else None,
                             "edge_id": why.edge_ids[index] if index < len(why.edge_ids) else None,
@@ -408,11 +411,11 @@ class ToolgraphService:
             episode = None
             for source, target in zip(path, path[1:]):
                 edge = active.get((self.store.names.get(source), self.store.names.get(target)))
-                if edge is None or edge.source != "trace" or not edge.prov:
+                if edge is None or not positive_trace_provenance(edge):
                     return False
-                if episode is not None and episode != edge.prov:
+                if episode is not None and episode != positive_trace_provenance(edge):
                     return False
-                episode = edge.prov
+                episode = positive_trace_provenance(edge)
             return True
 
         allowed = {
@@ -423,7 +426,7 @@ class ToolgraphService:
         why = {name: item for name, item in result.why.items() if name not in excluded and name in allowed}
         adjacency = {}
         for edge in active_edges:
-            if evidence_scoped and (edge.source != "trace" or not edge.prov):
+            if evidence_scoped and (not positive_trace_provenance(edge)):
                 continue
             source = self.store.by_id[edge.src]
             adjacency.setdefault(source, []).append(edge)
@@ -442,7 +445,7 @@ class ToolgraphService:
             episode = None
             if len(path) > 1:
                 prior = self.store.edges[(self.store.names[path[-2]], self.store.names[name], "REQUIRES")]
-                episode = prior.prov
+                episode = positive_trace_provenance(prior)
             state = (name, len(path), episode if evidence_scoped else None)
             if cost >= best.get(state, float("inf")):
                 continue
@@ -456,7 +459,7 @@ class ToolgraphService:
                 target = self.store.by_id[edge.dst]
                 if target in excluded or target in path:
                     continue
-                if evidence_scoped and episode is not None and edge.prov != episode:
+                if evidence_scoped and episode is not None and positive_trace_provenance(edge) != episode:
                     continue
                 frontier.append((
                     target, cost + edge.cost, [*path, target],
@@ -610,6 +613,9 @@ class ToolgraphService:
                 "dst": self.store.by_id[dst],
                 "rel": rel,
                 "prov": edge.prov,
+                "latest_update": edge.prov,
+                "latest_positive_observation": positive_trace_provenance(edge),
+                "evidence_note": "Co-occurrence support, not a verified dependency; not a complete trace history.",
                 "n_obs": edge.n_obs,
                 "n_seen_src": edge.n_seen_src,
                 "p": edge.p,
