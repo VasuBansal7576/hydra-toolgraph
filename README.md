@@ -4,7 +4,7 @@
 
 ToolGraph is an inspectable tool-context layer for agent builders: retrieve candidate tools, add observed tool associations, and inspect the evidence behind the bundle. Record observed traces, compare the next retrieval, and undo a learned edit. The demo retrieves definitions; it does not execute tools or establish task success.
 
-[Open the dependency workbench](https://hydra-toolgraph.onrender.com/) · [Evaluation and limitations](docs/RESULTS_V3.md)
+[Inspect the recorded ToolSandbox comparison](https://hydra-toolgraph.onrender.com/#evidence) · [Open the dependency workbench](https://hydra-toolgraph.onrender.com/) · [Evaluation and limitations](docs/RESULTS_V3.md)
 
 ### Try the evidence loop
 

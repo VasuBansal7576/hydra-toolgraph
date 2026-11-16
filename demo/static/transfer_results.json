@@ -1,0 +1,452 @@
+{
+  "label": "Verified compact summary of one frozen authored continuation, not a benchmark",
+  "verification": {
+    "status": "passed",
+    "verified_outcomes": 12,
+    "verified_successes": 9,
+    "basis": "allowed calls, observed lookup, exact content, state continuity and final rows"
+  },
+  "source_execution_sha256": "23f8f0fc156feafbb0f692570e3125e26f5c463f80bb459cb72cf517ee6dc429",
+  "source_retrieval_sha256": "5cca358ea3e01dd72153f991706550fcc8996ddcbc684eaed3471c5aad14d735",
+  "manifest_sha256": "1e507f0a6d627c0810c2ffa9ecac3d72e0c447eaa78fe1a06ce0ffb2a719d1d4",
+  "training_receipt_sha256": "1c6dbde9d65e71f256d6141f73565d6fac5043712680e17d3f04bd82fcafba17",
+  "catalog_size": 15,
+  "arms": [
+    {
+      "name": "bm25_before_learning",
+      "budget": 3,
+      "ranked": [
+        "send_message_with_phone_number",
+        "search_messages",
+        "add_contact"
+      ],
+      "schema_tokens": 834
+    },
+    {
+      "name": "bm25_before_learning",
+      "budget": 5,
+      "ranked": [
+        "send_message_with_phone_number",
+        "search_messages",
+        "add_contact",
+        "get_current_location",
+        "search_contacts"
+      ],
+      "schema_tokens": 1198
+    },
+    {
+      "name": "hydra_after_same_observed_episode",
+      "budget": 3,
+      "ranked": [
+        "send_message_with_phone_number",
+        "search_contacts",
+        "set_cellular_service_status"
+      ],
+      "schema_tokens": 554
+    },
+    {
+      "name": "hydra_after_same_observed_episode",
+      "budget": 5,
+      "ranked": [
+        "send_message_with_phone_number",
+        "search_contacts",
+        "set_cellular_service_status",
+        "search_messages",
+        "add_contact"
+      ],
+      "schema_tokens": 1240
+    },
+    {
+      "name": "local_closure_after_same_observed_episode",
+      "budget": 3,
+      "ranked": [
+        "send_message_with_phone_number",
+        "search_contacts",
+        "set_cellular_service_status"
+      ],
+      "schema_tokens": 554
+    },
+    {
+      "name": "local_closure_after_same_observed_episode",
+      "budget": 5,
+      "ranked": [
+        "send_message_with_phone_number",
+        "search_contacts",
+        "set_cellular_service_status",
+        "search_messages",
+        "add_contact"
+      ],
+      "schema_tokens": 1240
+    }
+  ],
+  "same_evidence_hybrid_equals_local": true,
+  "outcomes": [
+    {
+      "arm": "bm25_before_learning",
+      "budget": 3,
+      "initial_cellular": false,
+      "success": false,
+      "selected_tools": [
+        "send_message_with_phone_number",
+        "search_messages",
+        "add_contact"
+      ],
+      "unused_tools": [
+        "add_contact",
+        "search_messages",
+        "send_message_with_phone_number"
+      ],
+      "final_message_count": 0,
+      "calls": []
+    },
+    {
+      "arm": "bm25_before_learning",
+      "budget": 3,
+      "initial_cellular": true,
+      "success": false,
+      "selected_tools": [
+        "send_message_with_phone_number",
+        "search_messages",
+        "add_contact"
+      ],
+      "unused_tools": [
+        "add_contact",
+        "search_messages",
+        "send_message_with_phone_number"
+      ],
+      "final_message_count": 0,
+      "calls": []
+    },
+    {
+      "arm": "bm25_before_learning",
+      "budget": 5,
+      "initial_cellular": false,
+      "success": false,
+      "selected_tools": [
+        "send_message_with_phone_number",
+        "search_messages",
+        "add_contact",
+        "get_current_location",
+        "search_contacts"
+      ],
+      "unused_tools": [
+        "add_contact",
+        "get_current_location",
+        "search_messages"
+      ],
+      "final_message_count": 0,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "error",
+          "error_type": "ConnectionError"
+        }
+      ]
+    },
+    {
+      "arm": "bm25_before_learning",
+      "budget": 5,
+      "initial_cellular": true,
+      "success": true,
+      "selected_tools": [
+        "send_message_with_phone_number",
+        "search_messages",
+        "add_contact",
+        "get_current_location",
+        "search_contacts"
+      ],
+      "unused_tools": [
+        "add_contact",
+        "get_current_location",
+        "search_messages"
+      ],
+      "final_message_count": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null
+        }
+      ]
+    },
+    {
+      "arm": "hydra_after_same_observed_episode",
+      "budget": 3,
+      "initial_cellular": false,
+      "success": true,
+      "selected_tools": [
+        "send_message_with_phone_number",
+        "search_contacts",
+        "set_cellular_service_status"
+      ],
+      "unused_tools": [],
+      "final_message_count": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "set_cellular_service_status",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null
+        }
+      ]
+    },
+    {
+      "arm": "hydra_after_same_observed_episode",
+      "budget": 3,
+      "initial_cellular": true,
+      "success": true,
+      "selected_tools": [
+        "send_message_with_phone_number",
+        "search_contacts",
+        "set_cellular_service_status"
+      ],
+      "unused_tools": [],
+      "final_message_count": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "set_cellular_service_status",
+          "status": "error",
+          "error_type": "ValueError"
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null
+        }
+      ]
+    },
+    {
+      "arm": "hydra_after_same_observed_episode",
+      "budget": 5,
+      "initial_cellular": false,
+      "success": true,
+      "selected_tools": [
+        "send_message_with_phone_number",
+        "search_contacts",
+        "set_cellular_service_status",
+        "search_messages",
+        "add_contact"
+      ],
+      "unused_tools": [
+        "add_contact",
+        "search_messages"
+      ],
+      "final_message_count": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "set_cellular_service_status",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null
+        }
+      ]
+    },
+    {
+      "arm": "hydra_after_same_observed_episode",
+      "budget": 5,
+      "initial_cellular": true,
+      "success": true,
+      "selected_tools": [
+        "send_message_with_phone_number",
+        "search_contacts",
+        "set_cellular_service_status",
+        "search_messages",
+        "add_contact"
+      ],
+      "unused_tools": [
+        "add_contact",
+        "search_messages"
+      ],
+      "final_message_count": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "set_cellular_service_status",
+          "status": "error",
+          "error_type": "ValueError"
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null
+        }
+      ]
+    },
+    {
+      "arm": "local_closure_after_same_observed_episode",
+      "budget": 3,
+      "initial_cellular": false,
+      "success": true,
+      "selected_tools": [
+        "send_message_with_phone_number",
+        "search_contacts",
+        "set_cellular_service_status"
+      ],
+      "unused_tools": [],
+      "final_message_count": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "set_cellular_service_status",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null
+        }
+      ]
+    },
+    {
+      "arm": "local_closure_after_same_observed_episode",
+      "budget": 3,
+      "initial_cellular": true,
+      "success": true,
+      "selected_tools": [
+        "send_message_with_phone_number",
+        "search_contacts",
+        "set_cellular_service_status"
+      ],
+      "unused_tools": [],
+      "final_message_count": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "set_cellular_service_status",
+          "status": "error",
+          "error_type": "ValueError"
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null
+        }
+      ]
+    },
+    {
+      "arm": "local_closure_after_same_observed_episode",
+      "budget": 5,
+      "initial_cellular": false,
+      "success": true,
+      "selected_tools": [
+        "send_message_with_phone_number",
+        "search_contacts",
+        "set_cellular_service_status",
+        "search_messages",
+        "add_contact"
+      ],
+      "unused_tools": [
+        "add_contact",
+        "search_messages"
+      ],
+      "final_message_count": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "set_cellular_service_status",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null
+        }
+      ]
+    },
+    {
+      "arm": "local_closure_after_same_observed_episode",
+      "budget": 5,
+      "initial_cellular": true,
+      "success": true,
+      "selected_tools": [
+        "send_message_with_phone_number",
+        "search_contacts",
+        "set_cellular_service_status",
+        "search_messages",
+        "add_contact"
+      ],
+      "unused_tools": [
+        "add_contact",
+        "search_messages"
+      ],
+      "final_message_count": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null
+        },
+        {
+          "tool": "set_cellular_service_status",
+          "status": "error",
+          "error_type": "ValueError"
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null
+        }
+      ]
+    }
+  ],
+  "privacy": "Phone numbers, recipient names, message contents, raw arguments and database rows omitted. This summary does not replace raw-state verification.",
+  "limits": [
+    "One authored prospective task in four budget/state settings, not four independent held-out tasks",
+    "Actual upstream tools under a scripted executor, not autonomous planning or real SMS",
+    "Learned co-occurrence is not proof of causal necessity",
+    "Hydra and equal-evidence local closure tie",
+    "Already-enabled setter errors and unused tools remain visible",
+    "Original artifact hashes identify this run; timestamps may change on reproduction"
+  ]
+}

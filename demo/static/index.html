@@ -362,6 +362,142 @@
           transition: filter 0.15s;
         }
       }
+      .proof {
+        margin: 8px 0 36px;
+        padding: 30px;
+        border-color: #64784d;
+      }
+      .proof h2 {
+        font-size: clamp(27px, 3.4vw, 43px);
+        letter-spacing: -1.4px;
+        margin: 16px 0;
+      }
+      .proof-lede {
+        color: var(--muted);
+        max-width: 800px;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+      .proof-sequence {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        padding: 18px 0;
+        margin: 22px 0 4px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .proof-sequence b {
+        color: var(--ink);
+        margin-right: 5px;
+      }
+      .proof-controls {
+        display: flex;
+        gap: 28px;
+        flex-wrap: wrap;
+      }
+      .proof-controls button[aria-pressed="true"] {
+        background: var(--accent);
+        color: var(--bg);
+        border-color: var(--accent);
+      }
+      .proof-cards {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 24px;
+      }
+      .proof-card {
+        border: 1px solid var(--line);
+        background: var(--bg);
+        padding: 20px;
+        min-width: 0;
+      }
+      .proof-card h3 {
+        font-size: 17px;
+        margin: 10px 0 5px;
+        letter-spacing: -0.4px;
+      }
+      .proof-outcome {
+        font-size: 20px;
+        color: var(--accent);
+        margin: 23px 0 12px;
+        line-height: 1.3;
+      }
+      .proof-outcome.failed {
+        color: var(--warn);
+      }
+      .proof-tool {
+        font:
+          11px/1.7 ui-monospace,
+          monospace;
+        padding: 8px 0;
+        border-top: 1px solid var(--line);
+        overflow-wrap: anywhere;
+      }
+      .proof-metrics {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 15px 0;
+        line-height: 1.8;
+      }
+      .proof-error {
+        color: var(--warn);
+        font-size: 12px;
+        line-height: 1.6;
+        padding: 10px 0;
+      }
+      .proof-limits {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .proof-limits b {
+        color: var(--ink);
+      }
+      .proof-links {
+        display: flex;
+        gap: 12px 24px;
+        flex-wrap: wrap;
+        border-top: 1px solid var(--line);
+        padding-top: 20px;
+        margin-top: 20px;
+        font-size: 12px;
+      }
+      .proof-all {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 15px;
+      }
+      .proof-all-row {
+        font-size: 12px;
+        line-height: 1.7;
+        padding: 12px;
+        border: 1px solid var(--line);
+      }
+      .workbench-heading {
+        margin: 36px 0 18px;
+      }
+      .workbench-heading h2 {
+        font-size: 28px;
+        font-weight: 500;
+        letter-spacing: -1px;
+        margin-top: 10px;
+      }
+      @media (max-width: 900px) {
+        .proof-cards {
+          grid-template-columns: 1fr;
+        }
+        .proof {
+          padding: 20px;
+        }
+        .proof-all {
+          grid-template-columns: 1fr;
+        }
+      }
     </style>
   </head>
   <body>
@@ -384,6 +520,108 @@
         and compare what changes after a trace. Less guessing. A visible reason
         for every addition.
       </p>
+    </div>
+    <section class="proof panel" id="evidence" aria-labelledby="proofTitle">
+      <div class="eyebrow">
+        Recorded proof / actual upstream tools / not live execution
+      </div>
+      <h2 id="proofTitle">It found “send”. It still couldn't send.</h2>
+      <p class="proof-lede">
+        One observed repair. A different recipient. Fifteen real tools to choose
+        from. Inspect what the returned bundles actually did in ToolSandbox.
+      </p>
+      <div class="proof-sequence">
+        <span><b>Observe</b> A real send fails with cellular off</span
+        ><span aria-hidden="true">→</span
+        ><span><b>Record</b> One successful repair episode</span
+        ><span aria-hidden="true">→</span
+        ><span><b>Check</b> A new, frozen recipient task</span>
+      </div>
+      <div class="proof-controls">
+        <div>
+          <span class="label">Recorded tool budget</span>
+          <div class="row" role="group" aria-label="Recorded tool budget">
+            <button class="secondary" data-proof-budget="3" aria-pressed="true">
+              3 tools</button
+            ><button
+              class="secondary"
+              data-proof-budget="5"
+              aria-pressed="false"
+            >
+              5 tools
+            </button>
+          </div>
+        </div>
+        <div>
+          <span class="label">Recorded initial cellular state</span>
+          <div
+            class="row"
+            role="group"
+            aria-label="Recorded initial cellular state"
+          >
+            <button
+              class="secondary"
+              data-proof-state="off"
+              aria-pressed="true"
+            >
+              Off</button
+            ><button
+              class="secondary"
+              data-proof-state="on"
+              aria-pressed="false"
+            >
+              Already on
+            </button>
+          </div>
+        </div>
+      </div>
+      <p class="muted">
+        These controls inspect saved results. They do not execute tools, send
+        messages, or change the live graph.
+      </p>
+      <div id="proofCards" class="proof-cards" aria-live="polite">
+        <p class="muted">Loading the verified recorded comparison…</p>
+      </div>
+      <p class="note" id="proofTradeoff">
+        The equally informed local-closure control ties Hydra. This is evidence
+        for recorded experience in one scenario, not graph superiority.
+      </p>
+      <div class="proof-limits">
+        <b>The boundary matters.</b> This is one authored continuation with a
+        fixed scripted executor, not an autonomous-agent benchmark. Associations
+        are observed co-occurrence, not a causal plan. The already-on control
+        preserves redundant setter errors. Budget 5 can cost more tokens than
+        the baseline.
+      </div>
+      <details>
+        <summary>Inspect all 12 recorded outcomes</summary>
+        <div id="proofAll" class="proof-all"></div>
+      </details>
+      <details>
+        <summary>Where this evidence comes from</summary>
+        <p class="muted">
+          The verifier checks exact retrieved bundles, allowed calls,
+          lookup-derived destination, message content, state continuity, and
+          actual sandbox rows. The public receipt omits recipient names, numbers
+          and message contents. Source hashes identify the original full
+          receipts; the compact summary is not a replacement for raw-state
+          verification.
+        </p>
+        <pre id="proofHashes"></pre>
+      </details>
+      <div class="proof-links">
+        <a href="/transfer_results.json">Open compact receipt ↗</a
+        ><a data-proof-doc="TRANSFER_RESULTS.md"
+          >All results &amp; limitations ↗</a
+        ><a data-proof-doc="TRANSFER_PROTOCOL.md">Frozen protocol ↗</a
+        ><a data-proof-doc="README.md">Reproduce with upstream tools ↗</a>
+      </div>
+    </section>
+    <div class="workbench-heading">
+      <div class="eyebrow">
+        Live workbench / separate from the recorded proof
+      </div>
+      <h2>Inspect your own task</h2>
     </div>
     <div class="layout">
       <section class="panel">
@@ -817,6 +1055,168 @@ I'd like to book a table for dinner at The Italian Bistro at 7 PM. Can you handl
           syncButtons();
         }
       }
+      let proofData = null;
+      let proofBudget = 3;
+      let proofCellular = false;
+      const proofArmNames = {
+        bm25_before_learning: {
+          title: "Before learning",
+          subtitle: "BM25 tool search",
+        },
+        hydra_after_same_observed_episode: {
+          title: "After one repair",
+          subtitle: "Hydra-backed hybrid",
+        },
+        local_closure_after_same_observed_episode: {
+          title: "Equally informed control",
+          subtitle: "Local closure · same evidence",
+        },
+      };
+      const proofSource =
+        "https://github.com/VasuBansal7576/hydra-toolgraph/blob/beb5fa0109b6f3ba2314c66665e85c742b962956/examples/toolsandbox/";
+      document.querySelectorAll("[data-proof-doc]").forEach((link) => {
+        link.href = proofSource + link.dataset.proofDoc;
+      });
+      function proofDescription(outcome) {
+        if (outcome.success) return "1 correct sandbox message";
+        if (!outcome.selected_tools.includes("search_contacts"))
+          return "Blocked: no contact lookup";
+        if (outcome.calls.some((call) => call.error_type === "ConnectionError"))
+          return "Failed: cellular unavailable";
+        return "No successful sandbox message";
+      }
+      function renderProof() {
+        if (!proofData) return;
+        $("proofCards").replaceChildren();
+        Object.entries(proofArmNames).forEach(([name, label]) => {
+          const arm = proofData.arms.find(
+            (item) => item.name === name && item.budget === proofBudget,
+          );
+          const outcome = proofData.outcomes.find(
+            (item) =>
+              item.arm === name &&
+              item.budget === proofBudget &&
+              item.initial_cellular === proofCellular,
+          );
+          const card = node("div", "proof-card");
+          card.append(
+            node("div", "eyebrow", label.subtitle),
+            node("h3", "", label.title),
+            node(
+              "div",
+              "proof-outcome" + (outcome.success ? "" : " failed"),
+              proofDescription(outcome),
+            ),
+          );
+          outcome.selected_tools.forEach((tool) =>
+            card.append(node("div", "proof-tool", tool)),
+          );
+          card.append(
+            node(
+              "div",
+              "proof-metrics",
+              `${arm.schema_tokens.toLocaleString()} schema tokens · ${outcome.unused_tools.length} unused loaded tools`,
+            ),
+          );
+          const errors = outcome.calls.filter(
+            (call) => call.status === "error",
+          );
+          errors.forEach((call) =>
+            card.append(
+              node(
+                "div",
+                "proof-error",
+                `${call.error_type}: ${call.tool === "set_cellular_service_status" ? "cellular was already enabled; the fixed executor continued to send." : "the actual upstream send could not run with cellular off."}`,
+              ),
+            ),
+          );
+          if (!outcome.calls.length)
+            card.append(
+              node(
+                "div",
+                "muted",
+                "No call was made. The missing phone number was not filled in from the hidden fixture.",
+              ),
+            );
+          $("proofCards").append(card);
+        });
+        $("proofTradeoff").textContent =
+          proofBudget === 3
+            ? "At this budget, recorded experience replaces unrelated tools with the two helpers. Local closure ties Hydra exactly: no graph-over-local quality advantage is established."
+            : "At budget 5, learning does not save tokens: 1,240 versus BM25’s 1,198. Both learned arms include two unused tools. Local closure still ties Hydra.";
+        document
+          .querySelectorAll("[data-proof-budget]")
+          .forEach((button) =>
+            button.setAttribute(
+              "aria-pressed",
+              String(Number(button.dataset.proofBudget) === proofBudget),
+            ),
+          );
+        document
+          .querySelectorAll("[data-proof-state]")
+          .forEach((button) =>
+            button.setAttribute(
+              "aria-pressed",
+              String((button.dataset.proofState === "on") === proofCellular),
+            ),
+          );
+      }
+      document.querySelectorAll("[data-proof-budget]").forEach((button) => {
+        button.onclick = () => {
+          proofBudget = Number(button.dataset.proofBudget);
+          renderProof();
+        };
+      });
+      document.querySelectorAll("[data-proof-state]").forEach((button) => {
+        button.onclick = () => {
+          proofCellular = button.dataset.proofState === "on";
+          renderProof();
+        };
+      });
+      async function loadProof() {
+        try {
+          const data = await request("/transfer_results.json");
+          if (
+            data.verification?.status !== "passed" ||
+            data.verification?.verified_outcomes !== 12 ||
+            data.manifest_sha256 !==
+              "1e507f0a6d627c0810c2ffa9ecac3d72e0c447eaa78fe1a06ce0ffb2a719d1d4"
+          )
+            throw new Error("Recorded evidence identity could not be verified");
+          proofData = data;
+          renderProof();
+          $("proofAll").replaceChildren();
+          data.outcomes.forEach((outcome) => {
+            const row = node("div", "proof-all-row");
+            row.append(
+              node(
+                "strong",
+                "",
+                `${proofArmNames[outcome.arm].subtitle} · budget ${outcome.budget} · cellular ${outcome.initial_cellular ? "on" : "off"}`,
+              ),
+              node("div", "", proofDescription(outcome)),
+              node(
+                "div",
+                "muted",
+                `${outcome.unused_tools.length} unused tools · ${outcome.calls.filter((call) => call.status === "error").length} recorded errors`,
+              ),
+            );
+            $("proofAll").append(row);
+          });
+          $("proofHashes").textContent =
+            `Frozen manifest: ${data.manifest_sha256}\nTraining receipt: ${data.training_receipt_sha256}\nRetrieval receipt: ${data.source_retrieval_sha256}\nExecution receipt: ${data.source_execution_sha256}`;
+        } catch (error) {
+          $("proofCards").replaceChildren(
+            node(
+              "div",
+              "message",
+              `Recorded comparison unavailable: ${error.message}. No result is being substituted.`,
+            ),
+          );
+        }
+      }
+      loadProof();
+
       health();
       timeline();
     </script>
