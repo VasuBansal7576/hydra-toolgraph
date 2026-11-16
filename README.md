@@ -24,6 +24,12 @@ We froze a new recipient task against **15 real ToolSandbox tools**, then execut
 
 [All 12 outcomes and limits](examples/toolsandbox/TRANSFER_RESULTS.md) · [Frozen protocol](examples/toolsandbox/TRANSFER_PROTOCOL.md) · [Compact phone-free receipt](examples/toolsandbox/transfer_results.json) · [Reproduce with upstream tools](examples/toolsandbox/README.md)
 
+## New: live-state execution guards
+
+The original proof exposed a redundant repair when cellular was already enabled. A new, explicitly authored `execute_guarded` helper now checks current state, repairs only when needed, and rechecks before acting. In actual upstream execution across three changing-recipient tasks, it removed that error: **1 to 0 tool errors**, while both arms still sent all three sandbox messages correctly. The cost was **9 to 13 tool calls**, with the same four tools and 587 schema tokens loaded by each arm.
+
+These are developer-supplied preconditions, not rules learned by Hydra. The original frozen retrieval experiment remains unchanged. [Protocol, implementation behavior and reproduction](examples/toolsandbox/GUARDS.md) · [Verified phone-free summary](examples/toolsandbox/guard_results.json)
+
 ## Historical synthetic evaluation
 
 A context layer that learns which tools to load from agent traces, with versioned, undoable, provenance-tagged `REQUIRES` edges in HydraDB; the earlier experiment also included session `RESOLVED` skips.

@@ -1,0 +1,232 @@
+{
+  "label": "Actual upstream execution of a new explicitly authored state guard, not learned preconditions or a benchmark",
+  "verification": "passed",
+  "manifest_sha256": "e8f5069a500c362f0a9a649a56c3f25ec1b9f266cc8e1d852c5401eeb62278b8",
+  "source_receipt_sha256": "8200072e28f92476a63b764c0d32fa70809f1434e89edb40258fb723f143390d",
+  "guard_source_sha256": "e53ed5c9b6e9e5a1f890f228b14ae0e1477c1378f3f33a2befbdb3a1bb06a73c",
+  "loaded_schema_tokens_each_arm": 587,
+  "loaded_tools_both_arms": [
+    "search_contacts",
+    "get_cellular_service_status",
+    "set_cellular_service_status",
+    "send_message_with_phone_number"
+  ],
+  "outcomes": [
+    {
+      "arm": "fixed_observed_order",
+      "task_id": "initially_off",
+      "initial_cellular": false,
+      "success": true,
+      "messages_created": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": false,
+          "after_cellular": false
+        },
+        {
+          "tool": "set_cellular_service_status",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": false,
+          "after_cellular": true
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": true,
+          "after_cellular": true
+        }
+      ]
+    },
+    {
+      "arm": "fixed_observed_order",
+      "task_id": "already_on_new_recipient",
+      "initial_cellular": true,
+      "success": true,
+      "messages_created": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": true,
+          "after_cellular": true
+        },
+        {
+          "tool": "set_cellular_service_status",
+          "status": "error",
+          "error_type": "ValueError",
+          "before_cellular": true,
+          "after_cellular": true
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": true,
+          "after_cellular": true
+        }
+      ]
+    },
+    {
+      "arm": "fixed_observed_order",
+      "task_id": "turned_off_again_new_recipient",
+      "initial_cellular": false,
+      "success": true,
+      "messages_created": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": false,
+          "after_cellular": false
+        },
+        {
+          "tool": "set_cellular_service_status",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": false,
+          "after_cellular": true
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": true,
+          "after_cellular": true
+        }
+      ]
+    },
+    {
+      "arm": "authored_fresh_state_guard",
+      "task_id": "initially_off",
+      "initial_cellular": false,
+      "success": true,
+      "messages_created": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": false,
+          "after_cellular": false
+        },
+        {
+          "tool": "get_cellular_service_status",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": false,
+          "after_cellular": false
+        },
+        {
+          "tool": "set_cellular_service_status",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": false,
+          "after_cellular": true
+        },
+        {
+          "tool": "get_cellular_service_status",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": true,
+          "after_cellular": true
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": true,
+          "after_cellular": true
+        }
+      ]
+    },
+    {
+      "arm": "authored_fresh_state_guard",
+      "task_id": "already_on_new_recipient",
+      "initial_cellular": true,
+      "success": true,
+      "messages_created": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": true,
+          "after_cellular": true
+        },
+        {
+          "tool": "get_cellular_service_status",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": true,
+          "after_cellular": true
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": true,
+          "after_cellular": true
+        }
+      ]
+    },
+    {
+      "arm": "authored_fresh_state_guard",
+      "task_id": "turned_off_again_new_recipient",
+      "initial_cellular": false,
+      "success": true,
+      "messages_created": 1,
+      "calls": [
+        {
+          "tool": "search_contacts",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": false,
+          "after_cellular": false
+        },
+        {
+          "tool": "get_cellular_service_status",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": false,
+          "after_cellular": false
+        },
+        {
+          "tool": "set_cellular_service_status",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": false,
+          "after_cellular": true
+        },
+        {
+          "tool": "get_cellular_service_status",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": true,
+          "after_cellular": true
+        },
+        {
+          "tool": "send_message_with_phone_number",
+          "status": "ok",
+          "error_type": null,
+          "before_cellular": true,
+          "after_cellular": true
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "Manually authored guard, not a precondition learned by Hydra",
+    "No actual external SMS",
+    "Three authored stress tasks, not held-out benchmark data or an autonomous-agent score",
+    "Same four tools available to both arms; the getter is neither hidden nor free",
+    "Original frozen retrieval experiment and its failures remain unchanged",
+    "This does not establish graph necessity or a graph-over-local advantage"
+  ]
+}
