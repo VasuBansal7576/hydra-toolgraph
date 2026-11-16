@@ -104,7 +104,7 @@ def assert_catalog_footprint_clear(client: HydraClient, tools: list[Tool]) -> in
     def inspect(node_id: int) -> None:
         result = client._post(
             {
-                "cell_id": f"footprint-{node_id}",
+                "cell_id": "cell-0",
                 "query": f"MATCH (n {{id: {node_id}}}) RETURN n.id",
             }
         )

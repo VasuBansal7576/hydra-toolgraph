@@ -78,7 +78,7 @@ class ToolSandboxBridgeTest(unittest.TestCase):
                 self.assertTrue(client._post.called)
                 self.assertTrue(
                     all(
-                        ":Tool" not in call.args[0]
+                        ":Tool" not in call.args[0]["query"]
                         for call in client._post.call_args_list
                     )
                 )
@@ -106,6 +106,12 @@ class ToolSandboxBridgeTest(unittest.TestCase):
         self.assertTrue(set(catalog_reset_ids(1)).issubset(checked))
         self.assertIn(12005, checked)
         self.assertEqual(count, len(checked))
+        self.assertTrue(
+            all(
+                call.args[0]["cell_id"] == "cell-0"
+                for call in client._post.call_args_list
+            )
+        )
 
     def test_unverifiable_query_response_prevents_setup(self):
         from toolgraph.data import Tool
