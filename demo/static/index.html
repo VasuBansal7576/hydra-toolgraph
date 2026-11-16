@@ -1198,7 +1198,7 @@ I'd like to book a table for dinner at The Italian Bistro at 7 PM. Can you handl
               node(
                 "div",
                 "muted",
-                `${outcome.unused_tools.length} unused tools · ${outcome.calls.filter((call) => call.status === "error").length} recorded errors`,
+                `${outcome.unused_tools.length} unused tool${outcome.unused_tools.length === 1 ? "" : "s"} · ${outcome.calls.filter((call) => call.status === "error").length} recorded error${outcome.calls.filter((call) => call.status === "error").length === 1 ? "" : "s"}`,
               ),
             );
             $("proofAll").append(row);
