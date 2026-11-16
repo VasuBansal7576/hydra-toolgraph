@@ -1136,6 +1136,23 @@
           scroll-behavior: auto;
         }
       }
+      .guard-cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin: 22px 0;
+      }
+      .guard-step {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr);
+        gap: 10px;
+        margin-top: 14px;
+      }
+      @media (max-width: 900px) {
+        .guard-cards {
+          grid-template-columns: 1fr;
+        }
+      }
     </style>
   </head>
   <body>
@@ -1330,6 +1347,95 @@
           ><a data-proof-doc="README.md">Reproduce with upstream tools ↗</a>
         </div>
       </section>
+    <section
+      class="proof panel"
+      id="guard-evidence"
+      aria-labelledby="guardTitle"
+    >
+      <div class="eyebrow">
+        New behavior / authored state guard / verified upstream execution
+      </div>
+      <h2 id="guardTitle">Then we fixed the redundant repair.</h2>
+      <p class="proof-lede">
+        Remembering which tools were useful is not enough. The new execution
+        guard checks current state, repairs only when needed, and checks again
+        before the action. It does not reuse a previous success as proof.
+      </p>
+      <p class="note" id="guardTotals">
+        Loading the separately verified state-guard comparison…
+      </p>
+      <div
+        class="proof-controls"
+        role="group"
+        aria-label="Recorded state guard task"
+      >
+        <button
+          class="secondary"
+          data-guard-task="initially_off"
+          aria-pressed="false"
+        >
+          1 · Initially off</button
+        ><button
+          class="secondary"
+          data-guard-task="already_on_new_recipient"
+          aria-pressed="true"
+        >
+          2 · Already on, new recipient</button
+        ><button
+          class="secondary"
+          data-guard-task="turned_off_again_new_recipient"
+          aria-pressed="false"
+        >
+          3 · Off again, new recipient
+        </button>
+      </div>
+      <p class="muted">
+        Recorded results, not live execution. Each arm keeps the same sandbox
+        across these three tasks. The environment turns cellular off again
+        before task 3. Every task performs a fresh contact lookup.
+      </p>
+      <div class="guard-cards" id="guardCards" aria-live="polite"></div>
+      <p class="proof-limits">
+        <b>Not free, not inferred.</b> These are explicit developer-defined
+        preconditions, not rules learned by Hydra. Both arms load the same four
+        tools, including the getter. Extra checks cost calls. This guard is not
+        a transaction; concurrent state changes remain possible. The original
+        retrieval experiment above is unchanged.
+      </p>
+      <details>
+        <summary>Use the guard in an integration</summary>
+        <p class="muted">
+          The caller supplies and authorizes the action, predicate and repair.
+          Invalid or failing checks stop execution. A repair is checked again
+          before the action is attempted once.
+        </p>
+        <pre>
+execute_guarded(
+    send,
+    [Precondition(
+        "cellular_enabled",
+        check=get_cellular_service_status,
+        repair=lambda: set_cellular_service_status(on=True),
+    )],
+)</pre
+        >
+      </details>
+      <details>
+        <summary>Inspect guard evidence identities</summary>
+        <pre id="guardHashes"></pre>
+      </details>
+      <div class="proof-links">
+        <a href="/guard_results.json">Open phone-free execution receipt ↗</a
+        ><a
+          href="https://github.com/VasuBansal7576/hydra-toolgraph/blob/828f2b98178841152b9ac4cbf3f1a28795206788/toolgraph/preconditions.py"
+          >Inspect the guard implementation ↗</a
+        ><a
+          href="https://github.com/VasuBansal7576/hydra-toolgraph/blob/experiment/live-state-guards/examples/toolsandbox/GUARDS.md"
+          >Protocol, costs &amp; reproduction ↗</a
+        >
+      </div>
+    </section>
+
       <div class="workbench-heading" id="workbench">
         <div class="eyebrow">02 / Live workbench · Tool retrieval only</div>
         <h2>Inspect your own task</h2>
@@ -1928,6 +2034,136 @@ I'd like to book a table for dinner at The Italian Bistro at 7 PM. Can you handl
         }
       }
       loadProof();
+      let guardData = null;
+      let guardTask = "already_on_new_recipient";
+      function renderGuards() {
+        if (!guardData) return;
+        $("guardCards").replaceChildren();
+        [
+          ["fixed_observed_order", "Unconditional repair"],
+          ["authored_fresh_state_guard", "Fresh-state guard"],
+        ].forEach(([arm, title]) => {
+          const outcome = guardData.outcomes.find(
+            (item) => item.arm === arm && item.task_id === guardTask,
+          );
+          const card = node("div", "proof-card");
+          const errors = outcome.calls.filter(
+            (call) => call.status === "error",
+          );
+          card.append(
+            node(
+              "div",
+              "eyebrow",
+              arm === "fixed_observed_order"
+                ? "Previous scripted behavior"
+                : "New reusable guard",
+            ),
+            node("h3", "", title),
+            node(
+              "div",
+              "proof-outcome",
+              `${outcome.messages_created} correct sandbox message`,
+            ),
+            node(
+              "div",
+              "proof-metrics",
+              `${outcome.calls.length} tool calls · ${errors.length} tool error${errors.length === 1 ? "" : "s"}`,
+            ),
+          );
+          outcome.calls.forEach((call, index) => {
+            const step = node("div", "guard-step");
+            step.append(
+              node("span", "index", String(index + 1).padStart(2, "0")),
+            );
+            const detail = node("div");
+            detail.append(
+              node("div", "proof-tool", call.tool),
+              node(
+                "div",
+                call.status === "error" ? "proof-error" : "muted",
+                call.status === "error"
+                  ? `${call.error_type}: cellular already enabled`
+                  : `Cellular ${call.before_cellular ? "on" : "off"} → ${call.after_cellular ? "on" : "off"}`,
+              ),
+            );
+            step.append(detail);
+            card.append(step);
+          });
+          if (arm === "authored_fresh_state_guard" && outcome.initial_cellular)
+            card.append(
+              node(
+                "p",
+                "note",
+                "The actual getter returned true. No setter was called.",
+              ),
+            );
+          if (arm === "authored_fresh_state_guard" && !outcome.initial_cellular)
+            card.append(
+              node(
+                "p",
+                "note",
+                "Fresh check found cellular off. The repair was followed by another actual check before send.",
+              ),
+            );
+          $("guardCards").append(card);
+        });
+        document
+          .querySelectorAll("[data-guard-task]")
+          .forEach((button) =>
+            button.setAttribute(
+              "aria-pressed",
+              String(button.dataset.guardTask === guardTask),
+            ),
+          );
+      }
+      document.querySelectorAll("[data-guard-task]").forEach((button) => {
+        button.onclick = () => {
+          guardTask = button.dataset.guardTask;
+          renderGuards();
+        };
+      });
+      async function loadGuards() {
+        try {
+          const data = await request("/guard_results.json");
+          if (
+            data.verification !== "passed" ||
+            data.manifest_sha256 !==
+              "e8f5069a500c362f0a9a649a56c3f25ec1b9f266cc8e1d852c5401eeb62278b8" ||
+            data.outcomes.length !== 6
+          )
+            throw new Error("Guard evidence identity mismatch");
+          guardData = data;
+          const totals = (arm) =>
+            data.outcomes
+              .filter((item) => item.arm === arm)
+              .reduce(
+                (all, item) => ({
+                  calls: all.calls + item.calls.length,
+                  errors:
+                    all.errors +
+                    item.calls.filter((call) => call.status === "error").length,
+                  messages: all.messages + item.messages_created,
+                }),
+                { calls: 0, errors: 0, messages: 0 },
+              );
+          const before = totals("fixed_observed_order"),
+            after = totals("authored_fresh_state_guard");
+          $("guardTotals").textContent =
+            `Across three authored tasks: ${before.errors} → ${after.errors} tool errors, ${before.messages} correct messages in each arm. Cost: ${before.calls} → ${after.calls} calls. Same four loaded tools, ${data.loaded_schema_tokens_each_arm} schema tokens per arm.`;
+          $("guardHashes").textContent =
+            `Frozen guard protocol: ${data.manifest_sha256}\nActual execution receipt: ${data.source_receipt_sha256}\nGuard implementation: ${data.guard_source_sha256}`;
+          renderGuards();
+        } catch (error) {
+          $("guardCards").replaceChildren(
+            node(
+              "div",
+              "message",
+              `Guard proof unavailable: ${error.message}. No result is being substituted.`,
+            ),
+          );
+        }
+      }
+      loadGuards();
 
       health();
       timeline();

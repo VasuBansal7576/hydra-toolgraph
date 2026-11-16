@@ -1,0 +1,153 @@
+{
+  "label": "Authored local customer-support simulation using the actual execute_guarded implementation; no payment, commerce integration, production claim or benchmark",
+  "status": "verified",
+  "cases": {
+    "approved_eligible_refund": {
+      "order_id": "demo-order-1",
+      "status": "simulated_refund_recorded",
+      "result": {
+        "order_id": "demo-order-1",
+        "amount_minor": 5000,
+        "currency": "USD",
+        "status": "simulated_refund_recorded"
+      },
+      "error": null,
+      "guard_observations": [
+        {
+          "precondition": "customer_approval_is_current",
+          "phase": "before",
+          "satisfied": true
+        },
+        {
+          "precondition": "order_is_eligible",
+          "phase": "before",
+          "satisfied": true
+        },
+        {
+          "precondition": "refund_not_already_recorded",
+          "phase": "before",
+          "satisfied": true
+        },
+        {
+          "precondition": "customer_approval_is_current",
+          "phase": "before_action",
+          "satisfied": true
+        },
+        {
+          "precondition": "order_is_eligible",
+          "phase": "before_action",
+          "satisfied": true
+        },
+        {
+          "precondition": "refund_not_already_recorded",
+          "phase": "before_action",
+          "satisfied": true
+        }
+      ],
+      "before": {
+        "ledger": [],
+        "endpoint_calls": 0
+      },
+      "after": {
+        "ledger": [
+          {
+            "order_id": "demo-order-1",
+            "amount_minor": 5000,
+            "currency": "USD",
+            "status": "simulated_refund_recorded"
+          }
+        ],
+        "endpoint_calls": 1
+      }
+    },
+    "repeat_request": {
+      "order_id": "demo-order-1",
+      "status": "blocked_before_endpoint",
+      "result": null,
+      "error": "refund_not_already_recorded: unmet condition has no repair",
+      "guard_observations": [
+        {
+          "precondition": "customer_approval_is_current",
+          "phase": "before",
+          "satisfied": true
+        },
+        {
+          "precondition": "order_is_eligible",
+          "phase": "before",
+          "satisfied": true
+        },
+        {
+          "precondition": "refund_not_already_recorded",
+          "phase": "before",
+          "satisfied": false
+        }
+      ],
+      "before": {
+        "ledger": [
+          {
+            "order_id": "demo-order-1",
+            "amount_minor": 5000,
+            "currency": "USD",
+            "status": "simulated_refund_recorded"
+          }
+        ],
+        "endpoint_calls": 1
+      },
+      "after": {
+        "ledger": [
+          {
+            "order_id": "demo-order-1",
+            "amount_minor": 5000,
+            "currency": "USD",
+            "status": "simulated_refund_recorded"
+          }
+        ],
+        "endpoint_calls": 1
+      }
+    },
+    "approval_revoked_since_last_read": {
+      "order_id": "demo-order-2",
+      "status": "blocked_before_endpoint",
+      "result": null,
+      "error": "customer_approval_is_current: unmet condition has no repair",
+      "guard_observations": [
+        {
+          "precondition": "customer_approval_is_current",
+          "phase": "before",
+          "satisfied": false
+        }
+      ],
+      "before": {
+        "ledger": [
+          {
+            "order_id": "demo-order-1",
+            "amount_minor": 5000,
+            "currency": "USD",
+            "status": "simulated_refund_recorded"
+          }
+        ],
+        "endpoint_calls": 1
+      },
+      "after": {
+        "ledger": [
+          {
+            "order_id": "demo-order-1",
+            "amount_minor": 5000,
+            "currency": "USD",
+            "status": "simulated_refund_recorded"
+          }
+        ],
+        "endpoint_calls": 1
+      },
+      "approval_observed_earlier": true,
+      "environment_change": "Customer approval was revoked before the guard ran"
+    }
+  },
+  "limits": [
+    "Policy and approval predicates are explicitly authored, not learned by Hydra",
+    "Fixture amounts are invented test values, not real transactions",
+    "No external endpoint, customer, order system or payment processor is connected",
+    "Guards are not transactional and cannot replace server-side idempotency or authorization",
+    "The sandbox endpoint also validates policy and duplicates as defense in depth"
+  ]
+}
