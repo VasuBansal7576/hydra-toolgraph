@@ -1,0 +1,47 @@
+{
+  "7": {
+    "tau": 0.15,
+    "n_req": 2726,
+    "macro_kv": 0.330188679245283,
+    "macro_trunc": 0.5,
+    "macro_full_cte": 0.3805031446540881,
+    "macro_seeds": 0.003144654088050314,
+    "kv_win_only": 9,
+    "modes": {
+      "truncation_vs_full_cte": 12,
+      "full_cte_beats_kv": 27,
+      "kv_beats_full_cte": 11,
+      "expansion_miss_or_rank": 7,
+      "crowding_out_direct_hits": 2
+    }
+  },
+  "21": {
+    "tau": 0.55,
+    "n_req": 2106,
+    "macro_kv": 0.4685534591194968,
+    "macro_trunc": 0.5251572327044025,
+    "macro_full_cte": 0.4496855345911949,
+    "macro_seeds": 0.02830188679245283,
+    "kv_win_only": 1,
+    "modes": {
+      "kv_beats_full_cte": 6,
+      "crowding_out_direct_hits": 1,
+      "truncation_vs_full_cte": 1
+    }
+  },
+  "42": {
+    "tau": 0.55,
+    "n_req": 2053,
+    "macro_kv": 0.36477987421383645,
+    "macro_trunc": 0.3867924528301887,
+    "macro_full_cte": 0.33962264150943394,
+    "macro_seeds": 0.03773584905660377,
+    "kv_win_only": 6,
+    "modes": {
+      "expansion_miss_or_rank": 5,
+      "truncation_vs_full_cte": 6,
+      "kv_beats_full_cte": 8,
+      "seed_quality_gold_not_seeded": 1
+    }
+  }
+}

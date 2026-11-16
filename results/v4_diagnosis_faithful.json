@@ -1,0 +1,1842 @@
+{
+  "7": {
+    "seed": 7,
+    "tau": 0.15,
+    "tau_grid_best": [
+      "0.15",
+      0.48333333333333334
+    ],
+    "n_edges": 5665,
+    "n_active_requires": 2726,
+    "macro_c16": {
+      "kv_hop": 0.4371069182389937,
+      "hydra_graph": 0.4716981132075472,
+      "memory_cte": 0.4968553459119497,
+      "seeds_only": 0.006289308176100628
+    },
+    "micro": {
+      "both_ok": 102,
+      "kv_only": 37,
+      "hy_only": 48,
+      "neither": 131,
+      "n": 318
+    },
+    "modes_when_kv_beats_hydra": {
+      "mspaths_truncation_vs_cte": 35,
+      "hydra_only_win": 48,
+      "crowding": 17,
+      "cte_ok_but_both_arms_fail": 4,
+      "seed_present_rank_issue": 2
+    },
+    "failure_examples": [
+      {
+        "main": "get_property_crime_rate_by_country",
+        "idx": 1116,
+        "miss": [
+          "get_country_code",
+          "get_current_date"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "get_country_code",
+          "get_current_date"
+        ],
+        "in_cte_topk": [
+          "get_country_code",
+          "get_current_date"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "get_property_crime_rate_by_city",
+          "get_property_crime_rate_by_sub_region",
+          "get_property_crime_rate_by_country",
+          "get_violent_crime_rate_by_city",
+          "get_violent_crime_rate_by_sub_region",
+          "get_violent_crime_rate_by_country",
+          "get_median_rent_by_city",
+          "get_home_ownership_rate_by_country",
+          "estimate_property_value",
+          "convert_to_desired_unit",
+          "get_current_location",
+          "get_location_service_status",
+          "get_wifi_status",
+          "set_location_service_status",
+          "set_wifi_status",
+          "detect_noise_pollution_levels"
+        ],
+        "kv_topk": [
+          "get_property_crime_rate_by_city",
+          "get_property_crime_rate_by_sub_region",
+          "get_property_crime_rate_by_country",
+          "get_violent_crime_rate_by_city",
+          "get_city_code",
+          "get_country_code",
+          "get_current_date",
+          "get_wifi_status",
+          "set_wifi_status",
+          "control_alexa_smart_light",
+          "detect_noise_pollution_levels",
+          "emirates_view_flight_status",
+          "frontier_select_entertainment",
+          "get_airplane_mode_status",
+          "get_cellular_service_status",
+          "get_crop_production_by_city"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "get_property_crime_rate_by_country",
+        "idx": 1117,
+        "miss": [
+          "get_country_code",
+          "get_current_date"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "get_country_code",
+          "get_current_date"
+        ],
+        "in_cte_topk": [
+          "get_country_code",
+          "get_current_date"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "get_property_crime_rate_by_city",
+          "get_property_crime_rate_by_country",
+          "get_property_crime_rate_by_sub_region",
+          "get_violent_crime_rate_by_city",
+          "get_violent_crime_rate_by_country",
+          "get_violent_crime_rate_by_sub_region",
+          "get_poverty_rate_by_sub_region",
+          "estimate_property_value",
+          "convert_to_desired_unit",
+          "get_current_location",
+          "get_location_service_status",
+          "get_wifi_status",
+          "set_location_service_status",
+          "set_wifi_status",
+          "detect_noise_pollution_levels",
+          "compare_home_insurance_costs"
+        ],
+        "kv_topk": [
+          "get_property_crime_rate_by_city",
+          "get_property_crime_rate_by_country",
+          "get_property_crime_rate_by_sub_region",
+          "get_violent_crime_rate_by_city",
+          "get_city_code",
+          "get_country_code",
+          "get_current_date",
+          "get_wifi_status",
+          "set_wifi_status",
+          "control_alexa_smart_light",
+          "detect_noise_pollution_levels",
+          "emirates_view_flight_status",
+          "frontier_select_entertainment",
+          "get_airplane_mode_status",
+          "get_cellular_service_status",
+          "get_crop_production_by_city"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "get_property_crime_rate_by_country",
+        "idx": 1118,
+        "miss": [
+          "set_wifi_status"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "set_wifi_status"
+        ],
+        "in_cte_topk": [
+          "set_wifi_status"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "get_property_crime_rate_by_city",
+          "get_property_crime_rate_by_country",
+          "get_property_crime_rate_by_sub_region",
+          "get_violent_crime_rate_by_city",
+          "get_violent_crime_rate_by_country",
+          "get_violent_crime_rate_by_sub_region",
+          "get_median_rent_by_city",
+          "get_foreclosure_rate_by_city",
+          "get_poverty_rate_by_city",
+          "get_median_rent_by_sub_region",
+          "get_unemployment_rate_by_city",
+          "get_home_ownership_rate_by_city",
+          "get_city_code",
+          "get_country_code",
+          "get_current_date",
+          "get_wifi_status"
+        ],
+        "kv_topk": [
+          "get_property_crime_rate_by_city",
+          "get_property_crime_rate_by_country",
+          "get_property_crime_rate_by_sub_region",
+          "get_violent_crime_rate_by_city",
+          "get_city_code",
+          "get_country_code",
+          "get_current_date",
+          "get_wifi_status",
+          "set_wifi_status",
+          "control_alexa_smart_light",
+          "detect_noise_pollution_levels",
+          "emirates_view_flight_status",
+          "frontier_select_entertainment",
+          "get_airplane_mode_status",
+          "get_cellular_service_status",
+          "get_crop_production_by_city"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "lufthansa_select_entertainment",
+        "idx": 1476,
+        "miss": [
+          "lufthansa_user_login"
+        ],
+        "in_fused": [
+          "lufthansa_user_login"
+        ],
+        "in_kv_topk": [
+          "lufthansa_user_login"
+        ],
+        "in_cte_topk": [
+          "lufthansa_user_login"
+        ],
+        "gold_fused_not_hy": [
+          "lufthansa_user_login"
+        ],
+        "hy_topk": [
+          "lufthansa_select_entertainment",
+          "lufthansa_view_flight_status",
+          "lufthansa_update_travel_preferences",
+          "delta_select_entertainment",
+          "jetblue_select_entertainment",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_wifi_status",
+          "jetblue_user_login",
+          "set_airplane_mode_status",
+          "set_wifi_status",
+          "validate_email",
+          "detect_noise_pollution_levels",
+          "frontier_select_entertainment",
+          "get_notifications",
+          "jetblue_manage_notifications"
+        ],
+        "kv_topk": [
+          "lufthansa_select_entertainment",
+          "lufthansa_view_flight_status",
+          "lufthansa_update_travel_preferences",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_user_profile",
+          "get_wifi_status",
+          "lufthansa_user_login",
+          "set_airplane_mode_status",
+          "set_wifi_status",
+          "validate_email",
+          "anthropic_claude_multilingual_chatbot_api",
+          "charles_schwab_user_login",
+          "control_alexa_smart_light",
+          "delta_manage_notifications",
+          "delta_select_entertainment"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "lufthansa_select_entertainment",
+        "idx": 1477,
+        "miss": [
+          "lufthansa_user_login"
+        ],
+        "in_fused": [
+          "lufthansa_user_login"
+        ],
+        "in_kv_topk": [
+          "lufthansa_user_login"
+        ],
+        "in_cte_topk": [
+          "lufthansa_user_login"
+        ],
+        "gold_fused_not_hy": [
+          "lufthansa_user_login"
+        ],
+        "hy_topk": [
+          "lufthansa_select_entertainment",
+          "lufthansa_view_flight_status",
+          "lufthansa_find_my_bags",
+          "jetblue_select_entertainment",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_wifi_status",
+          "jetblue_user_login",
+          "set_airplane_mode_status",
+          "set_wifi_status",
+          "validate_email",
+          "detect_noise_pollution_levels",
+          "frontier_select_entertainment",
+          "get_notifications",
+          "jetblue_manage_notifications",
+          "la_fitness_track_workout"
+        ],
+        "kv_topk": [
+          "lufthansa_select_entertainment",
+          "lufthansa_view_flight_status",
+          "lufthansa_find_my_bags",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_wifi_status",
+          "lufthansa_user_login",
+          "set_airplane_mode_status",
+          "set_wifi_status",
+          "validate_email",
+          "control_alexa_smart_light",
+          "delta_manage_notifications",
+          "detect_noise_pollution_levels",
+          "emirates_user_login",
+          "emirates_view_flight_status",
+          "etrade_user_login"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "tesla_activate_deactivate_sentry_mode",
+        "idx": 1548,
+        "miss": [
+          "validate_email"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "validate_email"
+        ],
+        "in_cte_topk": [
+          "validate_email"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "tesla_activate_deactivate_sentry_mode",
+          "tesla_enable_disable_valet_mode",
+          "tesla_monitor_battery_status",
+          "tesla_start_stop_climate_control",
+          "tesla_limit_speed_for_teen_driver",
+          "tesla_check_or_set_charging_schedule",
+          "join_zoom_meeting",
+          "tesla_remote_lock_unlock_doors",
+          "flash_tesla_headlights",
+          "get_airplane_mode_status",
+          "get_current_storage_space",
+          "get_installed_applications",
+          "get_wifi_status",
+          "login_to_tesla_account",
+          "set_airplane_mode_status",
+          "set_wifi_status"
+        ],
+        "kv_topk": [
+          "tesla_activate_deactivate_sentry_mode",
+          "tesla_enable_disable_valet_mode",
+          "get_current_storage_space",
+          "get_installed_applications",
+          "get_wifi_status",
+          "login_to_tesla_account",
+          "set_wifi_status",
+          "validate_email",
+          "control_alexa_smart_light",
+          "control_google_smart_light",
+          "delta_manage_notifications",
+          "detect_noise_pollution_levels",
+          "emirates_view_flight_status",
+          "etrade_user_login",
+          "fetch_etrade_order_history",
+          "find_tesla_charger_tool"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "tesla_activate_deactivate_sentry_mode",
+        "idx": 1549,
+        "miss": [
+          "get_installed_applications",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "validate_email",
+          "get_wifi_status",
+          "set_wifi_status",
+          "get_installed_applications"
+        ],
+        "in_cte_topk": [
+          "validate_email",
+          "get_wifi_status",
+          "set_wifi_status",
+          "get_installed_applications"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "tesla_activate_deactivate_sentry_mode",
+          "tesla_enable_disable_valet_mode",
+          "tesla_start_stop_climate_control",
+          "set_airplane_mode_status",
+          "tesla_check_or_set_charging_schedule",
+          "optimize_physical_performance",
+          "set_low_battery_mode_status",
+          "set_do_not_disturb_status",
+          "set_notifications",
+          "tesla_limit_speed_for_teen_driver",
+          "login_to_tesla_account",
+          "tesla_remote_lock_unlock_doors",
+          "tesla_monitor_battery_status",
+          "flash_tesla_headlights",
+          "get_airplane_mode_status",
+          "get_current_storage_space"
+        ],
+        "kv_topk": [
+          "tesla_activate_deactivate_sentry_mode",
+          "tesla_enable_disable_valet_mode",
+          "get_current_storage_space",
+          "get_installed_applications",
+          "get_wifi_status",
+          "login_to_tesla_account",
+          "set_wifi_status",
+          "validate_email",
+          "control_alexa_smart_light",
+          "control_google_smart_light",
+          "delta_manage_notifications",
+          "detect_noise_pollution_levels",
+          "emirates_view_flight_status",
+          "etrade_user_login",
+          "fetch_etrade_order_history",
+          "find_tesla_charger_tool"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "temu_delete_item_from_cart",
+        "idx": 732,
+        "miss": [
+          "temu_user_login"
+        ],
+        "in_fused": [
+          "temu_user_login"
+        ],
+        "in_kv_topk": [
+          "temu_user_login"
+        ],
+        "in_cte_topk": [
+          "temu_user_login"
+        ],
+        "gold_fused_not_hy": [
+          "temu_user_login"
+        ],
+        "hy_topk": [
+          "temu_delete_item_from_cart",
+          "temu_add_item_to_cart",
+          "temu_checkout_cart",
+          "ebay_delete_item_from_cart",
+          "amazon_delete_item_from_cart",
+          "amazon_user_login",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "amazon_checkout_cart",
+          "detect_noise_pollution_levels",
+          "la_fitness_track_workout",
+          "amazon_review_item",
+          "frontier_select_entertainment",
+          "get_airplane_mode_status"
+        ],
+        "kv_topk": [
+          "temu_delete_item_from_cart",
+          "temu_add_item_to_cart",
+          "amazon_add_item_to_cart",
+          "ebay_add_item_to_cart",
+          "etsy_add_item_to_cart",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "temu_user_login",
+          "validate_email",
+          "amazon_user_login",
+          "control_alexa_smart_light",
+          "delta_manage_notifications",
+          "detect_noise_pollution_levels",
+          "emirates_view_flight_status",
+          "etrade_user_login"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "temu_delete_item_from_cart",
+        "idx": 733,
+        "miss": [
+          "temu_user_login"
+        ],
+        "in_fused": [
+          "temu_user_login"
+        ],
+        "in_kv_topk": [
+          "temu_user_login"
+        ],
+        "in_cte_topk": [
+          "temu_user_login"
+        ],
+        "gold_fused_not_hy": [
+          "temu_user_login"
+        ],
+        "hy_topk": [
+          "temu_delete_item_from_cart",
+          "temu_add_item_to_cart",
+          "temu_checkout_cart",
+          "ebay_checkout_cart",
+          "temu_review_item",
+          "ebay_delete_item_from_cart",
+          "etsy_delete_item_from_cart",
+          "amazon_delete_item_from_cart",
+          "amazon_user_login",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "amazon_checkout_cart",
+          "detect_noise_pollution_levels",
+          "la_fitness_track_workout"
+        ],
+        "kv_topk": [
+          "temu_delete_item_from_cart",
+          "temu_add_item_to_cart",
+          "amazon_add_item_to_cart",
+          "ebay_add_item_to_cart",
+          "etsy_add_item_to_cart",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "temu_user_login",
+          "validate_email",
+          "amazon_user_login",
+          "control_alexa_smart_light",
+          "delta_manage_notifications",
+          "detect_noise_pollution_levels",
+          "emirates_view_flight_status",
+          "etrade_user_login"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "fresh_direct_get_recipe",
+        "idx": 840,
+        "miss": [
+          "fresh_direct_login"
+        ],
+        "in_fused": [
+          "fresh_direct_login"
+        ],
+        "in_kv_topk": [
+          "fresh_direct_login"
+        ],
+        "in_cte_topk": [
+          "fresh_direct_login"
+        ],
+        "gold_fused_not_hy": [
+          "fresh_direct_login"
+        ],
+        "hy_topk": [
+          "fresh_direct_get_ingredients",
+          "fresh_direct_get_recipe",
+          "yummly_get_ingredients",
+          "fresh_direct_remove_from_favorites",
+          "fresh_direct_add_to_favorites",
+          "yummly_get_recipe",
+          "allrecipes_get_ingredients",
+          "yummly_remove_from_favorites",
+          "allrecipes_get_recipe",
+          "allrecipes_login",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "detect_noise_pollution_levels",
+          "la_fitness_track_workout",
+          "get_system_language"
+        ],
+        "kv_topk": [
+          "fresh_direct_get_ingredients",
+          "fresh_direct_get_recipe",
+          "fresh_direct_add_to_favorites",
+          "fresh_direct_login",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "control_alexa_smart_light",
+          "delta_manage_notifications",
+          "detect_noise_pollution_levels",
+          "emirates_view_flight_status",
+          "etrade_user_login",
+          "fetch_etrade_order_history",
+          "flash_tesla_headlights",
+          "frontier_select_entertainment",
+          "get_airplane_mode_status"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      }
+    ]
+  },
+  "21": {
+    "seed": 21,
+    "tau": 0.55,
+    "tau_grid_best": [
+      "0.55",
+      0.35833333333333334
+    ],
+    "n_edges": 5771,
+    "n_active_requires": 2106,
+    "macro_c16": {
+      "kv_hop": 0.619496855345912,
+      "hydra_graph": 0.5251572327044025,
+      "memory_cte": 0.6100628930817611,
+      "seeds_only": 0.03459119496855346
+    },
+    "micro": {
+      "both_ok": 157,
+      "kv_only": 40,
+      "hy_only": 10,
+      "neither": 111,
+      "n": 318
+    },
+    "modes_when_kv_beats_hydra": {
+      "mspaths_truncation_vs_cte": 40,
+      "hydra_only_win": 10,
+      "crowding": 24,
+      "cte_ok_but_both_arms_fail": 1
+    },
+    "failure_examples": [
+      {
+        "main": "get_income_distribution_by_city",
+        "idx": 949,
+        "miss": [
+          "set_wifi_status"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "set_wifi_status"
+        ],
+        "in_cte_topk": [
+          "set_wifi_status"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "get_income_distribution_by_city",
+          "get_income_distribution_by_sub_region",
+          "get_income_distribution_by_country",
+          "get_job_creation_by_city",
+          "get_job_creation_by_sub_region",
+          "get_net_income",
+          "get_operating_income",
+          "get_median_rent_by_city",
+          "get_median_rent_by_sub_region",
+          "get_job_creation_by_country",
+          "get_property_crime_rate_by_city",
+          "get_car_ownership_rate_by_city",
+          "get_city_code",
+          "get_country_code",
+          "get_current_date",
+          "get_wifi_status"
+        ],
+        "kv_topk": [
+          "get_income_distribution_by_city",
+          "get_income_distribution_by_sub_region",
+          "get_income_distribution_by_country",
+          "get_country_code",
+          "get_current_date",
+          "get_wifi_status",
+          "set_wifi_status",
+          "estimate_home_energy_carbon_footprint",
+          "get_job_creation_by_city",
+          "get_poverty_rate_by_country",
+          "convert_to_desired_unit",
+          "get_city_code",
+          "get_average_household_size_by_city",
+          "get_job_creation_by_sub_region",
+          "get_sub_region_code",
+          "get_net_income"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "allrecipes_login",
+        "idx": 854,
+        "miss": [
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "validate_email",
+          "get_wifi_status",
+          "set_wifi_status"
+        ],
+        "in_cte_topk": [
+          "validate_email",
+          "get_wifi_status",
+          "set_wifi_status"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "allrecipes_get_recipe",
+          "allrecipes_add_to_favorites",
+          "allrecipes_get_ingredients",
+          "allrecipes_remove_from_favorites",
+          "allrecipes_login",
+          "yummly_get_recipe",
+          "yummly_add_to_favorites",
+          "fresh_direct_add_to_favorites",
+          "cook_recipe_with_timer",
+          "fresh_direct_get_recipe",
+          "yummly_get_ingredients",
+          "yummly_remove_from_favorites",
+          "fresh_direct_get_ingredients",
+          "fresh_direct_remove_from_favorites",
+          "log_user_activity",
+          "get_current_date"
+        ],
+        "kv_topk": [
+          "allrecipes_get_recipe",
+          "allrecipes_add_to_favorites",
+          "allrecipes_get_ingredients",
+          "allrecipes_remove_from_favorites",
+          "allrecipes_login",
+          "yummly_get_recipe",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "yummly_login",
+          "get_system_language",
+          "yummly_add_to_favorites",
+          "fresh_direct_add_to_favorites",
+          "cook_recipe_with_timer",
+          "fresh_direct_get_recipe",
+          "yummly_get_ingredients"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "etsy_checkout_cart",
+        "idx": 744,
+        "miss": [
+          "etsy_user_login"
+        ],
+        "in_fused": [
+          "etsy_user_login"
+        ],
+        "in_kv_topk": [
+          "etsy_user_login"
+        ],
+        "in_cte_topk": [
+          "etsy_user_login"
+        ],
+        "gold_fused_not_hy": [
+          "etsy_user_login"
+        ],
+        "hy_topk": [
+          "etsy_checkout_cart",
+          "etsy_add_item_to_cart",
+          "ebay_checkout_cart",
+          "etsy_delete_item_from_cart",
+          "amazon_checkout_cart",
+          "amazon_user_login",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "amazon_add_item_to_cart",
+          "ebay_add_item_to_cart",
+          "temu_add_item_to_cart",
+          "ebay_user_login",
+          "ali_express_checkout_cart",
+          "ali_express_user_login"
+        ],
+        "kv_topk": [
+          "etsy_checkout_cart",
+          "etsy_add_item_to_cart",
+          "amazon_add_item_to_cart",
+          "ebay_add_item_to_cart",
+          "temu_add_item_to_cart",
+          "amazon_user_login",
+          "ebay_checkout_cart",
+          "ebay_user_login",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "etsy_delete_item_from_cart",
+          "etsy_user_login",
+          "amazon_checkout_cart",
+          "etsy_review_item"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "get_median_rent_by_country",
+        "idx": 965,
+        "miss": [
+          "get_country_code"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "get_country_code"
+        ],
+        "in_cte_topk": [
+          "get_country_code"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "get_median_rent_by_city",
+          "get_median_rent_by_sub_region",
+          "get_median_rent_by_country",
+          "calculate_rent_to_income_ratio",
+          "generate_rental_lease_addendum",
+          "get_wifi_status",
+          "set_wifi_status",
+          "calculate_lease_break_fees",
+          "estimate_security_deposit",
+          "convert_to_desired_unit",
+          "get_current_location",
+          "get_location_service_status",
+          "set_location_service_status",
+          "estimate_home_energy_carbon_footprint",
+          "measure_local_pollen_count",
+          "get_current_date"
+        ],
+        "kv_topk": [
+          "get_median_rent_by_city",
+          "get_median_rent_by_sub_region",
+          "get_country_code",
+          "get_current_date",
+          "get_sub_region_code",
+          "get_wifi_status",
+          "set_wifi_status",
+          "estimate_home_energy_carbon_footprint",
+          "get_median_rent_by_country",
+          "get_police_force_size_by_sub_region",
+          "get_poverty_rate_by_country",
+          "convert_to_desired_unit",
+          "calculate_rent_to_income_ratio",
+          "generate_rental_lease_addendum",
+          "calculate_lease_break_fees",
+          "estimate_security_deposit"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "qatar_user_login",
+        "idx": 1438,
+        "miss": [
+          "qatar_user_login"
+        ],
+        "in_fused": [
+          "qatar_user_login"
+        ],
+        "in_kv_topk": [
+          "qatar_user_login"
+        ],
+        "in_cte_topk": [
+          "qatar_user_login"
+        ],
+        "gold_fused_not_hy": [
+          "qatar_user_login"
+        ],
+        "hy_topk": [
+          "qatar_update_travel_preferences",
+          "emirates_update_travel_preferences",
+          "qatar_manage_notifications",
+          "delta_update_travel_preferences",
+          "delta_user_login",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_user_profile",
+          "get_wifi_status",
+          "set_airplane_mode_status",
+          "set_wifi_status",
+          "validate_email",
+          "delta_select_entertainment",
+          "american_update_travel_preferences",
+          "american_user_login",
+          "american_select_entertainment"
+        ],
+        "kv_topk": [
+          "qatar_update_travel_preferences",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_user_profile",
+          "get_wifi_status",
+          "qatar_user_login",
+          "set_airplane_mode_status",
+          "set_wifi_status",
+          "validate_email",
+          "emirates_update_travel_preferences",
+          "qatar_select_entertainment",
+          "qatar_manage_notifications",
+          "get_notifications",
+          "set_notifications",
+          "delta_update_travel_preferences",
+          "jetblue_manage_notifications"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "search_quran",
+        "idx": 1403,
+        "miss": [
+          "get_system_language"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "get_system_language"
+        ],
+        "in_cte_topk": [
+          "get_system_language"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "search_bible_verse",
+          "search_quran_verse",
+          "search_quran",
+          "search_torah",
+          "legal_document_search",
+          "find_nearest_synagogue",
+          "get_current_location",
+          "get_location_service_status",
+          "get_wifi_status",
+          "set_location_service_status",
+          "set_wifi_status",
+          "measure_local_pollen_count",
+          "find_nearest_gurdwara",
+          "find_religious_text",
+          "find_parking_near_location",
+          "get_us_national_holiday"
+        ],
+        "kv_topk": [
+          "search_bible_verse",
+          "get_wifi_status",
+          "set_wifi_status",
+          "search_quran_verse",
+          "get_system_language",
+          "search_quran",
+          "validate_email",
+          "search_torah",
+          "legal_document_search",
+          "find_nearest_synagogue",
+          "get_current_location",
+          "get_location_service_status",
+          "set_location_service_status",
+          "find_nearest_gurdwara",
+          "measure_local_pollen_count",
+          "find_religious_text"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "lufthansa_view_flight_status",
+        "idx": 1479,
+        "miss": [
+          "lufthansa_user_login"
+        ],
+        "in_fused": [
+          "lufthansa_user_login"
+        ],
+        "in_kv_topk": [
+          "lufthansa_user_login"
+        ],
+        "in_cte_topk": [
+          "lufthansa_user_login"
+        ],
+        "gold_fused_not_hy": [
+          "lufthansa_user_login"
+        ],
+        "hy_topk": [
+          "lufthansa_view_flight_status",
+          "lufthansa_select_entertainment",
+          "lufthansa_find_my_bags",
+          "delta_view_flight_status",
+          "delta_user_login",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_wifi_status",
+          "set_airplane_mode_status",
+          "set_wifi_status",
+          "validate_email",
+          "delta_select_entertainment",
+          "frontier_view_flight_status",
+          "frontier_user_login",
+          "emirates_view_flight_status",
+          "emirates_user_login"
+        ],
+        "kv_topk": [
+          "lufthansa_view_flight_status",
+          "lufthansa_select_entertainment",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_wifi_status",
+          "lufthansa_user_login",
+          "set_airplane_mode_status",
+          "set_wifi_status",
+          "validate_email",
+          "lufthansa_find_my_bags",
+          "delta_view_flight_status",
+          "delta_user_login",
+          "delta_select_entertainment",
+          "frontier_view_flight_status",
+          "frontier_user_login",
+          "emirates_view_flight_status"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "lufthansa_view_flight_status",
+        "idx": 1481,
+        "miss": [
+          "lufthansa_user_login"
+        ],
+        "in_fused": [
+          "lufthansa_user_login"
+        ],
+        "in_kv_topk": [
+          "lufthansa_user_login"
+        ],
+        "in_cte_topk": [
+          "lufthansa_user_login"
+        ],
+        "gold_fused_not_hy": [
+          "lufthansa_user_login"
+        ],
+        "hy_topk": [
+          "lufthansa_view_flight_status",
+          "lufthansa_select_entertainment",
+          "lufthansa_update_travel_preferences",
+          "delta_view_flight_status",
+          "delta_user_login",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_wifi_status",
+          "set_airplane_mode_status",
+          "set_wifi_status",
+          "validate_email",
+          "delta_select_entertainment",
+          "jetblue_view_flight_status",
+          "united_view_flight_status",
+          "emirates_view_flight_status",
+          "emirates_user_login"
+        ],
+        "kv_topk": [
+          "lufthansa_view_flight_status",
+          "lufthansa_select_entertainment",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_wifi_status",
+          "lufthansa_user_login",
+          "set_airplane_mode_status",
+          "set_wifi_status",
+          "validate_email",
+          "lufthansa_update_travel_preferences",
+          "get_user_profile",
+          "delta_view_flight_status",
+          "delta_user_login",
+          "delta_select_entertainment",
+          "jetblue_view_flight_status",
+          "jetblue_user_login"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "play_amazon_prime_video",
+        "idx": 220,
+        "miss": [
+          "get_cellular_service_status",
+          "get_screen_brightness",
+          "get_volume_level",
+          "set_cellular_service_status",
+          "set_screen_brightness",
+          "set_volume_level"
+        ],
+        "in_fused": [
+          "set_volume_level"
+        ],
+        "in_kv_topk": [
+          "set_screen_brightness",
+          "set_cellular_service_status",
+          "get_cellular_service_status",
+          "set_volume_level",
+          "get_screen_brightness",
+          "get_volume_level"
+        ],
+        "in_cte_topk": [
+          "set_screen_brightness",
+          "set_cellular_service_status",
+          "get_cellular_service_status",
+          "set_volume_level",
+          "get_screen_brightness",
+          "get_volume_level"
+        ],
+        "gold_fused_not_hy": [
+          "set_volume_level"
+        ],
+        "hy_topk": [
+          "play_amazon_prime_video",
+          "play_netflix_video",
+          "play_youtube_video",
+          "play_windows_video",
+          "amazon_review_item",
+          "amazon_user_login",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "amazon_add_item_to_cart",
+          "ebay_add_item_to_cart",
+          "etsy_add_item_to_cart",
+          "temu_add_item_to_cart",
+          "ebay_user_login",
+          "control_alexa_smart_light"
+        ],
+        "kv_topk": [
+          "play_amazon_prime_video",
+          "play_netflix_video",
+          "get_cellular_service_status",
+          "get_screen_brightness",
+          "get_volume_level",
+          "get_wifi_status",
+          "set_cellular_service_status",
+          "set_screen_brightness",
+          "set_volume_level",
+          "set_wifi_status",
+          "get_battery_status",
+          "get_location_service_status",
+          "get_low_battery_mode_status",
+          "get_system_language",
+          "launch_safari",
+          "libby_account_login"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "jetblue_select_entertainment",
+        "idx": 117,
+        "miss": [
+          "jetblue_user_login"
+        ],
+        "in_fused": [
+          "jetblue_user_login"
+        ],
+        "in_kv_topk": [
+          "jetblue_user_login"
+        ],
+        "in_cte_topk": [
+          "jetblue_user_login"
+        ],
+        "gold_fused_not_hy": [
+          "jetblue_user_login"
+        ],
+        "hy_topk": [
+          "jetblue_select_entertainment",
+          "jetblue_update_travel_preferences",
+          "jetblue_view_flight_status",
+          "delta_select_entertainment",
+          "delta_user_login",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_wifi_status",
+          "set_airplane_mode_status",
+          "set_wifi_status",
+          "validate_email",
+          "american_select_entertainment",
+          "american_user_login",
+          "united_select_entertainment",
+          "frontier_select_entertainment",
+          "southwest_select_entertainment"
+        ],
+        "kv_topk": [
+          "jetblue_select_entertainment",
+          "jetblue_update_travel_preferences",
+          "jetblue_view_flight_status",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_wifi_status",
+          "jetblue_user_login",
+          "set_airplane_mode_status",
+          "set_wifi_status",
+          "validate_email",
+          "delta_select_entertainment",
+          "get_notifications",
+          "jetblue_manage_notifications",
+          "set_notifications",
+          "delta_user_login",
+          "american_select_entertainment"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      }
+    ]
+  },
+  "42": {
+    "seed": 42,
+    "tau": 0.55,
+    "tau_grid_best": [
+      "0.55",
+      0.43333333333333335
+    ],
+    "n_edges": 5699,
+    "n_active_requires": 2053,
+    "macro_c16": {
+      "kv_hop": 0.5786163522012578,
+      "hydra_graph": 0.4276729559748428,
+      "memory_cte": 0.559748427672956,
+      "seeds_only": 0.05031446540880503
+    },
+    "micro": {
+      "both_ok": 127,
+      "kv_only": 57,
+      "hy_only": 9,
+      "neither": 125,
+      "n": 318
+    },
+    "modes_when_kv_beats_hydra": {
+      "crowding": 26,
+      "mspaths_truncation_vs_cte": 51,
+      "hydra_only_win": 9,
+      "seed_present_rank_issue": 5,
+      "unreachable_under_tau_or_seed": 1,
+      "cte_ok_but_both_arms_fail": 1
+    },
+    "failure_examples": [
+      {
+        "main": "retrieve_stock_price_history",
+        "idx": 465,
+        "miss": [
+          "get_current_date",
+          "get_stock_ticker"
+        ],
+        "in_fused": [
+          "get_stock_ticker"
+        ],
+        "in_kv_topk": [
+          "get_stock_ticker",
+          "get_current_date"
+        ],
+        "in_cte_topk": [
+          "get_stock_ticker",
+          "get_current_date"
+        ],
+        "gold_fused_not_hy": [
+          "get_stock_ticker"
+        ],
+        "hy_topk": [
+          "retrieve_stock_price_history",
+          "get_current_stock_price",
+          "get_eps_growth_rate",
+          "fetch_etrade_order_history",
+          "fetch_stock_volatility_data",
+          "fetch_charles_schwab_order_history",
+          "charles_schwab_user_login",
+          "get_user_profile",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "delta_select_entertainment",
+          "fetch_fidelity_order_history",
+          "precedent_analyzer",
+          "get_system_language",
+          "delta_user_login"
+        ],
+        "kv_topk": [
+          "retrieve_stock_price_history",
+          "get_current_stock_price",
+          "calculate_market_capitalization",
+          "get_current_date",
+          "get_shares_outstanding",
+          "get_stock_ticker",
+          "get_wifi_status",
+          "set_wifi_status",
+          "get_country_code",
+          "get_eps_growth_rate",
+          "precedent_analyzer",
+          "get_case_id",
+          "fetch_etrade_order_history",
+          "etrade_user_login",
+          "get_user_profile",
+          "validate_email"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "spirit_select_entertainment",
+        "idx": 1423,
+        "miss": [
+          "validate_email"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "validate_email"
+        ],
+        "in_cte_topk": [
+          "validate_email"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "spirit_select_entertainment",
+          "spirit_view_flight_status",
+          "spirit_find_my_bags",
+          "set_airplane_mode_status",
+          "spirit_update_travel_preferences",
+          "spirit_manage_notifications",
+          "southwest_select_entertainment",
+          "lufthansa_select_entertainment",
+          "spirit_user_login",
+          "emirates_select_entertainment",
+          "jetblue_select_entertainment",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_wifi_status",
+          "jetblue_user_login",
+          "set_wifi_status"
+        ],
+        "kv_topk": [
+          "spirit_select_entertainment",
+          "spirit_view_flight_status",
+          "spirit_find_my_bags",
+          "set_airplane_mode_status",
+          "delta_select_entertainment",
+          "get_airplane_mode_status",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "delta_user_login",
+          "precedent_analyzer",
+          "spirit_update_travel_preferences",
+          "get_case_id",
+          "get_user_profile",
+          "spirit_user_login"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "get_voter_turnout_by_sub_region",
+        "idx": 1159,
+        "miss": [
+          "get_sub_region_code"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "get_sub_region_code"
+        ],
+        "in_cte_topk": [
+          "get_sub_region_code"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "get_voter_turnout_by_city",
+          "get_voter_turnout_by_sub_region",
+          "get_voter_turnout_by_country",
+          "get_car_ownership_rate_by_city",
+          "get_city_code",
+          "get_country_code",
+          "get_current_date",
+          "get_wifi_status",
+          "set_wifi_status",
+          "precedent_analyzer",
+          "get_case_id",
+          "get_marriage_rate_by_city",
+          "get_car_ownership_rate_by_country",
+          "get_marriage_rate_by_sub_region",
+          "get_car_ownership_rate_by_sub_region",
+          "get_user_profile"
+        ],
+        "kv_topk": [
+          "get_voter_turnout_by_city",
+          "get_voter_turnout_by_sub_region",
+          "get_voter_turnout_by_country",
+          "get_country_code",
+          "get_current_date",
+          "get_wifi_status",
+          "set_wifi_status",
+          "get_car_ownership_rate_by_city",
+          "precedent_analyzer",
+          "get_case_id",
+          "get_city_code",
+          "get_marriage_rate_by_city",
+          "get_car_ownership_rate_by_country",
+          "get_marriage_rate_by_sub_region",
+          "get_sub_region_code",
+          "get_car_ownership_rate_by_sub_region"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "ebay_delete_item_from_cart",
+        "idx": 717,
+        "miss": [
+          "ebay_user_login"
+        ],
+        "in_fused": [
+          "ebay_user_login"
+        ],
+        "in_kv_topk": [
+          "ebay_user_login"
+        ],
+        "in_cte_topk": [],
+        "gold_fused_not_hy": [
+          "ebay_user_login"
+        ],
+        "hy_topk": [
+          "ebay_delete_item_from_cart",
+          "etsy_delete_item_from_cart",
+          "amazon_delete_item_from_cart",
+          "amazon_user_login",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "amazon_review_item",
+          "delta_select_entertainment",
+          "precedent_analyzer",
+          "delta_user_login",
+          "get_airplane_mode_status",
+          "get_case_id",
+          "set_airplane_mode_status",
+          "ebay_add_item_to_cart"
+        ],
+        "kv_topk": [
+          "ebay_delete_item_from_cart",
+          "etsy_delete_item_from_cart",
+          "amazon_delete_item_from_cart",
+          "amazon_user_login",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "amazon_review_item",
+          "delta_select_entertainment",
+          "ebay_add_item_to_cart",
+          "precedent_analyzer",
+          "amazon_add_item_to_cart",
+          "delta_user_login",
+          "ebay_user_login",
+          "etsy_add_item_to_cart"
+        ],
+        "modes": [
+          "crowding",
+          "seed_present_rank_issue"
+        ]
+      },
+      {
+        "main": "ebay_delete_item_from_cart",
+        "idx": 718,
+        "miss": [
+          "ebay_user_login"
+        ],
+        "in_fused": [
+          "ebay_user_login"
+        ],
+        "in_kv_topk": [
+          "ebay_user_login"
+        ],
+        "in_cte_topk": [
+          "ebay_user_login"
+        ],
+        "gold_fused_not_hy": [
+          "ebay_user_login"
+        ],
+        "hy_topk": [
+          "ebay_delete_item_from_cart",
+          "ebay_add_item_to_cart",
+          "ebay_checkout_cart",
+          "etsy_checkout_cart",
+          "amazon_checkout_cart",
+          "ali_express_checkout_cart",
+          "ali_express_user_login",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "ali_express_delete_item_from_cart",
+          "delta_select_entertainment",
+          "precedent_analyzer",
+          "delta_user_login",
+          "get_airplane_mode_status"
+        ],
+        "kv_topk": [
+          "ebay_delete_item_from_cart",
+          "ebay_add_item_to_cart",
+          "amazon_add_item_to_cart",
+          "ebay_user_login",
+          "etsy_add_item_to_cart",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "temu_add_item_to_cart",
+          "validate_email",
+          "amazon_user_login",
+          "delta_select_entertainment",
+          "ebay_checkout_cart",
+          "precedent_analyzer",
+          "amazon_review_item",
+          "delta_user_login"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "ebay_delete_item_from_cart",
+        "idx": 719,
+        "miss": [
+          "ebay_user_login"
+        ],
+        "in_fused": [
+          "ebay_user_login"
+        ],
+        "in_kv_topk": [
+          "ebay_user_login"
+        ],
+        "in_cte_topk": [
+          "ebay_user_login"
+        ],
+        "gold_fused_not_hy": [
+          "ebay_user_login"
+        ],
+        "hy_topk": [
+          "ebay_delete_item_from_cart",
+          "ebay_checkout_cart",
+          "amazon_delete_item_from_cart",
+          "amazon_user_login",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "amazon_review_item",
+          "delta_select_entertainment",
+          "precedent_analyzer",
+          "delta_user_login",
+          "get_airplane_mode_status",
+          "get_case_id",
+          "set_airplane_mode_status",
+          "etsy_delete_item_from_cart"
+        ],
+        "kv_topk": [
+          "ebay_delete_item_from_cart",
+          "ebay_checkout_cart",
+          "ebay_user_login",
+          "get_system_language",
+          "get_wifi_status",
+          "set_wifi_status",
+          "validate_email",
+          "amazon_delete_item_from_cart",
+          "delta_select_entertainment",
+          "precedent_analyzer",
+          "amazon_user_login",
+          "delta_user_login",
+          "get_airplane_mode_status",
+          "get_case_id",
+          "set_airplane_mode_status",
+          "amazon_review_item"
+        ],
+        "modes": [
+          "crowding",
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "recommend_exercise_attire",
+        "idx": 775,
+        "miss": [
+          "recommend_exercise_attire"
+        ],
+        "in_fused": [
+          "recommend_exercise_attire"
+        ],
+        "in_kv_topk": [
+          "recommend_exercise_attire"
+        ],
+        "in_cte_topk": [],
+        "gold_fused_not_hy": [
+          "recommend_exercise_attire"
+        ],
+        "hy_topk": [
+          "evaluate_skin_protection_needs",
+          "get_current_weather",
+          "buy_amc_tickets",
+          "login_amc",
+          "get_current_storage_space",
+          "get_installed_applications",
+          "get_system_language",
+          "validate_email",
+          "get_wifi_status",
+          "set_wifi_status",
+          "get_current_date",
+          "get_current_time",
+          "get_system_timezone",
+          "get_user_profile",
+          "delta_select_entertainment",
+          "find_tesla_charger_tool"
+        ],
+        "kv_topk": [
+          "evaluate_skin_protection_needs",
+          "get_current_weather",
+          "buy_amc_tickets",
+          "login_amc",
+          "recommend_exercise_attire",
+          "get_current_date",
+          "get_current_storage_space",
+          "get_current_time",
+          "get_installed_applications",
+          "get_system_language",
+          "get_system_timezone",
+          "get_user_profile",
+          "validate_email",
+          "advise_on_weather",
+          "delta_select_entertainment",
+          "fetch_fidelity_order_history"
+        ],
+        "modes": [
+          "crowding",
+          "seed_present_rank_issue"
+        ]
+      },
+      {
+        "main": "get_violent_crime_rate_by_sub_region",
+        "idx": 1113,
+        "miss": [
+          "get_sub_region_code",
+          "set_wifi_status"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "set_wifi_status",
+          "get_sub_region_code"
+        ],
+        "in_cte_topk": [
+          "set_wifi_status",
+          "get_sub_region_code"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "get_violent_crime_rate_by_city",
+          "get_violent_crime_rate_by_sub_region",
+          "get_violent_crime_rate_by_country",
+          "get_property_crime_rate_by_city",
+          "get_property_crime_rate_by_country",
+          "get_property_crime_rate_by_sub_region",
+          "get_obesity_rate_by_city",
+          "get_unemployment_rate_by_city",
+          "get_poverty_rate_by_city",
+          "get_labor_participation_rate_by_city",
+          "get_population_growth_rate_by_city",
+          "get_high_school_graduation_rate_by_city",
+          "get_city_code",
+          "get_country_code",
+          "get_current_date",
+          "get_wifi_status"
+        ],
+        "kv_topk": [
+          "get_violent_crime_rate_by_city",
+          "get_city_code",
+          "get_country_code",
+          "get_current_date",
+          "get_wifi_status",
+          "set_wifi_status",
+          "get_violent_crime_rate_by_sub_region",
+          "precedent_analyzer",
+          "get_case_id",
+          "get_violent_crime_rate_by_country",
+          "get_property_crime_rate_by_city",
+          "get_property_crime_rate_by_country",
+          "get_property_crime_rate_by_sub_region",
+          "get_sub_region_code",
+          "get_obesity_rate_by_city",
+          "get_unemployment_rate_by_city"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "get_violent_crime_rate_by_sub_region",
+        "idx": 1115,
+        "miss": [
+          "get_sub_region_code",
+          "set_wifi_status"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "set_wifi_status",
+          "get_sub_region_code"
+        ],
+        "in_cte_topk": [
+          "set_wifi_status",
+          "get_sub_region_code"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "get_violent_crime_rate_by_city",
+          "get_violent_crime_rate_by_sub_region",
+          "get_violent_crime_rate_by_country",
+          "get_property_crime_rate_by_city",
+          "get_property_crime_rate_by_sub_region",
+          "get_property_crime_rate_by_country",
+          "get_population_growth_rate_by_city",
+          "get_poverty_rate_by_city",
+          "get_obesity_rate_by_city",
+          "get_unemployment_rate_by_city",
+          "get_foreclosure_rate_by_city",
+          "get_divorce_rate_by_city",
+          "get_city_code",
+          "get_country_code",
+          "get_current_date",
+          "get_wifi_status"
+        ],
+        "kv_topk": [
+          "get_violent_crime_rate_by_city",
+          "get_city_code",
+          "get_country_code",
+          "get_current_date",
+          "get_wifi_status",
+          "set_wifi_status",
+          "get_violent_crime_rate_by_sub_region",
+          "precedent_analyzer",
+          "get_case_id",
+          "get_violent_crime_rate_by_country",
+          "get_property_crime_rate_by_city",
+          "get_property_crime_rate_by_sub_region",
+          "get_sub_region_code",
+          "get_property_crime_rate_by_country",
+          "get_population_growth_rate_by_city",
+          "get_poverty_rate_by_city"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      },
+      {
+        "main": "tesla_check_or_set_charging_schedule",
+        "idx": 1530,
+        "miss": [
+          "get_current_time",
+          "get_system_timezone"
+        ],
+        "in_fused": [],
+        "in_kv_topk": [
+          "get_system_timezone",
+          "get_current_time"
+        ],
+        "in_cte_topk": [
+          "get_system_timezone",
+          "get_current_time"
+        ],
+        "gold_fused_not_hy": [],
+        "hy_topk": [
+          "tesla_check_or_set_charging_schedule",
+          "tesla_schedule_install_software_update",
+          "is_tesla_charger_location_full",
+          "get_current_storage_space",
+          "get_installed_applications",
+          "get_wifi_status",
+          "login_to_tesla_account",
+          "set_wifi_status",
+          "validate_email",
+          "delta_select_entertainment",
+          "find_tesla_charger_tool",
+          "precedent_analyzer",
+          "get_system_language",
+          "tesla_monitor_battery_status",
+          "tesla_schedule_climate_preconditioning",
+          "tesla_start_stop_climate_control"
+        ],
+        "kv_topk": [
+          "tesla_check_or_set_charging_schedule",
+          "tesla_schedule_install_software_update",
+          "get_current_storage_space",
+          "get_current_time",
+          "get_installed_applications",
+          "get_system_timezone",
+          "get_wifi_status",
+          "login_to_tesla_account",
+          "set_wifi_status",
+          "validate_email",
+          "buy_amc_tickets",
+          "delta_select_entertainment",
+          "find_tesla_charger_tool",
+          "get_current_date",
+          "get_system_language",
+          "is_tesla_charger_location_full"
+        ],
+        "modes": [
+          "mspaths_truncation_vs_cte"
+        ]
+      }
+    ]
+  }
+}
